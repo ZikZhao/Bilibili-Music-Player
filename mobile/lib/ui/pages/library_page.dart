@@ -125,21 +125,19 @@ class LibraryPage extends StatelessWidget {
 
   /// 从收藏列表播放
   ///
-  /// 不导航到播放器页面，只设置播放列表并开始播放
-  /// Mini Player 会自动显示，用户可点击展开全屏播放器
+  /// 点击歌曲直接播放，Mini Player 会自动显示
   Future<void> _playFromLibrary(
     BuildContext context,
     List<VideoModel> favorites,
     int startIndex,
   ) async {
     final playerProvider = context.read<PlayerProvider>();
-    final targetVideo = favorites[startIndex];
 
     // 设置播放列表并指定起始索引
     playerProvider.setPlaylist(favorites, startIndex: startIndex);
 
-    // 异步加载音频流（Mini Player 会自动显示）
-    await playerProvider.playVideo(targetVideo);
+    // 开始播放
+    await playerProvider.playVideo(favorites[startIndex]);
   }
 
   Widget _buildEmptyState(ColorScheme colorScheme) {
