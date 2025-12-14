@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:just_audio/just_audio.dart';
 
 import '../api/bilibili_client.dart';
 import '../models/video_model.dart';
+import '../services/cache_manager.dart';
 
 /// B 站音频播放处理器
 ///
@@ -90,6 +92,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   /// 播放指定视频
   ///
   /// 这是主要入口方法。会获取音频流 URL 并开始播放。
+  /// 优先使用本地缓存，无缓存时从网络加载并后台下载缓存。
   Future<void> playVideo(VideoModel video) async {
     try {
       debugPrint('[AudioHandler] 开始播放: ${video.title}');
@@ -109,22 +112,46 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       // 获取视频详情（包含 cid）
       final detail = await _client.fetchVideoInfo(video.bvid);
 
-      // 获取播放地址
-      final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
-      debugPrint('[AudioHandler] 获取到播放地址: ${playUrl.url.substring(0, 80)}...');
+      // 检查本地缓存
+      final cachedPath = await CacheManager.instance.getAudioPath(video.bvid);
+      AudioSource audioSource;
 
-      // 创建带 Header 的音频源
-      final audioSource = AudioSource.uri(
-        Uri.parse(playUrl.url),
-        headers: _bilibiliHeaders,
-        tag: MediaItem(
-          id: video.bvid,
-          title: video.title,
-          artist: video.author,
-          duration: Duration(seconds: detail.duration),
-          artUri: Uri.parse(video.cover),
-        ),
-      );
+      if (cachedPath != null) {
+        // 使用本地缓存（秒加载！）
+        debugPrint('[AudioHandler] 使用本地缓存: $cachedPath');
+        audioSource = AudioSource.file(
+          cachedPath,
+          tag: MediaItem(
+            id: video.bvid,
+            title: video.title,
+            artist: video.author,
+            duration: Duration(seconds: detail.duration),
+            artUri: Uri.parse(video.cover),
+          ),
+        );
+      } else {
+        // 从网络加载
+        final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
+        debugPrint(
+          '[AudioHandler] 获取到播放地址: ${playUrl.url.substring(0, 80)}...',
+        );
+
+        // 创建带 Header 的网络音频源
+        audioSource = AudioSource.uri(
+          Uri.parse(playUrl.url),
+          headers: _bilibiliHeaders,
+          tag: MediaItem(
+            id: video.bvid,
+            title: video.title,
+            artist: video.author,
+            duration: Duration(seconds: detail.duration),
+            artUri: Uri.parse(video.cover),
+          ),
+        );
+
+        // 后台下载缓存（Fire and forget）
+        CacheManager.instance.downloadInBackground(playUrl.url, video.bvid);
+      }
 
       // 设置音频源并播放
       await _player.setAudioSource(audioSource);
@@ -293,6 +320,29 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     _playlist.clear();
     _currentIndex = -1;
     queue.add([]);
+  }
+
+  /// 设置播放列表
+  ///
+  /// 清空当前列表，添加新列表，并设置起始索引。
+  /// 这是同步操作，会立即更新 [currentVideo]。
+  void setPlaylist(List<VideoModel> videos, {int startIndex = 0}) {
+    _playlist.clear();
+    _playlist.addAll(videos);
+
+    // 立即设置当前索引，让 UI 可以显示歌曲信息
+    if (videos.isNotEmpty && startIndex >= 0 && startIndex < videos.length) {
+      _currentIndex = startIndex;
+      _updateMediaItem(videos[startIndex]);
+    } else {
+      _currentIndex = videos.isEmpty ? -1 : 0;
+      if (videos.isNotEmpty) {
+        _updateMediaItem(videos[0]);
+      }
+    }
+
+    _updateQueue();
+    debugPrint('[AudioHandler] 设置播放列表: ${videos.length} 首, 起始: $startIndex');
   }
 
   /// 添加到播放列表

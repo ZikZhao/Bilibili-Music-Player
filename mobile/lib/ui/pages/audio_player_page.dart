@@ -24,7 +24,13 @@ enum PlayMode {
 ///
 /// 类似 QQ 音乐/Spotify 的沉浸式播放界面
 class AudioPlayerPage extends StatefulWidget {
-  const AudioPlayerPage({super.key});
+  /// 初始视频（可选）
+  ///
+  /// 如果提供，页面会立即显示该视频信息，无需等待 Provider 状态同步。
+  /// 这解决了 Android 上 AudioService 异步初始化导致的空状态问题。
+  final VideoModel? initialVideo;
+
+  const AudioPlayerPage({super.key, this.initialVideo});
 
   @override
   State<AudioPlayerPage> createState() => _AudioPlayerPageState();
@@ -94,7 +100,9 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (context, playerProvider, child) {
-        final video = playerProvider.currentVideo;
+        // 优先使用 Provider 中的当前视频，回退到初始视频
+        // 这解决了 Android 上 Provider 状态同步延迟的问题
+        final video = playerProvider.currentVideo ?? widget.initialVideo;
 
         if (video == null) {
           return _buildEmptyState(context);

@@ -21,6 +21,12 @@ dependencies:
   # Image caching
   cached_network_image: ^3.3.1
 
+  # Typography
+  google_fonts: ^6.2.1
+
+  # File system
+  path_provider: ^2.1.5
+
   # Crypto for WBI signature
   crypto: ^3.0.3
 

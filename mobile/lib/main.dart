@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,7 @@ import 'models/video_model.dart';
 import 'providers/library_provider.dart';
 import 'providers/player_provider.dart';
 import 'providers/search_provider.dart';
+import 'services/cache_manager.dart';
 import 'ui/home/home_scaffold.dart';
 
 Future<void> main() async {
@@ -18,6 +20,9 @@ Future<void> main() async {
 
   // 初始化 media_kit（支持 Windows/Linux/macOS）
   MediaKit.ensureInitialized();
+
+  // 初始化缓存管理器
+  await CacheManager.instance.initialize();
 
   // 创建并初始化 LibraryProvider
   final libraryProvider = LibraryProvider();
@@ -60,6 +65,10 @@ class BilibiliMusicApp extends StatelessWidget {
         darkTheme: ThemeData(
           useMaterial3: true,
           brightness: Brightness.dark,
+          // 使用 Noto Sans SC 优化中文显示
+          textTheme: GoogleFonts.notoSansScTextTheme(
+            ThemeData.dark().textTheme,
+          ),
           colorScheme: ColorScheme.dark(
             primary: const Color(0xFFFB7299), // Bilibili Pink
             secondary: const Color(0xFF23ADE5), // Bilibili Blue

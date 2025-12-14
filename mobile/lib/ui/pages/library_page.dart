@@ -65,26 +65,29 @@ class LibraryPage extends StatelessWidget {
   }
 
   /// 从收藏列表播放
-  void _playFromLibrary(
+  Future<void> _playFromLibrary(
     BuildContext context,
     List<VideoModel> favorites,
     int startIndex,
-  ) {
+  ) async {
     final playerProvider = context.read<PlayerProvider>();
 
-    // 清空当前播放列表并添加所有收藏
-    playerProvider.clearPlaylist();
-    for (final video in favorites) {
-      playerProvider.addToPlaylist(video);
+    final targetVideo = favorites[startIndex];
+
+    // 设置播放列表并指定起始索引
+    playerProvider.setPlaylist(favorites, startIndex: startIndex);
+
+    // 立即跳转到播放器页面，传递初始视频确保立即显示
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => AudioPlayerPage(initialVideo: targetVideo),
+        ),
+      );
     }
 
-    // 播放选中的歌曲
-    playerProvider.playVideo(favorites[startIndex]);
-
-    // 跳转到播放器页面
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (context) => const AudioPlayerPage()),
-    );
+    // 异步加载音频流
+    await playerProvider.playVideo(targetVideo);
   }
 
   Widget _buildEmptyState(ColorScheme colorScheme) {

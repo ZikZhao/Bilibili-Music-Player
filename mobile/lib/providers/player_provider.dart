@@ -267,6 +267,15 @@ class PlayerProvider extends ChangeNotifier {
     await _audioHandler?.skipToIndex(index);
   }
 
+  /// 设置播放列表
+  ///
+  /// 清空当前列表，添加新列表，并设置起始索引。
+  /// 这是同步操作，会立即更新 [currentVideo]。
+  void setPlaylist(List<VideoModel> videos, {int startIndex = 0}) {
+    _audioHandler?.setPlaylist(videos, startIndex: startIndex);
+    notifyListeners();
+  }
+
   /// 添加到播放列表
   void addToPlaylist(VideoModel video) {
     _audioHandler?.addToPlaylist(video);

@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import '../api/bilibili_client.dart';
 import '../models/video_model.dart';
+import '../services/cache_manager.dart';
 
 /// 收藏库状态管理
 ///
@@ -11,6 +13,9 @@ class LibraryProvider extends ChangeNotifier {
 
   late Box<VideoModel> _favoritesBox;
   bool _isInitialized = false;
+
+  /// B 站 API 客户端（用于获取播放地址）
+  final BilibiliClient _client = BilibiliClient();
 
   /// 是否已初始化
   bool get isInitialized => _isInitialized;
@@ -45,6 +50,7 @@ class LibraryProvider extends ChangeNotifier {
   /// 切换收藏状态
   ///
   /// 返回操作后的收藏状态：true 表示已收藏，false 表示已取消收藏
+  /// 收藏时自动触发后台下载缓存
   Future<bool> toggleFavorite(VideoModel video) async {
     if (!_isInitialized) return false;
 
@@ -55,8 +61,36 @@ class LibraryProvider extends ChangeNotifier {
     } else {
       await _favoritesBox.put(video.bvid, video);
       notifyListeners();
+
+      // 触发后台缓存下载
+      _triggerCacheDownload(video);
+
       return true;
     }
+  }
+
+  /// 触发后台缓存下载
+  void _triggerCacheDownload(VideoModel video) {
+    // 异步执行，不阻塞 UI
+    Future(() async {
+      try {
+        // 检查是否已缓存
+        if (await CacheManager.instance.isCached(video.bvid)) {
+          debugPrint('[LibraryProvider] 已缓存，跳过下载: ${video.bvid}');
+          return;
+        }
+
+        // 获取视频详情和播放地址
+        final detail = await _client.fetchVideoInfo(video.bvid);
+        final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
+
+        // 后台下载
+        CacheManager.instance.downloadInBackground(playUrl.url, video.bvid);
+        debugPrint('[LibraryProvider] 已触发后台下载: ${video.bvid}');
+      } catch (e) {
+        debugPrint('[LibraryProvider] 触发后台下载失败: $e');
+      }
+    });
   }
 
   /// 添加到收藏
