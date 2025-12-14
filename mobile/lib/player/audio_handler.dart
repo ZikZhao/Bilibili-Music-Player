@@ -41,6 +41,9 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     'Referer': 'https://www.bilibili.com/',
   };
 
+  /// 是否已经开始播放过（用于过滤初始化时的 completed 状态）
+  bool _hasStartedPlaying = false;
+
   BilibiliAudioHandler() {
     _init();
   }
@@ -60,8 +63,17 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
     // 监听播放完成
     _player.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) {
+      // 只有在已经开始播放后才处理 completed 状态
+      // 避免初始化时或设置音频源前的 completed 触发跳转
+      if (state == ProcessingState.completed && _hasStartedPlaying) {
         _handlePlaybackCompleted();
+      }
+    });
+
+    // 监听播放状态，标记已开始播放
+    _player.playingStream.listen((playing) {
+      if (playing) {
+        _hasStartedPlaying = true;
       }
     });
   }
@@ -91,11 +103,15 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 播放指定视频
   ///
-  /// 这是主要入口方法。会获取音频流 URL 并开始播放。
-  /// 优先使用本地缓存，无缓存时从网络加载并后台下载缓存。
+  /// 这是主要入口方法。实现 Cache-First 策略：
+  /// 1. 首先检查本地缓存，有缓存直接播放（无网络请求）
+  /// 2. 无缓存时才触发 API 初始化和网络请求
   Future<void> playVideo(VideoModel video) async {
     try {
       debugPrint('[AudioHandler] 开始播放: ${video.title}');
+
+      // 重置播放标志，防止在设置音频源时错误跳转
+      _hasStartedPlaying = false;
 
       // 添加到播放列表（如果不存在）
       final existingIndex = _playlist.indexWhere((v) => v.bvid == video.bvid);
@@ -109,32 +125,51 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       // 先更新 MediaItem（无时长），让通知栏立即显示
       _updateMediaItem(video);
 
-      // 获取视频详情（包含 cid 和 duration）
-      final detail = await _client.fetchVideoInfo(video.bvid);
-      final videoDuration = Duration(seconds: detail.duration);
-
-      // 更新 MediaItem（带时长）
-      _updateMediaItem(video, duration: videoDuration);
-
-      // 检查本地缓存
+      // ========== Cache-First Strategy ==========
+      // Step 1: 首先检查本地缓存（无网络请求！）
       final cachedPath = await CacheManager.instance.getAudioPath(video.bvid);
+
       AudioSource audioSource;
 
       if (cachedPath != null) {
-        // 使用本地缓存（秒加载！）
-        debugPrint('[AudioHandler] 使用本地缓存: $cachedPath');
+        // ========== Cache Hit: 直接播放本地文件 ==========
+        // 不调用 fetchVideoInfo，避免触发 API 初始化
+        debugPrint('[AudioHandler] 缓存命中，直接播放: $cachedPath');
+
+        // 使用 VideoModel 中的信息（如果有 duration）
+        // just_audio 会在加载文件后自动获取实际时长
+        final modelDuration = video.durationSeconds > 0
+            ? Duration(seconds: video.durationSeconds)
+            : null;
+
         audioSource = AudioSource.file(
           cachedPath,
           tag: MediaItem(
             id: video.bvid,
             title: video.title,
             artist: video.author,
-            duration: videoDuration,
+            duration: modelDuration,
             artUri: Uri.parse(video.cover),
           ),
         );
+
+        // 更新 MediaItem（如果有时长）
+        if (modelDuration != null) {
+          _updateMediaItem(video, duration: modelDuration);
+        }
       } else {
-        // 从网络加载（优先获取纯音频流）
+        // ========== Cache Miss: 需要网络请求 ==========
+        // 此时才触发 API 初始化（Cookie/WBI）
+        debugPrint('[AudioHandler] 缓存未命中，从网络加载...');
+
+        // 获取视频详情（会触发 _ensureInitialized）
+        final detail = await _client.fetchVideoInfo(video.bvid);
+        final videoDuration = Duration(seconds: detail.duration);
+
+        // 更新 MediaItem（带时长）
+        _updateMediaItem(video, duration: videoDuration);
+
+        // 获取播放地址
         final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
         debugPrint(
           '[AudioHandler] 获取到播放地址 (${playUrl.format}): ${playUrl.url.substring(0, 80.clamp(0, playUrl.url.length))}...',
@@ -159,8 +194,11 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
       // 设置音频源并播放
       await _player.setAudioSource(audioSource);
+
+      // 开始播放后立即设置标志
       await _player.play();
 
+      // 只有在播放成功开始后才设置标志（playingStream 会自动设置，但这里确保即使播放失败也不会错误跳转）
       debugPrint('[AudioHandler] 播放开始');
     } catch (e, stack) {
       debugPrint('[AudioHandler] 播放失败: $e');

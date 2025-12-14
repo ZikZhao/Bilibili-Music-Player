@@ -20,6 +20,9 @@ class BilibiliClient {
 
   bool _isInitialized = false;
 
+  /// 初始化锁，防止并发初始化
+  Future<void>? _initFuture;
+
   /// 是否已初始化（获取了 Cookie 和 WBI 密钥）
   bool get isInitialized => _isInitialized;
 
@@ -415,10 +418,22 @@ class BilibiliClient {
     );
   }
 
-  /// 确保已初始化
+  /// 确保已初始化（带锁，防止并发初始化）
   Future<void> _ensureInitialized() async {
-    if (!_isInitialized) {
-      await initialize();
+    if (_isInitialized) return;
+
+    // 如果正在初始化，等待现有的初始化完成
+    if (_initFuture != null) {
+      await _initFuture;
+      return;
+    }
+
+    // 开始初始化，保存 Future 以供其他调用者等待
+    _initFuture = initialize();
+    try {
+      await _initFuture;
+    } finally {
+      _initFuture = null;
     }
   }
 }
