@@ -261,25 +261,39 @@ class BilibiliClient {
   ///
   /// [bvid] 视频 BV 号
   /// [cid] 分 P 的 cid
-  /// 返回播放 URL（MP4 直链）
-  Future<PlayUrlInfo> fetchPlayUrl(String bvid, int cid) async {
+  /// [audioOnly] 是否仅获取音频流（默认 true）
+  /// - true: 使用 DASH 格式获取纯音频流（用于音乐播放器）
+  /// - false: 使用 MP4 格式获取完整视频（用于视频播放器）
+  /// 返回播放 URL
+  Future<PlayUrlInfo> fetchPlayUrl(
+    String bvid,
+    int cid, {
+    bool audioOnly = true,
+  }) async {
     await _ensureInitialized();
 
-    debugPrint('[BilibiliClient] 获取播放地址: bvid=$bvid, cid=$cid');
+    debugPrint(
+      '[BilibiliClient] 获取播放地址: bvid=$bvid, cid=$cid, audioOnly=$audioOnly',
+    );
 
-    // 请求 MP4 直链: fnval=1 表示 MP4 格式
-    final params = {
+    // 视频播放直接使用 MP4 格式（包含视频+音频）
+    if (!audioOnly) {
+      return _fetchPlayUrlMp4(bvid, cid);
+    }
+
+    // 音频播放使用 DASH 格式获取纯音频流
+    final dashParams = {
       'bvid': bvid,
       'cid': cid,
       'qn': 64, // 720P
-      'fnval': 1, // MP4 格式 (非 DASH)
+      'fnval': 16, // DASH 格式
       'fnver': 0,
       'fourk': 1,
     };
 
     // WBI 签名
-    final signedParams = _wbiSigner.sign(params);
-    debugPrint('[BilibiliClient] 播放地址参数: $signedParams');
+    final signedParams = _wbiSigner.sign(dashParams);
+    debugPrint('[BilibiliClient] 播放地址参数(DASH): $signedParams');
 
     try {
       final response = await _dio.get(
@@ -296,26 +310,53 @@ class BilibiliClient {
 
       final resultData = data['data'] as Map<String, dynamic>;
 
-      // 优先取 durl (MP4 直链)
-      final durl = resultData['durl'] as List<dynamic>?;
-      if (durl == null || durl.isEmpty) {
-        throw BilibiliApiException('获取播放地址失败: 无可用的 MP4 直链');
+      // 从 DASH 格式获取音频流
+      final dash = resultData['dash'] as Map<String, dynamic>?;
+      if (dash != null) {
+        final audioList = dash['audio'] as List<dynamic>?;
+        if (audioList != null && audioList.isNotEmpty) {
+          // 按 bandwidth 排序，取最高质量
+          final sortedAudio =
+              List<Map<String, dynamic>>.from(
+                audioList.cast<Map<String, dynamic>>(),
+              )..sort(
+                (a, b) => (b['bandwidth'] as int? ?? 0).compareTo(
+                  a['bandwidth'] as int? ?? 0,
+                ),
+              );
+
+          final bestAudio = sortedAudio.first;
+          final url =
+              bestAudio['baseUrl'] as String? ??
+              bestAudio['base_url'] as String? ??
+              '';
+
+          if (url.isNotEmpty) {
+            final bandwidth = bestAudio['bandwidth'] as int? ?? 0;
+            final codecId = bestAudio['codecid'] as int? ?? 0;
+
+            debugPrint(
+              '[BilibiliClient] DASH 音频获取成功: bandwidth=$bandwidth, codec=$codecId',
+            );
+            debugPrint(
+              '[BilibiliClient] URL: ${url.substring(0, 80.clamp(0, url.length))}...',
+            );
+
+            return PlayUrlInfo(
+              url: url,
+              quality: bandwidth,
+              format: 'm4s',
+              size: 0, // DASH 格式无法预知大小
+              length: resultData['timelength'] as int? ?? 0,
+              isAudioOnly: true,
+            );
+          }
+        }
       }
 
-      final firstUrl = durl[0] as Map<String, dynamic>;
-      final url = firstUrl['url'] as String;
-      final size = firstUrl['size'] as int? ?? 0;
-      final length = firstUrl['length'] as int? ?? 0;
-
-      debugPrint('[BilibiliClient] 播放地址获取成功: ${url.substring(0, 80)}...');
-
-      return PlayUrlInfo(
-        url: url,
-        quality: resultData['quality'] as int? ?? 64,
-        format: resultData['format'] as String? ?? 'mp4',
-        size: size,
-        length: length,
-      );
+      // Fallback: 使用传统 durl (MP4 直链)
+      debugPrint('[BilibiliClient] DASH 无可用音频，尝试 MP4 fallback...');
+      return _fetchPlayUrlMp4(bvid, cid);
     } on DioException catch (e) {
       debugPrint('[BilibiliClient] 播放地址 DioException: ${e.type}');
       debugPrint('[BilibiliClient] HTTP Status: ${e.response?.statusCode}');
@@ -324,6 +365,54 @@ class BilibiliClient {
       }
       throw BilibiliApiException('获取播放地址失败: ${e.message}');
     }
+  }
+
+  /// 获取 MP4 格式播放地址（Fallback）
+  Future<PlayUrlInfo> _fetchPlayUrlMp4(String bvid, int cid) async {
+    final params = {
+      'bvid': bvid,
+      'cid': cid,
+      'qn': 64,
+      'fnval': 1, // MP4 格式
+      'fnver': 0,
+      'fourk': 1,
+    };
+
+    final signedParams = _wbiSigner.sign(params);
+    debugPrint('[BilibiliClient] 播放地址参数(MP4): $signedParams');
+
+    final response = await _dio.get(
+      '$_baseUrl/x/player/wbi/playurl',
+      queryParameters: signedParams,
+    );
+
+    final data = response.data;
+    if (data['code'] != 0) {
+      throw BilibiliApiException('获取播放地址失败: ${data['message']}');
+    }
+
+    final resultData = data['data'] as Map<String, dynamic>;
+    final durl = resultData['durl'] as List<dynamic>?;
+
+    if (durl == null || durl.isEmpty) {
+      throw BilibiliApiException('获取播放地址失败: 无可用的播放地址');
+    }
+
+    final firstUrl = durl[0] as Map<String, dynamic>;
+    final url = firstUrl['url'] as String;
+    final size = firstUrl['size'] as int? ?? 0;
+    final length = firstUrl['length'] as int? ?? 0;
+
+    debugPrint('[BilibiliClient] MP4 播放地址获取成功');
+
+    return PlayUrlInfo(
+      url: url,
+      quality: resultData['quality'] as int? ?? 64,
+      format: 'mp4',
+      size: size,
+      length: length,
+      isAudioOnly: false,
+    );
   }
 
   /// 确保已初始化
@@ -527,10 +616,13 @@ class VideoStat {
 
 /// 播放地址信息
 class PlayUrlInfo {
-  /// 播放 URL
+  /// 播放 URL（视频流或音频流）
   final String url;
 
-  /// 画质 ID
+  /// 音频 URL（仅 DASH 视频流时需要）
+  final String? audioUrl;
+
+  /// 画质 ID / 音频带宽
   final int quality;
 
   /// 格式
@@ -542,12 +634,17 @@ class PlayUrlInfo {
   /// 时长（毫秒）
   final int length;
 
+  /// 是否为纯音频流
+  final bool isAudioOnly;
+
   const PlayUrlInfo({
     required this.url,
+    this.audioUrl,
     required this.quality,
     required this.format,
     required this.size,
     required this.length,
+    this.isAudioOnly = false,
   });
 
   /// 获取画质名称

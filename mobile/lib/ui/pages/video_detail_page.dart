@@ -79,22 +79,26 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         _videoDetail = detail;
       });
 
-      // 2. 获取播放地址
-      final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
+      // 2. 获取播放地址（视频流 + 音频流）
+      final playUrl = await _client.fetchPlayUrl(
+        detail.bvid,
+        detail.cid,
+        audioOnly: false, // 获取完整视频（MP4 格式，视频+音频合一）
+      );
       setState(() {
         _playUrl = playUrl;
       });
 
       // 3. 设置播放源（关键：必须设置 headers）
+      final httpHeaders = {
+        'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/',
+      };
+
+      // MP4 格式包含视频+音频，直接播放即可
       await _player.open(
-        Media(
-          playUrl.url,
-          httpHeaders: {
-            'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://www.bilibili.com/',
-          },
-        ),
+        Media(playUrl.url, httpHeaders: httpHeaders),
         play: false, // 不自动播放
       );
 

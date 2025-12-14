@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/player_provider.dart';
 import '../pages/library_page.dart';
 import '../pages/search_page.dart';
 import '../pages/settings_page.dart';
+import '../widgets/mini_player.dart';
 
 class HomeScaffold extends StatefulWidget {
   const HomeScaffold({super.key});
@@ -29,7 +32,23 @@ class _HomeScaffoldState extends State<HomeScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: Consumer<PlayerProvider>(
+        builder: (context, playerProvider, child) {
+          final hasCurrentVideo = playerProvider.currentVideo != null;
+
+          return Column(
+            children: [
+              // 主内容区域
+              Expanded(
+                child: IndexedStack(index: _currentIndex, children: _pages),
+              ),
+
+              // Mini Player（只在有播放内容时显示）
+              if (hasCurrentVideo) const MiniPlayer(),
+            ],
+          );
+        },
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onTabTapped,

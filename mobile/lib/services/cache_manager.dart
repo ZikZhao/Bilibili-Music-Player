@@ -1,8 +1,35 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+
+/// 下载进度信息
+class DownloadProgress {
+  final String bvid;
+  final int received;
+  final int total;
+  final bool isComplete;
+  final String? error;
+
+  const DownloadProgress({
+    required this.bvid,
+    required this.received,
+    required this.total,
+    this.isComplete = false,
+    this.error,
+  });
+
+  /// 进度百分比 (0.0 - 1.0)
+  double get progress {
+    if (total <= 0) return 0.0;
+    return (received / total).clamp(0.0, 1.0);
+  }
+
+  /// 是否有错误
+  bool get hasError => error != null;
+}
 
 /// 音频缓存管理器
 ///
@@ -29,7 +56,13 @@ class CacheManager {
   };
 
   /// 正在下载的任务（避免重复下载）
-  final Set<String> _downloadingSet = {};
+  final Map<String, StreamController<DownloadProgress>> _downloadingMap = {};
+
+  /// 下载进度流控制器
+  final _progressController = StreamController<DownloadProgress>.broadcast();
+
+  /// 下载进度流（供 UI 监听）
+  Stream<DownloadProgress> get progressStream => _progressController.stream;
 
   /// 初始化缓存管理器
   Future<void> initialize() async {
@@ -74,11 +107,19 @@ class CacheManager {
     return path != null;
   }
 
+  /// 检查是否正在下载
+  bool isDownloading(String bvid) {
+    final sanitizedBvid = _sanitizeBvid(bvid);
+    return _downloadingMap.containsKey(sanitizedBvid);
+  }
+
   /// 下载音频文件
   ///
   /// [url] 音频流地址
   /// [bvid] 视频 BV 号（用作文件名）
   /// [onProgress] 下载进度回调
+  ///
+  /// 返回下载完成后的文件路径，如果下载失败返回 null
   Future<String?> downloadAudio(
     String url,
     String bvid, {
@@ -92,7 +133,7 @@ class CacheManager {
     final sanitizedBvid = _sanitizeBvid(bvid);
 
     // 避免重复下载
-    if (_downloadingSet.contains(sanitizedBvid)) {
+    if (_downloadingMap.containsKey(sanitizedBvid)) {
       debugPrint('[CacheManager] 正在下载中，跳过: $bvid');
       return null;
     }
@@ -101,10 +142,17 @@ class CacheManager {
     final existingPath = await getAudioPath(bvid);
     if (existingPath != null) {
       debugPrint('[CacheManager] 已缓存，跳过下载: $bvid');
+      // 通知缓存命中（进度 100%）
+      _progressController.add(
+        DownloadProgress(bvid: bvid, received: 1, total: 1, isComplete: true),
+      );
       return existingPath;
     }
 
-    _downloadingSet.add(sanitizedBvid);
+    // 创建下载流控制器
+    final controller = StreamController<DownloadProgress>.broadcast();
+    _downloadingMap[sanitizedBvid] = controller;
+
     final filePath = '${_cacheDir!.path}/$sanitizedBvid.m4s';
     final tempPath = '$filePath.tmp';
 
@@ -118,8 +166,18 @@ class CacheManager {
         options: Options(headers: _bilibiliHeaders),
         onReceiveProgress: (received, total) {
           onProgress?.call(received, total);
+
+          // 广播下载进度
+          final progress = DownloadProgress(
+            bvid: bvid,
+            received: received,
+            total: total,
+          );
+          controller.add(progress);
+          _progressController.add(progress);
+
+          // 每 10% 打印一次日志
           if (total > 0) {
-            // 每 10% 打印一次，减少日志污染
             final percent = (received / total * 100).toInt();
             if (percent ~/ 10 > lastLoggedPercent) {
               lastLoggedPercent = percent ~/ 10;
@@ -129,22 +187,45 @@ class CacheManager {
         },
       );
 
-      // 下载完成，重命名文件
+      // 下载完成，重命名文件（原子操作，防止读取不完整文件）
       final tempFile = File(tempPath);
       if (await tempFile.exists()) {
         await tempFile.rename(filePath);
         debugPrint('[CacheManager] 下载完成: $bvid');
+
+        // 广播完成状态
+        final completeProgress = DownloadProgress(
+          bvid: bvid,
+          received: 1,
+          total: 1,
+          isComplete: true,
+        );
+        controller.add(completeProgress);
+        _progressController.add(completeProgress);
+
         return filePath;
       }
     } catch (e) {
       debugPrint('[CacheManager] 下载失败: $e');
+
+      // 广播错误状态
+      final errorProgress = DownloadProgress(
+        bvid: bvid,
+        received: 0,
+        total: 0,
+        error: e.toString(),
+      );
+      controller.add(errorProgress);
+      _progressController.add(errorProgress);
+
       // 清理临时文件
       final tempFile = File(tempPath);
       if (await tempFile.exists()) {
         await tempFile.delete();
       }
     } finally {
-      _downloadingSet.remove(sanitizedBvid);
+      await controller.close();
+      _downloadingMap.remove(sanitizedBvid);
     }
 
     return null;

@@ -5,7 +5,6 @@ import '../../models/video_model.dart';
 import '../../providers/library_provider.dart';
 import '../../providers/player_provider.dart';
 import '../widgets/video_result_card.dart';
-import 'audio_player_page.dart';
 
 class LibraryPage extends StatelessWidget {
   const LibraryPage({super.key});
@@ -65,28 +64,21 @@ class LibraryPage extends StatelessWidget {
   }
 
   /// 从收藏列表播放
+  ///
+  /// 不导航到播放器页面，只设置播放列表并开始播放
+  /// Mini Player 会自动显示，用户可点击展开全屏播放器
   Future<void> _playFromLibrary(
     BuildContext context,
     List<VideoModel> favorites,
     int startIndex,
   ) async {
     final playerProvider = context.read<PlayerProvider>();
-
     final targetVideo = favorites[startIndex];
 
     // 设置播放列表并指定起始索引
     playerProvider.setPlaylist(favorites, startIndex: startIndex);
 
-    // 立即跳转到播放器页面，传递初始视频确保立即显示
-    if (context.mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (context) => AudioPlayerPage(initialVideo: targetVideo),
-        ),
-      );
-    }
-
-    // 异步加载音频流
+    // 异步加载音频流（Mini Player 会自动显示）
     await playerProvider.playVideo(targetVideo);
   }
 

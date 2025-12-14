@@ -108,19 +108,43 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           return _buildEmptyState(context);
         }
 
-        return Scaffold(
-          extendBodyBehindAppBar: true,
-          appBar: _buildAppBar(context),
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 模糊背景
-              _buildBlurredBackground(video.cover),
+        // 使用 DraggableScrollableSheet 实现可拖拽的全屏效果
+        return DraggableScrollableSheet(
+          initialChildSize: 1.0,
+          minChildSize: 0.5,
+          maxChildSize: 1.0,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                child: Scaffold(
+                  extendBodyBehindAppBar: true,
+                  appBar: _buildAppBar(context),
+                  body: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 模糊背景
+                      _buildBlurredBackground(video.cover),
 
-              // 主体内容
-              SafeArea(child: _buildContent(context, playerProvider, video)),
-            ],
-          ),
+                      // 主体内容
+                      SafeArea(
+                        child: _buildContent(context, playerProvider, video),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -128,30 +152,50 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
 
   /// 构建空状态
   Widget _buildEmptyState(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.music_off_rounded, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('暂无播放内容', style: TextStyle(fontSize: 18, color: Colors.grey)),
-            SizedBox(height: 8),
-            Text(
-              '从收藏或搜索中选择音乐开始播放',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+    return DraggableScrollableSheet(
+      initialChildSize: 1.0,
+      minChildSize: 0.5,
+      maxChildSize: 1.0,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: Scaffold(
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              body: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.music_off_rounded, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      '暂无播放内容',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '从收藏或搜索中选择音乐开始播放',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -325,9 +369,21 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
               duration: Duration.zero,
             );
 
+        // 如果正在下载，使用下载进度作为缓冲进度
+        Duration buffered = positionData.bufferedPosition;
+        if (playerProvider.isDownloading &&
+            positionData.duration.inMilliseconds > 0) {
+          buffered = Duration(
+            milliseconds:
+                (positionData.duration.inMilliseconds *
+                        playerProvider.downloadProgress)
+                    .toInt(),
+          );
+        }
+
         return ProgressBar(
           progress: positionData.position,
-          buffered: positionData.bufferedPosition,
+          buffered: buffered,
           total: positionData.duration,
           onSeek: playerProvider.seek,
           barHeight: 4,
@@ -350,6 +406,10 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
     final colorScheme = Theme.of(context).colorScheme;
     final isPlaying = playerProvider.isPlaying;
     final isLoading = playerProvider.state == AppPlayerState.loading;
+    final isDownloading = playerProvider.isDownloading;
+
+    // 显示加载状态：正在加载或正在下载但尚未开始播放
+    final showLoadingIndicator = isLoading || (isDownloading && !isPlaying);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -399,13 +459,42 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
                 ),
               ],
             ),
-            child: isLoading
-                ? const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: CircularProgressIndicator(
-                      strokeWidth: 3,
-                      color: Colors.white,
-                    ),
+            child: showLoadingIndicator
+                ? Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // 下载进度圆环
+                      if (isDownloading)
+                        SizedBox(
+                          width: 52,
+                          height: 52,
+                          child: CircularProgressIndicator(
+                            value: playerProvider.downloadProgress,
+                            strokeWidth: 3,
+                            color: Colors.white.withOpacity(0.8),
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                          ),
+                        )
+                      else
+                        const SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            color: Colors.white,
+                          ),
+                        ),
+                      // 下载百分比
+                      if (isDownloading)
+                        Text(
+                          '${(playerProvider.downloadProgress * 100).toInt()}%',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
                   )
                 : Icon(
                     isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,

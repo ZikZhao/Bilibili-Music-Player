@@ -7,6 +7,7 @@ import 'package:rxdart/rxdart.dart';
 
 import '../models/video_model.dart';
 import '../player/audio_handler.dart';
+import '../services/cache_manager.dart';
 
 /// 播放器状态
 enum AppPlayerState {
@@ -68,6 +69,17 @@ class PlayerProvider extends ChangeNotifier {
   /// 是否已初始化
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
+
+  /// 下载进度 (0.0 - 1.0)
+  double _downloadProgress = 0.0;
+  double get downloadProgress => _downloadProgress;
+
+  /// 是否正在下载
+  bool _isDownloading = false;
+  bool get isDownloading => _isDownloading;
+
+  /// 当前下载的 bvid
+  String? _downloadingBvid;
 
   /// 获取 AudioHandler 实例
   BilibiliAudioHandler? get audioHandler => _audioHandler;
@@ -140,6 +152,26 @@ class PlayerProvider extends ChangeNotifier {
     _subscriptions.add(
       _audioHandler!.mediaItem.listen((_) {
         notifyListeners();
+      }),
+    );
+
+    // 监听下载进度
+    _subscriptions.add(
+      CacheManager.instance.progressStream.listen((progress) {
+        // 只关注当前播放歌曲的下载进度
+        if (progress.bvid == currentVideo?.bvid ||
+            progress.bvid == _downloadingBvid) {
+          _downloadingBvid = progress.bvid;
+
+          if (progress.isComplete || progress.hasError) {
+            _isDownloading = false;
+            _downloadProgress = progress.isComplete ? 1.0 : 0.0;
+          } else {
+            _isDownloading = true;
+            _downloadProgress = progress.progress;
+          }
+          notifyListeners();
+        }
       }),
     );
   }

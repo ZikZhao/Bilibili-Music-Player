@@ -106,11 +106,15 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         _currentIndex = existingIndex;
       }
 
-      // 更新 MediaItem（通知栏显示）
+      // 先更新 MediaItem（无时长），让通知栏立即显示
       _updateMediaItem(video);
 
-      // 获取视频详情（包含 cid）
+      // 获取视频详情（包含 cid 和 duration）
       final detail = await _client.fetchVideoInfo(video.bvid);
+      final videoDuration = Duration(seconds: detail.duration);
+
+      // 更新 MediaItem（带时长）
+      _updateMediaItem(video, duration: videoDuration);
 
       // 检查本地缓存
       final cachedPath = await CacheManager.instance.getAudioPath(video.bvid);
@@ -125,15 +129,15 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
             id: video.bvid,
             title: video.title,
             artist: video.author,
-            duration: Duration(seconds: detail.duration),
+            duration: videoDuration,
             artUri: Uri.parse(video.cover),
           ),
         );
       } else {
-        // 从网络加载
+        // 从网络加载（优先获取纯音频流）
         final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
         debugPrint(
-          '[AudioHandler] 获取到播放地址: ${playUrl.url.substring(0, 80)}...',
+          '[AudioHandler] 获取到播放地址 (${playUrl.format}): ${playUrl.url.substring(0, 80.clamp(0, playUrl.url.length))}...',
         );
 
         // 创建带 Header 的网络音频源
@@ -144,7 +148,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
             id: video.bvid,
             title: video.title,
             artist: video.author,
-            duration: Duration(seconds: detail.duration),
+            duration: videoDuration,
             artUri: Uri.parse(video.cover),
           ),
         );
@@ -166,13 +170,14 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   /// 更新 MediaItem（通知栏信息）
-  void _updateMediaItem(VideoModel video) {
+  void _updateMediaItem(VideoModel video, {Duration? duration}) {
     mediaItem.add(
       MediaItem(
         id: video.bvid,
         title: video.title,
         artist: video.author,
         artUri: Uri.parse(video.cover),
+        duration: duration,
       ),
     );
   }
@@ -180,6 +185,8 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   /// 广播播放状态
   void _broadcastState(PlaybackEvent event) {
     final playing = _player.playing;
+    final processingState = _player.processingState;
+
     playbackState.add(
       playbackState.value.copyWith(
         controls: [
@@ -192,6 +199,11 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
           MediaAction.seek,
           MediaAction.seekForward,
           MediaAction.seekBackward,
+          MediaAction.skipToPrevious,
+          MediaAction.skipToNext,
+          MediaAction.play,
+          MediaAction.pause,
+          MediaAction.stop,
         },
         androidCompactActionIndices: const [0, 1, 3],
         processingState: const {
@@ -200,7 +212,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
           ProcessingState.buffering: AudioProcessingState.buffering,
           ProcessingState.ready: AudioProcessingState.ready,
           ProcessingState.completed: AudioProcessingState.completed,
-        }[_player.processingState]!,
+        }[processingState]!,
         playing: playing,
         updatePosition: _player.position,
         bufferedPosition: _player.bufferedPosition,
