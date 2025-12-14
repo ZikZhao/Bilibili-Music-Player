@@ -140,11 +140,8 @@ class SearchProvider extends ChangeNotifier {
       final result = await _client.searchVideos(keyword);
       _results = result.videos;
       _hasMore = result.hasMore;
-      // 只有在成功获取结果后才改变状态
-      _state = _results.isEmpty
-          ? SearchState
-                .idle // 无结果时显示空状态
-          : SearchState.showingResults;
+      // 成功获取结果后改变状态
+      _state = SearchState.showingResults;
     } catch (e) {
       _errorMessage = e.toString();
       _state = SearchState.error;

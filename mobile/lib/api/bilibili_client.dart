@@ -119,8 +119,6 @@ class BilibiliClient {
     }
 
     try {
-      debugPrint('[BilibiliClient] 请求搜索建议: $keyword');
-
       final response = await _dio.get(
         '$_suggestUrl/main/suggest',
         queryParameters: {
@@ -133,71 +131,27 @@ class BilibiliClient {
         },
       );
 
-      debugPrint('[BilibiliClient] 搜索建议响应类型: ${response.data.runtimeType}');
-
       var data = response.data;
-      if (data == null) {
-        debugPrint('[BilibiliClient] 搜索建议响应为空');
-        return [];
-      }
+      if (data == null) return [];
 
       // 如果响应是字符串，需要先解析JSON
       if (data is String) {
-        debugPrint('[BilibiliClient] 搜索建议响应是字符串，需要解析JSON');
         try {
           data = jsonDecode(data);
         } catch (e) {
-          debugPrint('[BilibiliClient] JSON解析失败: $e');
+          debugPrint('[BilibiliClient] 搜索建议 JSON解析失败: $e');
           return [];
         }
       }
 
-      // 打印完整响应以便调试（限制长度）
-      final dataStr = data.toString();
-      debugPrint('[BilibiliClient] 搜索建议数据类型: ${data.runtimeType}');
-      if (dataStr.length > 200) {
-        debugPrint(
-          '[BilibiliClient] 搜索建议响应（截断）: ${dataStr.substring(0, 200)}...',
-        );
-      } else {
-        debugPrint('[BilibiliClient] 搜索建议响应: $dataStr');
-      }
       final code = data is Map ? data['code'] : null;
-      debugPrint('[BilibiliClient] 搜索建议响应 code: $code');
+      if (code != 0) return [];
 
-      if (code != 0) {
-        final message = data is Map ? data['message'] : null;
-        debugPrint('[BilibiliClient] 搜索建议失败: $message');
-        return [];
-      }
-
-      // 安全地访问 result
       final result = data is Map ? data['result'] : null;
-      debugPrint(
-        '[BilibiliClient] result 类型: ${result.runtimeType}, 值: $result',
-      );
+      if (result == null) return [];
 
-      if (result == null) {
-        debugPrint('[BilibiliClient] result 为空');
-        return [];
-      }
-
-      // 安全地访问 tag
       final tag = result is Map ? result['tag'] : null;
-      debugPrint('[BilibiliClient] tag 类型: ${tag.runtimeType}');
-
-      if (tag == null) {
-        debugPrint('[BilibiliClient] 搜索建议: tag 为空');
-        return [];
-      }
-
-      // 确保 tag 是 List 类型
-      if (tag is! List) {
-        debugPrint(
-          '[BilibiliClient] 搜索建议: tag 不是 List 类型，而是 ${tag.runtimeType}',
-        );
-        return [];
-      }
+      if (tag == null || tag is! List) return [];
 
       debugPrint('[BilibiliClient] 获取到 ${tag.length} 条搜索建议');
 
@@ -205,20 +159,14 @@ class BilibiliClient {
       for (var i = 0; i < tag.length; i++) {
         try {
           final item = tag[i];
-          debugPrint('[BilibiliClient] 处理建议项 $i, 类型: ${item.runtimeType}');
-
           if (item is Map<String, dynamic>) {
             suggestions.add(SuggestionModel.fromJson(item));
           } else if (item is Map) {
-            // 尝试转换为 Map<String, dynamic>
             final converted = Map<String, dynamic>.from(item);
             suggestions.add(SuggestionModel.fromJson(converted));
-          } else {
-            debugPrint('[BilibiliClient] 跳过非 Map 类型的建议项: ${item.runtimeType}');
           }
-        } catch (e, stack) {
-          debugPrint('[BilibiliClient] 解析建议项 $i 失败: $e');
-          debugPrint('[BilibiliClient] Stack: $stack');
+        } catch (e) {
+          // 跳过解析失败的项
         }
       }
 
@@ -268,9 +216,17 @@ class BilibiliClient {
       }
 
       final resultData = data['data'];
+
+      // 检测风控响应（v_voucher）
+      if (resultData is Map && resultData.containsKey('v_voucher')) {
+        debugPrint('[BilibiliClient] 检测到风控响应: ${resultData['v_voucher']}');
+        throw BilibiliApiException('请求被风控系统拦截，请稍后再试。如持续出现此问题，请尝试重启应用。');
+      }
+
       final resultList = resultData['result'] as List<dynamic>?;
 
       if (resultList == null || resultList.isEmpty) {
+        debugPrint('[BilibiliClient] 搜索结果为空');
         return SearchResult(
           videos: [],
           page: page,
@@ -285,6 +241,13 @@ class BilibiliClient {
             (item) => VideoModel.fromSearchJson(item as Map<String, dynamic>),
           )
           .toList();
+
+      debugPrint('[BilibiliClient] 搜索成功: 获取到 ${videos.length} 个结果');
+      if (videos.isNotEmpty) {
+        debugPrint(
+          '[BilibiliClient] 第一个结果: ${videos[0].title} (${videos[0].bvid})',
+        );
+      }
 
       return SearchResult(
         videos: videos,

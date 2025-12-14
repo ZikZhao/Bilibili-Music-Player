@@ -102,11 +102,17 @@ class _SearchPageState extends State<SearchPage> {
         decoration: InputDecoration(
           hintText: '搜索 Bilibili 视频...',
           hintStyle: TextStyle(color: Colors.grey.shade500),
-          prefixIcon: Icon(Icons.search_rounded, color: colorScheme.primary),
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(left: 8, right: 4),
+            child: Icon(Icons.search_rounded, color: colorScheme.primary),
+          ),
           suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear_rounded),
-                  onPressed: _onClear,
+              ? Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 8),
+                  child: IconButton(
+                    icon: const Icon(Icons.clear_rounded),
+                    onPressed: _onClear,
+                  ),
                 )
               : null,
         ),
