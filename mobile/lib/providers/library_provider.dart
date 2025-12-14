@@ -5,6 +5,18 @@ import '../api/bilibili_client.dart';
 import '../models/video_model.dart';
 import '../services/cache_manager.dart';
 
+/// 排序选项枚举
+enum SortOption {
+  /// 最新添加优先
+  dateNewest,
+
+  /// 最早添加优先
+  dateOldest,
+
+  /// 按标题 A-Z
+  titleAZ,
+}
+
 /// 收藏库状态管理
 ///
 /// 管理用户本地收藏的视频列表
@@ -17,13 +29,39 @@ class LibraryProvider extends ChangeNotifier {
   /// B 站 API 客户端（用于获取播放地址）
   final BilibiliClient _client = BilibiliClient();
 
+  /// 当前排序方式
+  SortOption _sortOption = SortOption.dateNewest;
+
+  /// 获取当前排序方式
+  SortOption get sortOption => _sortOption;
+
+  /// 设置排序方式
+  void setSortOption(SortOption option) {
+    if (_sortOption != option) {
+      _sortOption = option;
+      notifyListeners();
+    }
+  }
+
   /// 是否已初始化
   bool get isInitialized => _isInitialized;
 
-  /// 获取所有收藏的视频
+  /// 获取所有收藏的视频（根据当前排序方式排序）
   List<VideoModel> get favorites {
     if (!_isInitialized) return [];
-    return _favoritesBox.values.toList();
+
+    final list = _favoritesBox.values.toList();
+
+    switch (_sortOption) {
+      case SortOption.dateNewest:
+        list.sort((a, b) => b.effectiveAddedAt.compareTo(a.effectiveAddedAt));
+      case SortOption.dateOldest:
+        list.sort((a, b) => a.effectiveAddedAt.compareTo(b.effectiveAddedAt));
+      case SortOption.titleAZ:
+        list.sort((a, b) => a.title.compareTo(b.title));
+    }
+
+    return list;
   }
 
   /// 收藏数量
@@ -59,7 +97,9 @@ class LibraryProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     } else {
-      await _favoritesBox.put(video.bvid, video);
+      // 添加收藏时记录时间
+      final videoWithTime = video.copyWith(addedAt: DateTime.now());
+      await _favoritesBox.put(video.bvid, videoWithTime);
       notifyListeners();
 
       // 触发后台缓存下载

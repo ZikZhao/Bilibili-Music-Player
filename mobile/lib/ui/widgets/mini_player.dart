@@ -32,74 +32,97 @@ class MiniPlayer extends StatelessWidget {
 
         return GestureDetector(
           onTap: () => _openFullPlayer(context, video),
-          child: Container(
-            height: height,
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // 专辑封面
-                _buildAlbumArt(video.cover),
-
-                // 标题和作者
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          video.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          video.author,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade400,
-                          ),
-                        ),
-                      ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 进度条 - 使用 StreamBuilder 监听播放进度
+              StreamBuilder<PositionData>(
+                stream: playerProvider.positionDataStream,
+                builder: (context, snapshot) {
+                  final positionData = snapshot.data;
+                  final progress = positionData?.progress ?? 0.0;
+                  return LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 2,
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      colorScheme.primary,
                     ),
-                  ),
+                  );
+                },
+              ),
+              // 主内容
+              Container(
+                height: height - 2, // 减去进度条高度
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
                 ),
+                child: Row(
+                  children: [
+                    // 专辑封面
+                    _buildAlbumArt(video.cover),
 
-                // 播放/暂停按钮
-                _buildPlayPauseButton(
-                  context,
-                  playerProvider,
-                  isPlaying,
-                  isLoading,
+                    // 标题和作者
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              video.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              video.author,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // 播放/暂停按钮
+                    _buildPlayPauseButton(
+                      context,
+                      playerProvider,
+                      isPlaying,
+                      isLoading,
+                    ),
+
+                    // 播放列表按钮
+                    IconButton(
+                      icon: const Icon(Icons.queue_music_rounded),
+                      iconSize: 24,
+                      color: Colors.grey.shade400,
+                      onPressed: () =>
+                          _showPlaylistSheet(context, playerProvider),
+                    ),
+
+                    const SizedBox(width: 4),
+                  ],
                 ),
-
-                // 播放列表按钮
-                IconButton(
-                  icon: const Icon(Icons.queue_music_rounded),
-                  iconSize: 24,
-                  color: Colors.grey.shade400,
-                  onPressed: () => _showPlaylistSheet(context, playerProvider),
-                ),
-
-                const SizedBox(width: 4),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

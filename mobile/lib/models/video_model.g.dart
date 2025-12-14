@@ -28,13 +28,14 @@ class VideoModelAdapter extends TypeAdapter<VideoModel> {
       danmakuCount: fields[8] as int,
       favoriteCount: fields[9] as int,
       pubdate: fields[10] as int,
+      addedAt: fields[11] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, VideoModel obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.bvid)
       ..writeByte(1)
@@ -56,7 +57,9 @@ class VideoModelAdapter extends TypeAdapter<VideoModel> {
       ..writeByte(9)
       ..write(obj.favoriteCount)
       ..writeByte(10)
-      ..write(obj.pubdate);
+      ..write(obj.pubdate)
+      ..writeByte(11)
+      ..write(obj.addedAt);
   }
 
   @override

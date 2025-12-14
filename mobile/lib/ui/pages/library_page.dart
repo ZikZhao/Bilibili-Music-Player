@@ -23,10 +23,36 @@ class LibraryPage extends StatelessWidget {
           ),
         ),
         actions: [
-          IconButton(
-            icon: Icon(Icons.sort_rounded, color: colorScheme.secondary),
-            onPressed: () {
-              // TODO: 实现排序功能
+          Consumer<LibraryProvider>(
+            builder: (context, provider, _) {
+              return PopupMenuButton<SortOption>(
+                icon: Icon(Icons.sort_rounded, color: colorScheme.secondary),
+                tooltip: '排序方式',
+                onSelected: (option) => provider.setSortOption(option),
+                itemBuilder: (context) => [
+                  _buildSortMenuItem(
+                    SortOption.dateNewest,
+                    '最新添加',
+                    Icons.arrow_downward_rounded,
+                    provider.sortOption,
+                    colorScheme,
+                  ),
+                  _buildSortMenuItem(
+                    SortOption.dateOldest,
+                    '最早添加',
+                    Icons.arrow_upward_rounded,
+                    provider.sortOption,
+                    colorScheme,
+                  ),
+                  _buildSortMenuItem(
+                    SortOption.titleAZ,
+                    '按标题 A-Z',
+                    Icons.sort_by_alpha_rounded,
+                    provider.sortOption,
+                    colorScheme,
+                  ),
+                ],
+              );
             },
           ),
         ],
@@ -45,6 +71,40 @@ class LibraryPage extends StatelessWidget {
 
           return _buildFavoritesList(context, favorites);
         },
+      ),
+    );
+  }
+
+  /// 构建排序菜单项
+  PopupMenuItem<SortOption> _buildSortMenuItem(
+    SortOption option,
+    String label,
+    IconData icon,
+    SortOption currentOption,
+    ColorScheme colorScheme,
+  ) {
+    final isSelected = option == currentOption;
+    return PopupMenuItem<SortOption>(
+      value: option,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: isSelected ? colorScheme.primary : Colors.grey,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? colorScheme.primary : null,
+              fontWeight: isSelected ? FontWeight.w600 : null,
+            ),
+          ),
+          const Spacer(),
+          if (isSelected)
+            Icon(Icons.check_rounded, size: 18, color: colorScheme.primary),
+        ],
       ),
     );
   }

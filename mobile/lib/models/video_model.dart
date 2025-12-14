@@ -51,6 +51,10 @@ class VideoModel {
   @HiveField(10)
   final int pubdate;
 
+  /// 添加到收藏的时间（用于排序）
+  @HiveField(11)
+  final DateTime? addedAt;
+
   const VideoModel({
     required this.bvid,
     required this.aid,
@@ -63,6 +67,7 @@ class VideoModel {
     this.danmakuCount = 0,
     this.favoriteCount = 0,
     this.pubdate = 0,
+    this.addedAt,
   });
 
   /// 从搜索 API JSON 创建实例
@@ -131,6 +136,40 @@ class VideoModel {
       return hours * 3600 + minutes * 60 + seconds;
     }
     return 0;
+  }
+
+  /// 获取有效的添加时间（兼容旧数据）
+  DateTime get effectiveAddedAt => addedAt ?? DateTime(2000);
+
+  /// 复制并修改部分字段
+  VideoModel copyWith({
+    String? bvid,
+    int? aid,
+    String? title,
+    String? author,
+    int? mid,
+    String? cover,
+    String? duration,
+    int? playCount,
+    int? danmakuCount,
+    int? favoriteCount,
+    int? pubdate,
+    DateTime? addedAt,
+  }) {
+    return VideoModel(
+      bvid: bvid ?? this.bvid,
+      aid: aid ?? this.aid,
+      title: title ?? this.title,
+      author: author ?? this.author,
+      mid: mid ?? this.mid,
+      cover: cover ?? this.cover,
+      duration: duration ?? this.duration,
+      playCount: playCount ?? this.playCount,
+      danmakuCount: danmakuCount ?? this.danmakuCount,
+      favoriteCount: favoriteCount ?? this.favoriteCount,
+      pubdate: pubdate ?? this.pubdate,
+      addedAt: addedAt ?? this.addedAt,
+    );
   }
 
   @override
