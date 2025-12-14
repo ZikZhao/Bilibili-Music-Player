@@ -223,10 +223,20 @@ class _SearchPageState extends State<SearchPage> {
 
   /// 建议加载中
   Widget _buildSuggestionsLoading(ColorScheme colorScheme) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
-        child: CircularProgressIndicator(strokeWidth: 2),
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(strokeWidth: 2),
+            const SizedBox(height: 16),
+            Text(
+              '正在获取搜索建议...',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -271,13 +281,26 @@ class _SearchPageState extends State<SearchPage> {
   /// 搜索中状态
   Widget _buildSearchingState(ColorScheme colorScheme) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: colorScheme.primary, strokeWidth: 2),
-          const SizedBox(height: 16),
-          Text('搜索中...', style: TextStyle(color: Colors.grey.shade500)),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: colorScheme.primary,
+              strokeWidth: 3,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              '正在搜索...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey.shade400,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -74,12 +74,12 @@ class SearchProvider extends ChangeNotifier {
   Timer? _debounceTimer;
 
   /// 防抖延迟（毫秒）
-  static const int _debounceDelay = 500;
+  static const int _debounceDelay = 300;
 
   // ==================== 构造 ====================
 
   SearchProvider({BilibiliClient? client})
-      : _client = client ?? BilibiliClient();
+    : _client = client ?? BilibiliClient();
 
   @override
   void dispose() {
@@ -91,7 +91,7 @@ class SearchProvider extends ChangeNotifier {
 
   /// 输入变化时调用（带防抖）
   ///
-  /// 用户停止输入 500ms 后才会请求建议
+  /// 用户停止输入 300ms 后才会请求建议
   void onInputChanged(String text) {
     _currentKeyword = text;
 
@@ -104,6 +104,12 @@ class SearchProvider extends ChangeNotifier {
       _state = SearchState.idle;
       notifyListeners();
       return;
+    }
+
+    // 立即显示加载状态（提升用户体验）
+    if (_state != SearchState.loadingSuggestions) {
+      _state = SearchState.loadingSuggestions;
+      notifyListeners();
     }
 
     // 设置新的防抖计时器
@@ -134,7 +140,11 @@ class SearchProvider extends ChangeNotifier {
       final result = await _client.searchVideos(keyword);
       _results = result.videos;
       _hasMore = result.hasMore;
-      _state = SearchState.showingResults;
+      // 只有在成功获取结果后才改变状态
+      _state = _results.isEmpty
+          ? SearchState
+                .idle // 无结果时显示空状态
+          : SearchState.showingResults;
     } catch (e) {
       _errorMessage = e.toString();
       _state = SearchState.error;
@@ -191,11 +201,16 @@ class SearchProvider extends ChangeNotifier {
 
   /// 获取搜索建议
   Future<void> _fetchSuggestions(String keyword) async {
-    _state = SearchState.loadingSuggestions;
-    notifyListeners();
+    // 状态已经在 onInputChanged 中设置为 loadingSuggestions
 
     try {
       final suggestions = await _client.fetchSuggestions(keyword);
+
+      // 检查关键词是否已改变（用户继续输入）
+      if (_currentKeyword != keyword) {
+        return; // 忽略过时的请求结果
+      }
+
       _suggestions = suggestions;
       _state = suggestions.isEmpty
           ? SearchState.idle

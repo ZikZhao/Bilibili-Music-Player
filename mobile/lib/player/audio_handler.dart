@@ -171,8 +171,13 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         final detail = await _client.fetchVideoInfo(targetVideo.bvid);
         final videoDuration = Duration(seconds: detail.duration);
 
+        // 更新播放列表中的视频信息，使用正确的时长
+        _playlist[_currentIndex] = targetVideo.copyWith(
+          duration: detail.formattedDuration,
+        );
+
         // 更新 MediaItem（带时长）
-        _updateMediaItem(targetVideo, duration: videoDuration);
+        _updateMediaItem(_playlist[_currentIndex], duration: videoDuration);
 
         // 获取播放地址
         final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);

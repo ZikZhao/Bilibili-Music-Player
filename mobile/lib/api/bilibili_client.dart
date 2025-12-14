@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
@@ -117,6 +119,8 @@ class BilibiliClient {
     }
 
     try {
+      debugPrint('[BilibiliClient] 请求搜索建议: $keyword');
+
       final response = await _dio.get(
         '$_suggestUrl/main/suggest',
         queryParameters: {
@@ -129,27 +133,96 @@ class BilibiliClient {
         },
       );
 
-      final data = response.data;
-      debugPrint('[BilibiliClient] 搜索建议响应 code: ${data['code']}');
+      debugPrint('[BilibiliClient] 搜索建议响应类型: ${response.data.runtimeType}');
 
-      if (data['code'] != 0) {
-        debugPrint('[BilibiliClient] 搜索建议失败: ${data['message']}');
+      var data = response.data;
+      if (data == null) {
+        debugPrint('[BilibiliClient] 搜索建议响应为空');
         return [];
       }
 
-      final result = data['result'];
-      if (result == null) return [];
+      // 如果响应是字符串，需要先解析JSON
+      if (data is String) {
+        debugPrint('[BilibiliClient] 搜索建议响应是字符串，需要解析JSON');
+        try {
+          data = jsonDecode(data);
+        } catch (e) {
+          debugPrint('[BilibiliClient] JSON解析失败: $e');
+          return [];
+        }
+      }
 
-      final tag = result['tag'] as List<dynamic>?;
+      // 打印完整响应以便调试（限制长度）
+      final dataStr = data.toString();
+      debugPrint('[BilibiliClient] 搜索建议数据类型: ${data.runtimeType}');
+      if (dataStr.length > 200) {
+        debugPrint(
+          '[BilibiliClient] 搜索建议响应（截断）: ${dataStr.substring(0, 200)}...',
+        );
+      } else {
+        debugPrint('[BilibiliClient] 搜索建议响应: $dataStr');
+      }
+      final code = data is Map ? data['code'] : null;
+      debugPrint('[BilibiliClient] 搜索建议响应 code: $code');
+
+      if (code != 0) {
+        final message = data is Map ? data['message'] : null;
+        debugPrint('[BilibiliClient] 搜索建议失败: $message');
+        return [];
+      }
+
+      // 安全地访问 result
+      final result = data is Map ? data['result'] : null;
+      debugPrint(
+        '[BilibiliClient] result 类型: ${result.runtimeType}, 值: $result',
+      );
+
+      if (result == null) {
+        debugPrint('[BilibiliClient] result 为空');
+        return [];
+      }
+
+      // 安全地访问 tag
+      final tag = result is Map ? result['tag'] : null;
+      debugPrint('[BilibiliClient] tag 类型: ${tag.runtimeType}');
+
       if (tag == null) {
         debugPrint('[BilibiliClient] 搜索建议: tag 为空');
         return [];
       }
 
+      // 确保 tag 是 List 类型
+      if (tag is! List) {
+        debugPrint(
+          '[BilibiliClient] 搜索建议: tag 不是 List 类型，而是 ${tag.runtimeType}',
+        );
+        return [];
+      }
+
       debugPrint('[BilibiliClient] 获取到 ${tag.length} 条搜索建议');
-      return tag
-          .map((item) => SuggestionModel.fromJson(item as Map<String, dynamic>))
-          .toList();
+
+      final suggestions = <SuggestionModel>[];
+      for (var i = 0; i < tag.length; i++) {
+        try {
+          final item = tag[i];
+          debugPrint('[BilibiliClient] 处理建议项 $i, 类型: ${item.runtimeType}');
+
+          if (item is Map<String, dynamic>) {
+            suggestions.add(SuggestionModel.fromJson(item));
+          } else if (item is Map) {
+            // 尝试转换为 Map<String, dynamic>
+            final converted = Map<String, dynamic>.from(item);
+            suggestions.add(SuggestionModel.fromJson(converted));
+          } else {
+            debugPrint('[BilibiliClient] 跳过非 Map 类型的建议项: ${item.runtimeType}');
+          }
+        } catch (e, stack) {
+          debugPrint('[BilibiliClient] 解析建议项 $i 失败: $e');
+          debugPrint('[BilibiliClient] Stack: $stack');
+        }
+      }
+
+      return suggestions;
     } catch (e, stack) {
       // 建议接口失败不抛异常，返回空列表
       debugPrint('[BilibiliClient] 搜索建议异常: $e');

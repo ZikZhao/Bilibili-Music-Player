@@ -122,6 +122,17 @@ class LibraryProvider extends ChangeNotifier {
 
         // 获取视频详情和播放地址
         final detail = await _client.fetchVideoInfo(video.bvid);
+
+        // 更新收藏中的视频信息，使用正确的时长
+        final updatedVideo = _favoritesBox.get(video.bvid);
+        if (updatedVideo != null) {
+          final videoWithCorrectDuration = updatedVideo.copyWith(
+            duration: detail.formattedDuration,
+          );
+          await _favoritesBox.put(video.bvid, videoWithCorrectDuration);
+          notifyListeners();
+        }
+
         final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
 
         // 后台下载
