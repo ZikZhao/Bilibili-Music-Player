@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../../models/video_model.dart';
 import '../../providers/library_provider.dart';
+import '../../providers/player_provider.dart';
 import '../widgets/video_result_card.dart';
-import 'video_detail_page.dart';
+import 'audio_player_page.dart';
 
 class LibraryPage extends StatelessWidget {
   const LibraryPage({super.key});
@@ -57,15 +58,32 @@ class LibraryPage extends StatelessWidget {
         final video = favorites[index];
         return VideoResultCard(
           video: video,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (context) => VideoDetailPage(video: video),
-              ),
-            );
-          },
+          onTap: () => _playFromLibrary(context, favorites, index),
         );
       },
+    );
+  }
+
+  /// 从收藏列表播放
+  void _playFromLibrary(
+    BuildContext context,
+    List<VideoModel> favorites,
+    int startIndex,
+  ) {
+    final playerProvider = context.read<PlayerProvider>();
+
+    // 清空当前播放列表并添加所有收藏
+    playerProvider.clearPlaylist();
+    for (final video in favorites) {
+      playerProvider.addToPlaylist(video);
+    }
+
+    // 播放选中的歌曲
+    playerProvider.playVideo(favorites[startIndex]);
+
+    // 跳转到播放器页面
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (context) => const AudioPlayerPage()),
     );
   }
 

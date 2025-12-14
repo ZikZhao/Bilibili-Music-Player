@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'models/video_model.dart';
 import 'providers/library_provider.dart';
+import 'providers/player_provider.dart';
 import 'providers/search_provider.dart';
 import 'ui/home/home_scaffold.dart';
 
@@ -22,13 +23,27 @@ Future<void> main() async {
   final libraryProvider = LibraryProvider();
   await libraryProvider.initialize();
 
-  runApp(BilibiliMusicApp(libraryProvider: libraryProvider));
+  // 创建并初始化 PlayerProvider
+  final playerProvider = PlayerProvider();
+  await playerProvider.initialize();
+
+  runApp(
+    BilibiliMusicApp(
+      libraryProvider: libraryProvider,
+      playerProvider: playerProvider,
+    ),
+  );
 }
 
 class BilibiliMusicApp extends StatelessWidget {
   final LibraryProvider libraryProvider;
+  final PlayerProvider playerProvider;
 
-  const BilibiliMusicApp({super.key, required this.libraryProvider});
+  const BilibiliMusicApp({
+    super.key,
+    required this.libraryProvider,
+    required this.playerProvider,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +51,7 @@ class BilibiliMusicApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => SearchProvider()),
         ChangeNotifierProvider.value(value: libraryProvider),
+        ChangeNotifierProvider.value(value: playerProvider),
       ],
       child: MaterialApp(
         title: 'Bilibili Music',
