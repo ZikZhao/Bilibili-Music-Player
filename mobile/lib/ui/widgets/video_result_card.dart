@@ -1,0 +1,175 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+
+import '../../models/video_model.dart';
+
+/// 视频搜索结果卡片
+///
+/// 展示视频封面、标题、UP主、播放量等信息
+class VideoResultCard extends StatelessWidget {
+  final VideoModel video;
+  final VoidCallback? onTap;
+
+  const VideoResultCard({
+    super.key,
+    required this.video,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 左侧：视频封面
+              _buildCover(colorScheme),
+
+              const SizedBox(width: 12),
+
+              // 右侧：视频信息
+              Expanded(
+                child: _buildInfo(context, colorScheme),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 构建视频封面
+  Widget _buildCover(ColorScheme colorScheme) {
+    return Stack(
+      children: [
+        // 封面图片
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: CachedNetworkImage(
+            imageUrl: video.cover,
+            width: 120,
+            height: 75, // 16:10 比例，更适合 B 站封面
+            fit: BoxFit.cover,
+            placeholder: (context, url) => Container(
+              width: 120,
+              height: 75,
+              color: colorScheme.surfaceContainerHighest,
+              child: Center(
+                child: Icon(
+                  Icons.image_outlined,
+                  color: colorScheme.onSurface.withOpacity(0.3),
+                ),
+              ),
+            ),
+            errorWidget: (context, url, error) => Container(
+              width: 120,
+              height: 75,
+              color: colorScheme.surfaceContainerHighest,
+              child: Center(
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  color: colorScheme.error.withOpacity(0.5),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // 时长标签
+        Positioned(
+          right: 4,
+          bottom: 4,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              video.duration,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 构建视频信息
+  Widget _buildInfo(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题
+        Text(
+          video.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 1.3,
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // UP 主
+        Row(
+          children: [
+            Icon(
+              Icons.person_outline_rounded,
+              size: 14,
+              color: colorScheme.secondary,
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                video.author,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade400,
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 4),
+
+        // 播放量
+        Row(
+          children: [
+            Icon(
+              Icons.play_arrow_rounded,
+              size: 14,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${video.formattedPlayCount}播放',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}

@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/search_provider.dart';
+import '../widgets/video_result_card.dart';
+import 'video_detail_page.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -9,20 +14,50 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
 
-  // 占位数据
-  final List<Map<String, String>> _placeholderResults = [
-    {'title': '周杰伦 - 晴天', 'author': 'JayChou官方频道'},
-    {'title': '邓紫棋 - 光年之外', 'author': 'GEM邓紫棋'},
-    {'title': 'YOASOBI - 夜に駆ける', 'author': 'YOASOBI Official'},
-    {'title': '米津玄師 - Lemon', 'author': 'Kenshi Yonezu'},
-    {'title': 'Aimer - 残響散歌', 'author': 'Aimer Official'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _focusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      context.read<SearchProvider>().loadMore();
+    }
+  }
+
+  void _onInputChanged(String value) {
+    context.read<SearchProvider>().onInputChanged(value);
+    // 触发重建以更新清除按钮
+    setState(() {});
+  }
+
+  void _onSearch(String keyword) {
+    if (keyword.trim().isEmpty) return;
+    _focusNode.unfocus();
+    context.read<SearchProvider>().search(keyword);
+  }
+
+  void _onSuggestionTap(String keyword) {
+    _searchController.text = keyword;
+    _onSearch(keyword);
+  }
+
+  void _onClear() {
+    _searchController.clear();
+    context.read<SearchProvider>().clearSearch();
   }
 
   @override
@@ -42,60 +77,13 @@ class _SearchPageState extends State<SearchPage> {
       body: Column(
         children: [
           // 搜索框
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: '搜索 Bilibili 视频...',
-                hintStyle: TextStyle(color: Colors.grey.shade500),
-                prefixIcon: Icon(
-                  Icons.search_rounded,
-                  color: colorScheme.primary,
-                ),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear_rounded),
-                  onPressed: () => _searchController.clear(),
-                ),
-              ),
-              onSubmitted: (value) {
-                // TODO: 实现搜索逻辑
-              },
-            ),
-          ),
+          _buildSearchField(colorScheme),
 
-          // 热门搜索标签
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.local_fire_department_rounded,
-                  color: colorScheme.secondary,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '热门推荐',
-                  style: TextStyle(
-                    color: colorScheme.secondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // 占位列表
+          // 内容区域
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _placeholderResults.length,
-              itemBuilder: (context, index) {
-                final item = _placeholderResults[index];
-                return _buildSearchResultItem(item, colorScheme);
+            child: Consumer<SearchProvider>(
+              builder: (context, provider, child) {
+                return _buildContent(provider, colorScheme);
               },
             ),
           ),
@@ -104,51 +92,279 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildSearchResultItem(
-    Map<String, String> item,
+  /// 构建搜索框
+  Widget _buildSearchField(ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: TextField(
+        controller: _searchController,
+        focusNode: _focusNode,
+        decoration: InputDecoration(
+          hintText: '搜索 Bilibili 视频...',
+          hintStyle: TextStyle(color: Colors.grey.shade500),
+          prefixIcon: Icon(Icons.search_rounded, color: colorScheme.primary),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear_rounded),
+                  onPressed: _onClear,
+                )
+              : null,
+        ),
+        textInputAction: TextInputAction.search,
+        onChanged: _onInputChanged,
+        onSubmitted: _onSearch,
+      ),
+    );
+  }
+
+  /// 构建内容区域（根据状态切换）
+  Widget _buildContent(SearchProvider provider, ColorScheme colorScheme) {
+    switch (provider.state) {
+      case SearchState.idle:
+        return _buildIdleState(provider, colorScheme);
+
+      case SearchState.loadingSuggestions:
+        return _buildSuggestionsLoading(colorScheme);
+
+      case SearchState.showingSuggestions:
+        return _buildSuggestionsList(provider, colorScheme);
+
+      case SearchState.searching:
+        return _buildSearchingState(colorScheme);
+
+      case SearchState.showingResults:
+        return _buildResultsList(provider, colorScheme);
+
+      case SearchState.error:
+        return _buildErrorState(provider, colorScheme);
+    }
+  }
+
+  /// 初始状态：显示搜索历史或热门推荐
+  Widget _buildIdleState(SearchProvider provider, ColorScheme colorScheme) {
+    if (provider.history.isNotEmpty) {
+      return _buildHistoryList(provider, colorScheme);
+    }
+    return _buildEmptyState(colorScheme);
+  }
+
+  /// 空状态
+  Widget _buildEmptyState(ColorScheme colorScheme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_rounded,
+            size: 80,
+            color: colorScheme.primary.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '搜索你喜欢的音乐',
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 搜索历史列表
+  Widget _buildHistoryList(SearchProvider provider, ColorScheme colorScheme) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        // 标题行
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.history_rounded,
+                  color: colorScheme.secondary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '搜索历史',
+                  style: TextStyle(
+                    color: colorScheme.secondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            TextButton(
+              onPressed: provider.clearHistory,
+              child: Text('清空', style: TextStyle(color: Colors.grey.shade500)),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // 历史标签
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: provider.history.map((keyword) {
+            return ActionChip(
+              label: Text(keyword),
+              onPressed: () => _onSuggestionTap(keyword),
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              side: BorderSide.none,
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  /// 建议加载中
+  Widget _buildSuggestionsLoading(ColorScheme colorScheme) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+    );
+  }
+
+  /// 建议列表
+  Widget _buildSuggestionsList(
+    SearchProvider provider,
     ColorScheme colorScheme,
   ) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: colorScheme.primary.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(8),
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: provider.suggestions.length,
+      itemBuilder: (context, index) {
+        final suggestion = provider.suggestions[index];
+        return ListTile(
+          leading: Icon(
+            Icons.search_rounded,
+            color: Colors.grey.shade500,
+            size: 20,
           ),
-          child: Icon(Icons.music_note_rounded, color: colorScheme.primary),
-        ),
-        title: Text(
-          item['title'] ?? '',
-          style: const TextStyle(fontWeight: FontWeight.w500),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            item['author'] ?? '',
-            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          title: Text(suggestion.value),
+          contentPadding: EdgeInsets.zero,
+          onTap: () => _onSuggestionTap(suggestion.value),
+          trailing: IconButton(
+            icon: Icon(
+              Icons.north_west_rounded,
+              color: Colors.grey.shade500,
+              size: 18,
+            ),
+            onPressed: () {
+              _searchController.text = suggestion.value;
+              _searchController.selection = TextSelection.fromPosition(
+                TextPosition(offset: suggestion.value.length),
+              );
+            },
           ),
-        ),
-        trailing: IconButton(
-          icon: Icon(
-            Icons.play_circle_filled_rounded,
-            color: colorScheme.primary,
-            size: 36,
-          ),
-          onPressed: () {
-            // TODO: 实现播放逻辑
+        );
+      },
+    );
+  }
+
+  /// 搜索中状态
+  Widget _buildSearchingState(ColorScheme colorScheme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: colorScheme.primary, strokeWidth: 2),
+          const SizedBox(height: 16),
+          Text('搜索中...', style: TextStyle(color: Colors.grey.shade500)),
+        ],
+      ),
+    );
+  }
+
+  /// 搜索结果列表
+  Widget _buildResultsList(SearchProvider provider, ColorScheme colorScheme) {
+    if (provider.results.isEmpty) {
+      return _buildNoResultsState(colorScheme);
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: provider.results.length + (provider.hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == provider.results.length) {
+          // 加载更多指示器
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+
+        final video = provider.results[index];
+        return VideoResultCard(
+          video: video,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => VideoDetailPage(video: video),
+              ),
+            );
           },
+        );
+      },
+    );
+  }
+
+  /// 无结果状态
+  Widget _buildNoResultsState(ColorScheme colorScheme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off_rounded, size: 80, color: Colors.grey.shade500),
+          const SizedBox(height: 16),
+          Text(
+            '没有找到相关视频',
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 错误状态
+  Widget _buildErrorState(SearchProvider provider, ColorScheme colorScheme) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 64,
+              color: colorScheme.error.withOpacity(0.7),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '搜索出错了',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade400),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              provider.errorMessage ?? '未知错误',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => _onSearch(_searchController.text),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('重试'),
+            ),
+          ],
         ),
-        onTap: () {
-          // TODO: 实现详情页跳转
-        },
       ),
     );
   }

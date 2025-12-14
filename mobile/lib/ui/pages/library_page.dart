@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../models/video_model.dart';
+import '../../providers/library_provider.dart';
+import '../widgets/video_result_card.dart';
+import 'video_detail_page.dart';
 
 class LibraryPage extends StatelessWidget {
   const LibraryPage({super.key});
@@ -25,7 +31,41 @@ class LibraryPage extends StatelessWidget {
           ),
         ],
       ),
-      body: _buildEmptyState(colorScheme),
+      body: Consumer<LibraryProvider>(
+        builder: (context, libraryProvider, child) {
+          if (!libraryProvider.isInitialized) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final favorites = libraryProvider.favorites;
+
+          if (favorites.isEmpty) {
+            return _buildEmptyState(colorScheme);
+          }
+
+          return _buildFavoritesList(context, favorites);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFavoritesList(BuildContext context, List<VideoModel> favorites) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: favorites.length,
+      itemBuilder: (context, index) {
+        final video = favorites[index];
+        return VideoResultCard(
+          video: video,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => VideoDetailPage(video: video),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -71,18 +111,10 @@ class LibraryPage extends StatelessWidget {
 
           const SizedBox(height: 32),
 
-          // 跳转按钮
-          FilledButton.icon(
-            onPressed: () {
-              // TODO: 跳转到搜索页
-            },
-            icon: const Icon(Icons.search_rounded),
-            label: const Text('去搜索'),
-            style: FilledButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
+          // 提示文本
+          Text(
+            '点击底部「搜索」标签开始',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
         ],
       ),
