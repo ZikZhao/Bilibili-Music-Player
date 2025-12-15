@@ -13,12 +13,9 @@ import '../services/cache_manager.dart';
 /// 继承自 [BaseAudioHandler]，实现后台播放、播放列表管理等功能
 class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   /// media_kit Player 实例（单一事实来源）
+  ///
+  /// Strict Rule 1: 必须且只能持有一个 final Player 实例
   final Player _player = Player();
-
-  /// 内部维护的播放/缓冲/时长状态，用于构造 playbackState
-  Duration _lastPosition = Duration.zero;
-  Duration _lastBuffered = Duration.zero;
-  Duration? _lastDuration;
 
   /// B 站 API 客户端
   final BilibiliClient _client = BilibiliClient();
@@ -29,52 +26,68 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   /// 当前播放索引
   int _currentIndex = -1;
 
-  /// 渐变暂停定时器
-  Timer? _fadeTimer;
-
-  /// 渐变暂停时长
-  static const Duration _fadeDuration = Duration(milliseconds: 500);
-
-  /// 是否正在渐变
-  bool _isFading = false;
-
-  /// Note: headers moved to callers that need them (e.g., video pages)
-
-  /// 是否已经开始播放过（用于过滤初始化时的 completed 状态）
-  bool _hasStartedPlaying = false;
+  /// Bilibili headers for media_kit
+  static const Map<String, String> _bilibiliHeaders = {
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Referer': 'https://www.bilibili.com/',
+  };
 
   BilibiliAudioHandler() {
     _init();
   }
 
-  /// 初始化播放器监听：使用 media_kit 的 streams 响应式地更新 playbackState
-  void _init() {
-    // playing
-    _player.streams.playing.listen((playing) {
-      if (playing) _hasStartedPlaying = true;
-      _broadcastState();
-    }, onError: (_) {});
+  /// 初始化播放器监听
+  Future<void> _init() async {
+    // Strict Rule 4: 确保初始化时配置 AudioOutput
+    // 默认通常是正确的，但为了保险可以显式设置（media_kit 默认自动选择）
+    // await _player.setAudioTrack(AudioTrack.auto()); 
 
-    // position
-    _player.streams.position.listen((pos) {
-      _lastPosition = pos;
-      _broadcastState();
-    }, onError: (_) {});
+    // 监听播放器状态流
+    _player.stream.playing.listen((playing) {
+      _broadcastState(playing: playing);
+    });
 
-    // buffer / buffered position
-    _player.streams.buffer.listen((b) {
-      _lastBuffered = b;
-      _broadcastState();
-    }, onError: (_) {});
+    _player.stream.position.listen((position) {
+      _broadcastState(position: position);
+    });
 
-    // duration
-    _player.streams.duration.listen((d) {
-      _lastDuration = d;
-      _broadcastState();
-    }, onError: (_) {});
+    _player.stream.duration.listen((duration) {
+      _broadcastState(duration: duration);
+
+      // 时长反向同步：将内核探测到的真实时长更新到 MediaItem
+      final currentItem = mediaItem.value;
+      if (currentItem != null && duration != Duration.zero) {
+        // 只有当时长确实改变且有效时才更新，避免死循环或无效更新
+        if (currentItem.duration != duration) {
+           mediaItem.add(currentItem.copyWith(duration: duration));
+        }
+      }
+    });
+
+    _player.stream.buffer.listen((buffered) {
+      _broadcastState(buffered: buffered);
+    });
+
+    // 监听播放完成
+    _player.stream.completed.listen((completed) {
+      if (completed) {
+        if (hasNext) {
+          skipToNext();
+        } else {
+          stop();
+          seek(Duration.zero);
+        }
+      }
+    });
+    
+    // 监听错误
+    _player.stream.error.listen((error) {
+       debugPrint('[AudioHandler] Player error: $error');
+    });
   }
 
-  /// 获取当前播放器实例（供 UI 使用）
+  /// 获取当前播放器实例
   Player get player => _player;
 
   /// 获取当前播放列表
@@ -98,107 +111,99 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   bool get hasPrevious => _currentIndex > 0;
 
   /// 播放指定视频
-  ///
-  /// 这是主要入口方法。实现 Cache-First 策略：
-  /// 1. 首先检查本地缓存，有缓存直接播放（无网络请求）
-  /// 2. 无缓存时才触发 API 初始化和网络请求
   Future<void> playVideo(VideoModel video) async {
     try {
-      debugPrint('[AudioHandler] 播放: ${video.title}');
+      debugPrint('[AudioHandler] 准备播放: ${video.title}');
 
-      // 检查播放列表中是否已存在该视频
+      // 1. 更新播放列表索引
       final existingIndex = _playlist.indexWhere((v) => v.bvid == video.bvid);
-
       if (existingIndex == -1) {
-        // 视频不在列表中，添加到末尾
         _playlist.add(video);
         _currentIndex = _playlist.length - 1;
-      } else if (_currentIndex != existingIndex) {
-        // 视频在列表中，但当前索引不匹配，需要更新
+      } else {
         _currentIndex = existingIndex;
       }
-      // else: 索引已正确，无需更新
 
-      // 使用播放列表中当前索引的视频，确保播放正确的歌曲
       final targetVideo = _playlist[_currentIndex];
 
-      // 先更新 MediaItem（无时长），让通知栏立即显示
+      // 2. 立即通知 UI 正在加载 (Strict Rule 3: 响应式)
+      playbackState.add(playbackState.value.copyWith(
+        processingState: AudioProcessingState.loading,
+        controls: [MediaControl.stop], // 加载时只显示停止
+      ));
+      
+      // 更新 MediaItem 基础信息
       _updateMediaItem(targetVideo);
 
-      // ========== Cache-First Strategy ==========
-      // Step 1: 首先检查本地缓存（无网络请求！）
-      final cachedPath = await CacheManager.instance.getAudioPath(
-        targetVideo.bvid,
-      );
-
+      // 3. 获取播放地址（Cache First）
+      String? playPath;
       Duration? duration;
+      bool isLocal = false;
 
+      // 检查缓存
+      final cachedPath = await CacheManager.instance.getAudioPath(targetVideo.bvid);
+      
       if (cachedPath != null) {
-        // ========== Cache Hit: 直接播放本地文件 ==========
-        debugPrint('[AudioHandler] 缓存命中，直接播放: $cachedPath');
-
-        final modelDuration = targetVideo.durationSeconds > 0
-            ? Duration(seconds: targetVideo.durationSeconds)
-            : null;
-
-        // 使用 media_kit 直接打开本地文件
-        await _player.open(Media(cachedPath));
-        duration = modelDuration;
-
-        if (modelDuration != null) {
-          _updateMediaItem(targetVideo, duration: modelDuration);
+        debugPrint('[AudioHandler] 缓存命中: $cachedPath');
+        playPath = cachedPath;
+        isLocal = true;
+        if (targetVideo.durationSeconds > 0) {
+          duration = Duration(seconds: targetVideo.durationSeconds);
         }
       } else {
-        // ========== Cache Miss: 需要网络请求 ==========
-        // 此时才触发 API 初始化（Cookie/WBI）
-        debugPrint('[AudioHandler] 缓存未命中，从网络加载...');
-
-        // 获取视频详情（会触发 _ensureInitialized）
+        debugPrint('[AudioHandler] 缓存未命中，请求网络资源...');
+        // 获取视频详情（为了准确时长和 CID）
         final detail = await _client.fetchVideoInfo(targetVideo.bvid);
-        final videoDuration = Duration(seconds: detail.duration);
-
-        // 更新播放列表中的视频信息，使用正确的时长
+        duration = Duration(seconds: detail.duration);
+        
+        // 更新播放列表中的详细信息
         _playlist[_currentIndex] = targetVideo.copyWith(
           duration: detail.formattedDuration,
         );
-
-        // 更新 MediaItem（带时长）
-        _updateMediaItem(_playlist[_currentIndex], duration: videoDuration);
-
-        // 获取播放地址
+        
+        // 获取播放 URL
         final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
-
-        // 使用网络 URI（注意：若需要特殊 headers，请先用 CacheManager 下载到本地再播放）
-        // 打开网络 URI（若需要特殊 headers，请预先缓存到本地）
-        await _player.open(Media(playUrl.url));
-        duration = videoDuration;
-
-        // 后台下载缓存（Fire and forget）
-        CacheManager.instance.downloadInBackground(
-          playUrl.url,
-          targetVideo.bvid,
-        );
+        playPath = playUrl.url;
+        
+        // 触发后台下载
+        CacheManager.instance.downloadInBackground(playPath, targetVideo.bvid);
       }
-      debugPrint('[AudioHandler] 音频源加载完成，时长: $duration');
 
-      // 启动播放
-      await _player.play();
+      // 更新 MediaItem 带时长
+      _updateMediaItem(_playlist[_currentIndex], duration: duration);
+
+      // Strict Rule 2: 直接调用 _player.open，不要 stop()
+      // Strict Rule 2: 确保 HTTP Headers 正确
+      if (playPath != null) {
+        debugPrint('[AudioHandler] 打开媒体资源: $playPath (Local: $isLocal)');
+        
+        await _player.open(
+          Media(
+            playPath,
+            httpHeaders: isLocal ? null : _bilibiliHeaders, // 关键：网络请求必须带 Headers
+          ),
+          play: true, // 自动播放
+        );
+        
+        debugPrint('[AudioHandler] 媒体资源已打开');
+      }
+
     } catch (e, stack) {
       debugPrint('[AudioHandler] 播放失败: $e');
-      debugPrint('[AudioHandler] Stack: $stack');
-      rethrow;
+      debugPrint(stack.toString());
+      playbackState.add(playbackState.value.copyWith(
+        processingState: AudioProcessingState.error,
+        errorMessage: e.toString(),
+      ));
     }
   }
 
-  /// 更新 MediaItem（通知栏信息）
+  /// 更新 MediaItem
   void _updateMediaItem(VideoModel video, {Duration? duration}) {
-    // 如果没有传入 duration，尝试从 VideoModel 解析
     final effectiveDuration = duration ??
         (video.durationSeconds > 0
             ? Duration(seconds: video.durationSeconds)
             : null);
-    
-    debugPrint('[AudioHandler] _updateMediaItem - BVID: ${video.bvid}, Duration Arg: $duration, VideoModel Secs: ${video.durationSeconds}, Effective: $effectiveDuration');
 
     mediaItem.add(
       MediaItem(
@@ -212,29 +217,44 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   /// 广播播放状态
-  void _broadcastState() {
-    final playing = _player.state.playing;
+  /// 
+  /// 将 media_kit 的状态映射到 audio_service 的 PlaybackState
+  void _broadcastState({
+    bool? playing,
+    Duration? position,
+    Duration? duration,
+    Duration? buffered,
+  }) {
+    final isPlaying = playing ?? _player.state.playing;
+    final currentPosition = position ?? _player.state.position;
+    final currentBuffered = buffered ?? _player.state.buffer;
+    // final totalDuration = duration ?? _player.state.duration;
 
-    // 计算 processingState：尽量依据位置和 playing 推断
-    AudioProcessingState proc;
-    if (_lastDuration != null &&
-        _lastDuration! > Duration.zero &&
-        _lastPosition >= _lastDuration! &&
-        _hasStartedPlaying) {
-      proc = AudioProcessingState.completed;
-    } else if (playing) {
-      proc = AudioProcessingState.ready;
-    } else if (_lastDuration == null) {
-      proc = AudioProcessingState.loading;
+    // 推断 processingState
+    // 注意：media_kit 的 buffering 状态可能需要结合 buffer 进度判断，
+    // 但这里简化处理，主要依赖 playing 状态。
+    // 如果需要更精确的 buffering 状态，可以监听 _player.stream.buffering
+    AudioProcessingState processingState;
+    
+    // 如果正在加载（通过 playVideo 设置的 loading 状态），保持 loading
+    // 直到播放器真正开始播放或缓冲
+    if (playbackState.value.processingState == AudioProcessingState.loading && 
+        !isPlaying && 
+        currentPosition == Duration.zero) {
+        processingState = AudioProcessingState.loading;
+    } else if (isPlaying) {
+      processingState = AudioProcessingState.ready;
+    } else if (currentPosition > Duration.zero && !isPlaying) {
+      processingState = AudioProcessingState.ready; // 暂停
     } else {
-      proc = AudioProcessingState.ready;
+      processingState = AudioProcessingState.idle;
     }
 
     playbackState.add(
       playbackState.value.copyWith(
         controls: [
           MediaControl.skipToPrevious,
-          if (playing) MediaControl.pause else MediaControl.play,
+          if (isPlaying) MediaControl.pause else MediaControl.play,
           MediaControl.stop,
           MediaControl.skipToNext,
         ],
@@ -249,150 +269,64 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
           MediaAction.stop,
         },
         androidCompactActionIndices: const [0, 1, 3],
-        processingState: proc,
-        playing: playing,
-        updatePosition: _lastPosition,
-        bufferedPosition: _lastBuffered,
-        speed: 1.0,
+        processingState: processingState,
+        playing: isPlaying,
+        updatePosition: currentPosition,
+        bufferedPosition: currentBuffered,
+        speed: _player.state.rate,
         queueIndex: _currentIndex,
       ),
     );
   }
 
-  // playback completion handled via streams/state
-
-  // ========== BaseAudioHandler 方法实现 ==========
+  @override
+  Future<void> play() => _player.play();
 
   @override
-  Future<void> play() async {
-    if (_isFading) {
-      _cancelFade();
-    }
-    await _player.play();
-  }
+  Future<void> pause() => _player.pause();
 
   @override
-  Future<void> pause() async {
-    await _player.pause();
-  }
+  Future<void> stop() => _player.stop();
 
   @override
-  Future<void> stop() async {
-    await _player.stop();
-  }
-
-  @override
-  Future<void> seek(Duration position) async {
-    await _player.seek(position);
-  }
+  Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Future<void> skipToNext() async {
-    if (!hasNext) {
-      debugPrint('[AudioHandler] 没有下一首');
-      return;
+    if (hasNext) {
+      _currentIndex++;
+      await playVideo(_playlist[_currentIndex]);
     }
-
-    _currentIndex++;
-    await playVideo(_playlist[_currentIndex]);
   }
 
   @override
   Future<void> skipToPrevious() async {
-    // 如果播放超过 3 秒，则重新播放当前歌曲
-    if (_lastPosition.inSeconds > 3) {
-      await _player.seek(Duration.zero);
-      return;
+    // 如果播放超过 3 秒，重播当前
+    if (_player.state.position.inSeconds > 3) {
+      await seek(Duration.zero);
+    } else if (hasPrevious) {
+      _currentIndex--;
+      await playVideo(_playlist[_currentIndex]);
     }
-
-    if (!hasPrevious) {
-      debugPrint('[AudioHandler] 没有上一首');
-      return;
-    }
-
-    _currentIndex--;
-    await playVideo(_playlist[_currentIndex]);
   }
-
-  @override
-  Future<void> setSpeed(double speed) async {
-    try {
-      await _player.setRate(speed);
-    } catch (_) {}
-  }
-
-  // ========== 自定义方法 ==========
-
-  /// 渐变暂停
-  ///
-  /// 在 [_fadeDuration] 内将音量从 1.0 降到 0.0，然后暂停
-  Future<void> pauseWithFade() async {
-    if (_isFading || !_player.state.playing) return;
-
-    _isFading = true;
-    const steps = 10;
-    final stepDuration = _fadeDuration ~/ steps;
-    var currentStep = 0;
-
-    _fadeTimer = Timer.periodic(stepDuration, (timer) async {
-      currentStep++;
-      final volume = 1.0 - (currentStep / steps);
-
-      if (currentStep >= steps) {
-        timer.cancel();
-        await _player.pause();
-        try {
-          await _player.setVolume(1.0);
-        } catch (_) {}
-        _isFading = false;
-        debugPrint('[AudioHandler] 渐变暂停完成');
-      } else {
-        try {
-          await _player.setVolume(volume.clamp(0.0, 1.0));
-        } catch (_) {}
-      }
-    });
-  }
-
-  /// 取消渐变
-  void _cancelFade() {
-    _fadeTimer?.cancel();
-    _fadeTimer = null;
-    _isFading = false;
-    _player.setVolume(1.0);
-  }
-
-  /// 清空播放列表
-  void clearPlaylist() {
-    _playlist.clear();
-    _currentIndex = -1;
-    queue.add([]);
-  }
-
-  /// 设置播放列表
-  ///
-  /// 清空当前列表，添加新列表，并设置起始索引。
-  /// 这是同步操作，会立即更新 [currentVideo]。
+  
+  // 辅助方法：清空/设置播放列表等
+  
   void setPlaylist(List<VideoModel> videos, {int startIndex = 0}) {
     _playlist.clear();
     _playlist.addAll(videos);
-
-    // 立即设置当前索引，让 UI 可以显示歌曲信息
-    if (videos.isNotEmpty && startIndex >= 0 && startIndex < videos.length) {
+    
+    // 只是更新列表，不立即播放（除非 caller 随后调用 playVideo）
+    // 但为了 UI 显示，可以更新 index
+    if (startIndex >= 0 && startIndex < videos.length) {
       _currentIndex = startIndex;
+      // 预先更新 UI 显示
       _updateMediaItem(videos[startIndex]);
-    } else {
-      _currentIndex = videos.isEmpty ? -1 : 0;
-      if (videos.isNotEmpty) {
-        _updateMediaItem(videos[0]);
-      }
     }
-
+    
     _updateQueue();
-    debugPrint('[AudioHandler] 设置播放列表: ${videos.length} 首, 起始: $startIndex');
   }
 
-  /// 添加到播放列表
   void addToPlaylist(VideoModel video) {
     if (!_playlist.any((v) => v.bvid == video.bvid)) {
       _playlist.add(video);
@@ -400,56 +334,42 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
-  /// 从播放列表移除
   void removeFromPlaylist(int index) {
     if (index < 0 || index >= _playlist.length) return;
-
     _playlist.removeAt(index);
-
     if (index < _currentIndex) {
       _currentIndex--;
     } else if (index == _currentIndex) {
-      // 当前播放的被移除
-      if (_playlist.isEmpty) {
-        _currentIndex = -1;
-        stop();
-      } else if (_currentIndex >= _playlist.length) {
-        _currentIndex = _playlist.length - 1;
-      }
+      stop(); // 移除当前播放的，停止
+      _currentIndex = -1;
     }
-
+    _updateQueue();
+  }
+  
+  void clearPlaylist() {
+    _playlist.clear();
+    _currentIndex = -1;
+    stop();
     _updateQueue();
   }
 
-  /// 更新队列
-  void _updateQueue() {
-    queue.add(
-      _playlist
-          .map(
-            (v) => MediaItem(
-              id: v.bvid,
-              title: v.title,
-              artist: v.author,
-              artUri: Uri.parse(v.cover),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  /// 跳转到指定索引
   Future<void> skipToIndex(int index) async {
-    if (index < 0 || index >= _playlist.length) return;
-
-    _currentIndex = index;
-    await playVideo(_playlist[index]);
+    if (index >= 0 && index < _playlist.length) {
+      _currentIndex = index;
+      await playVideo(_playlist[index]);
+    }
   }
 
-  /// 释放资源
+  void _updateQueue() {
+    queue.add(_playlist.map((v) => MediaItem(
+      id: v.bvid,
+      title: v.title,
+      artist: v.author,
+      artUri: Uri.parse(v.cover),
+    )).toList());
+  }
+
   Future<void> dispose() async {
-    _cancelFade();
-    try {
-      await _player.dispose();
-    } catch (_) {}
+    await _player.dispose();
   }
 }
