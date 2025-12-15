@@ -126,6 +126,9 @@ class SearchProvider extends ChangeNotifier {
   Future<void> search(String keyword) async {
     if (keyword.trim().isEmpty) return;
 
+    // 取消之前的建议请求计时器，避免搜索开始后触发建议请求
+    _debounceTimer?.cancel();
+
     _currentKeyword = keyword;
     _currentPage = 1;
     _results = [];
@@ -205,7 +208,10 @@ class SearchProvider extends ChangeNotifier {
       final suggestions = await _client.fetchSuggestions(keyword);
 
       // 检查关键词是否已改变（用户继续输入）
-      if (_currentKeyword != keyword) {
+      // 或者当前正在搜索/显示结果（用户已经提交了搜索）
+      if (_currentKeyword != keyword || 
+          _state == SearchState.searching || 
+          _state == SearchState.showingResults) {
         return; // 忽略过时的请求结果
       }
 
@@ -214,6 +220,10 @@ class SearchProvider extends ChangeNotifier {
           ? SearchState.idle
           : SearchState.showingSuggestions;
     } catch (e) {
+      // 如果正在搜索，不要重置状态
+      if (_state == SearchState.searching || _state == SearchState.showingResults) {
+        return;
+      }
       _suggestions = [];
       _state = SearchState.idle;
     }

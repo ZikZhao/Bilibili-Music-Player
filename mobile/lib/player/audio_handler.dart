@@ -311,9 +311,8 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       return;
     }
 
-    // 计算总时长：全量渐变(0-100)给 500ms，部分渐变按比例缩减
-    // 比如 50 -> 0 只需要 250ms
-    const fullDurationMs = 500;
+    // 计算总时长：增加到 800ms 让渐变更平滑
+    const fullDurationMs = 800;
     final durationMs = (fullDurationMs * (delta / 100)).toInt();
     
     // 至少执行一次
@@ -324,23 +323,37 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     }
 
     final steps = (durationMs / 50).ceil();
-    final stepValue = (targetVolume - startVolume) / steps;
-    
     int currentStep = 0;
+    final isFadeOut = targetVolume < startVolume;
 
     _fadeTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) async {
       currentStep++;
-      final newVolume = startVolume + (stepValue * currentStep);
+      final progress = currentStep / steps; // 0.0 -> 1.0
+      
+      double newVolume;
+      if (isFadeOut) {
+        // 渐出：使用抛物线曲线 (t^2)，使音量在结束时下降更平缓，避免突然切断的感觉
+        // t 从 1.0 降到 0.0
+        final t = 1.0 - progress;
+        // factor 从 1.0 降到 0.0 (非线性)
+        final factor = t * t; 
+        newVolume = targetVolume + (startVolume - targetVolume) * factor;
+      } else {
+        // 渐入：保持线性或使用 sqrt
+        newVolume = startVolume + (targetVolume - startVolume) * progress;
+      }
       
       // 边界检查
-      bool finished = false;
-      if (stepValue > 0) { // 渐入
-        if (newVolume >= targetVolume) finished = true;
-      } else { // 渐出
-        if (newVolume <= targetVolume) finished = true;
-      }
+      if (newVolume < 0) newVolume = 0;
+      if (newVolume > 100) newVolume = 100;
+      
+      // 检查是否结束
+      bool finished = currentStep >= steps;
+      // 额外的容错检查
+      if (isFadeOut && newVolume <= targetVolume) finished = true;
+      if (!isFadeOut && newVolume >= targetVolume) finished = true;
 
-      if (finished || currentStep >= steps) {
+      if (finished) {
         timer.cancel();
         await _player.setVolume(targetVolume);
         _onFadeComplete(targetVolume);

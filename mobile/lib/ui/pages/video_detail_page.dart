@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
@@ -11,6 +13,7 @@ import '../../models/play_url_info.dart';
 import '../../models/video_detail_info.dart';
 import '../../models/video_model.dart';
 import '../../providers/library_provider.dart';
+import '../../providers/player_provider.dart';
 
 /// 视频详情页
 ///
@@ -38,6 +41,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   // media_kit 播放器
   late final Player _player;
   late final VideoController _videoController;
+  
+  // 状态订阅
+  StreamSubscription? _playingSubscription;
 
   // 是否展开简介
   bool _isDescExpanded = false;
@@ -50,10 +56,19 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     _player = Player();
     _videoController = VideoController(_player);
 
-    // 监听播放状态（控制屏幕常亮）
-    _player.stream.playing.listen((playing) {
+    // 监听播放状态（控制屏幕常亮及音频焦点）
+    _playingSubscription = _player.stream.playing.listen((playing) {
       if (playing) {
         WakelockPlus.enable();
+        // 视频开始播放时，暂停全局音乐播放（带渐变）
+        // 使用 try-catch 避免在页面销毁时 context 不可用导致的异常
+        try {
+          if (mounted) {
+            context.read<PlayerProvider>().pauseWithFade();
+          }
+        } catch (e) {
+          debugPrint('暂停背景音乐失败: $e');
+        }
       } else {
         WakelockPlus.disable();
       }
@@ -64,6 +79,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
   @override
   void dispose() {
+    _playingSubscription?.cancel();
     _player.dispose();
     WakelockPlus.disable();
     super.dispose();
