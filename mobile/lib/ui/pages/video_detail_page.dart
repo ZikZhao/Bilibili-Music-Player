@@ -42,14 +42,12 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   @override
   void initState() {
     super.initState();
+
     // 初始化 media_kit 播放器
     _player = Player();
-    // Use default configuration for now. If a specific Android texture
-    // option is available in the installed media_kit_video version,
-    // update the constructor here to pass that named parameter.
     _videoController = VideoController(_player);
 
-    // 监听播放状态
+    // 监听播放状态（控制屏幕常亮）
     _player.stream.playing.listen((playing) {
       if (playing) {
         WakelockPlus.enable();
@@ -78,6 +76,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     try {
       // 1. 获取视频详情（含 cid）
       final detail = await _client.fetchVideoInfo(widget.video.bvid);
+
       setState(() {
         _videoDetail = detail;
       });
@@ -88,6 +87,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         detail.cid,
         audioOnly: false, // 获取完整视频（MP4 格式，视频+音频合一）
       );
+
       setState(() {
         _playUrl = playUrl;
       });

@@ -76,7 +76,7 @@
     "version": "0.2.0",
     "configurations": [
       {
-        "name": "Debug Mobile (Android)",
+        "name": "Mobile: Debug",
         "type": "dart",
         "request": "launch",
         "program": "lib/main.dart",
@@ -85,16 +85,7 @@
         "args": []
       },
       {
-        "name": "Debug Mobile (Windows)",
-        "type": "dart",
-        "request": "launch",
-        "program": "lib/main.dart",
-        "cwd": "${workspaceFolder}/mobile",
-        "preLaunchTask": "flutter: pub get",
-        "args": ["-d", "windows"]
-      },
-      {
-        "name": "Profile Mobile (Android)",
+        "name": "Mobile: Profile",
         "type": "dart",
         "request": "launch",
         "program": "lib/main.dart",
@@ -102,21 +93,12 @@
         "flutterMode": "profile"
       },
       {
-        "name": "Release Mobile (Android)",
+        "name": "Mobile: Release",
         "type": "dart",
         "request": "launch",
         "program": "lib/main.dart",
         "cwd": "${workspaceFolder}/mobile",
         "flutterMode": "release"
-      },
-      {
-        "name": "Release Mobile (Windows)",
-        "type": "dart",
-        "request": "launch",
-        "program": "lib/main.dart",
-        "cwd": "${workspaceFolder}/mobile",
-        "flutterMode": "release",
-        "args": ["-d", "windows"]
       }
     ],
     "compounds": []

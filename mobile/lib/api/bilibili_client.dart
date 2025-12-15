@@ -408,6 +408,8 @@ class BilibiliClient {
 
   /// 获取 MP4 格式播放地址（Fallback）
   Future<PlayUrlInfo> _fetchPlayUrlMp4(String bvid, int cid) async {
+    debugPrint('[BilibiliClient] 使用 MP4 格式获取播放地址...');
+
     final params = {
       'bvid': bvid,
       'cid': cid,
@@ -426,6 +428,8 @@ class BilibiliClient {
     );
 
     final data = response.data;
+    debugPrint('[BilibiliClient] MP4 响应 code: ${data['code']}');
+
     if (data['code'] != 0) {
       throw BilibiliApiException('获取播放地址失败: ${data['message']}');
     }
@@ -433,7 +437,10 @@ class BilibiliClient {
     final resultData = data['data'] as Map<String, dynamic>;
     final durl = resultData['durl'] as List<dynamic>?;
 
+    debugPrint('[BilibiliClient] durl 列表长度: ${durl?.length ?? 0}');
+
     if (durl == null || durl.isEmpty) {
+      debugPrint('[BilibiliClient] 错误: durl 为空或不存在');
       throw BilibiliApiException('获取播放地址失败: 无可用的播放地址');
     }
 
@@ -442,7 +449,12 @@ class BilibiliClient {
     final size = firstUrl['size'] as int? ?? 0;
     final length = firstUrl['length'] as int? ?? 0;
 
-    debugPrint('[BilibiliClient] MP4 播放地址获取成功');
+    debugPrint('[BilibiliClient] MP4 播放地址获取成功:');
+    debugPrint('  - URL 长度: ${url.length}');
+    debugPrint('  - URL 前缀: ${url.substring(0, 100.clamp(0, url.length))}');
+    debugPrint('  - 文件大小: ${(size / 1024 / 1024).toStringAsFixed(2)} MB');
+    debugPrint('  - 时长: ${length}ms');
+    debugPrint('  - Quality: ${resultData['quality']}');
 
     return PlayUrlInfo(
       url: url,
