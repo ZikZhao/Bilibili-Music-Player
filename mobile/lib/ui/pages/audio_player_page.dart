@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/video_model.dart';
 import '../../providers/player_provider.dart';
+import '../widgets/playlist_sheet.dart';
 
 /// 播放模式
 enum PlayMode {
@@ -545,139 +546,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => _PlaylistSheet(playerProvider: playerProvider),
-    );
-  }
-}
-
-/// 播放列表底部弹出
-class _PlaylistSheet extends StatelessWidget {
-  final PlayerProvider playerProvider;
-
-  const _PlaylistSheet({required this.playerProvider});
-
-  @override
-  Widget build(BuildContext context) {
-    final playlist = playerProvider.playlist;
-    final currentIndex = playerProvider.currentIndex;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.6,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // 拖拽指示器
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade600,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          // 标题栏
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '播放列表 (${playlist.length})',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () {
-                    playerProvider.clearPlaylist();
-                    Navigator.of(context).pop();
-                  },
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('清空'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.grey.shade400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const Divider(height: 1),
-
-          // 列表
-          Expanded(
-            child: playlist.isEmpty
-                ? const Center(
-                    child: Text('播放列表为空', style: TextStyle(color: Colors.grey)),
-                  )
-                : ListView.builder(
-                    itemCount: playlist.length,
-                    itemBuilder: (context, index) {
-                      final video = playlist[index];
-                      final isCurrentlyPlaying = index == currentIndex;
-
-                      return ListTile(
-                        leading: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: CachedNetworkImage(
-                            imageUrl: video.cover,
-                            width: 48,
-                            height: 32,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        title: Text(
-                          video.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isCurrentlyPlaying
-                                ? colorScheme.primary
-                                : null,
-                            fontWeight: isCurrentlyPlaying
-                                ? FontWeight.bold
-                                : null,
-                          ),
-                        ),
-                        subtitle: Text(
-                          video.author,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                        trailing: isCurrentlyPlaying
-                            ? Icon(
-                                Icons.volume_up_rounded,
-                                color: colorScheme.primary,
-                                size: 20,
-                              )
-                            : IconButton(
-                                icon: const Icon(Icons.close, size: 18),
-                                color: Colors.grey.shade500,
-                                onPressed: () {
-                                  playerProvider.removeFromPlaylist(index);
-                                },
-                              ),
-                        onTap: () {
-                          playerProvider.skipToIndex(index);
-                          Navigator.of(context).pop();
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+      builder: (context) => const PlaylistSheet(),
     );
   }
 }

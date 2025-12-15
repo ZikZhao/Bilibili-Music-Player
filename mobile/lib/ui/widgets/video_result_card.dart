@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/video_model.dart';
+import '../../providers/library_provider.dart';
 
 /// 视频搜索结果卡片
 ///
@@ -28,7 +30,7 @@ class VideoResultCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // 左侧：视频封面
               _buildCover(colorScheme),
@@ -43,6 +45,27 @@ class VideoResultCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// 构建收藏按钮
+  Widget _buildFavoriteButton(BuildContext context) {
+    return Consumer<LibraryProvider>(
+      builder: (context, libraryProvider, child) {
+        final isFavorite = libraryProvider.isFavorite(video);
+        final colorScheme = Theme.of(context).colorScheme;
+
+        return IconButton(
+          onPressed: () => libraryProvider.toggleFavorite(video),
+          icon: Icon(
+            isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            color: isFavorite ? colorScheme.primary : Colors.grey.shade400,
+          ),
+          style: IconButton.styleFrom(
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        );
+      },
     );
   }
 
@@ -126,47 +149,71 @@ class VideoResultCard extends StatelessWidget {
 
         const SizedBox(height: 8),
 
-        // UP 主
+        // 底部信息区：UP主、播放量、收藏按钮
         Row(
           children: [
-            Icon(
-              Icons.person_outline_rounded,
-              size: 14,
-              color: colorScheme.secondary,
-            ),
-            const SizedBox(width: 4),
+            // 信息列
             Expanded(
-              child: Text(
-                video.author,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade400,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // UP 主
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.person_rounded,
+                          size: 14,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          video.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 2),
+
+                  // 播放量
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.play_arrow_rounded,
+                          size: 14,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${video.formattedPlayCount}播放',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
 
-        const SizedBox(height: 4),
-
-        // 播放量
-        Row(
-          children: [
-            Icon(
-              Icons.play_arrow_rounded,
-              size: 14,
-              color: Colors.grey.shade500,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '${video.formattedPlayCount}播放',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade500,
-              ),
-            ),
+            // 收藏按钮
+            _buildFavoriteButton(context),
           ],
         ),
       ],
