@@ -368,6 +368,13 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
               bufferedPosition: Duration.zero,
               duration: Duration.zero,
             );
+        
+        // Debug logs for UI
+        if (snapshot.hasData) {
+           debugPrint('[AudioPlayerPage] ProgressBar update - Pos: ${positionData.position}, Total: ${positionData.duration}');
+        } else {
+           debugPrint('[AudioPlayerPage] ProgressBar no data');
+        }
 
         // 缓冲进度：仅使用播放器的实际缓冲位置。对于完全本地/已缓存的文件，
         // 如果缓冲位置已达到时长，则显示为完整时长（100%）。

@@ -189,6 +189,9 @@ class PlayerProvider extends ChangeNotifier {
   /// 更新播放状态
   // _updateState removed; playbackState listener updates UI state.
 
+  /// 播放器位置数据流缓存
+  Stream<PositionData>? _positionDataStream;
+
   /// 获取播放进度流
   ///
   /// 合并 position、bufferedPosition、duration 三个流
@@ -202,18 +205,40 @@ class PlayerProvider extends ChangeNotifier {
         ),
       );
     }
+
+    // 如果流已经创建，直接返回缓存
+    if (_positionDataStream != null) {
+      return _positionDataStream!;
+    }
+
     final player = _audioHandler!.player;
 
-    return Rx.combineLatest3<Duration, Duration, Duration?, PositionData>(
-      player.streams.position,
-      player.streams.buffer,
-      player.streams.duration,
-      (position, bufferedPosition, duration) => PositionData(
-        position: position,
-        bufferedPosition: bufferedPosition,
-        duration: duration ?? Duration.zero,
-      ),
-    );
+    _positionDataStream = Rx.combineLatest4<Duration, Duration, Duration?, MediaItem?, PositionData>(
+      player.streams.position.startWith(Duration.zero),
+      player.streams.buffer.startWith(Duration.zero),
+      player.streams.duration.startWith(Duration.zero),
+      _audioHandler!.mediaItem.startWith(null),
+      (position, bufferedPosition, playerDuration, mediaItem) {
+        // Debug logging
+        debugPrint('[PlayerProvider] Stream update - Pos: $position, Buf: $bufferedPosition, PlayerDur: $playerDuration, MediaItemDur: ${mediaItem?.duration}');
+
+        // 优先使用播放器的实际时长，如果未加载完成（为0或null），则回退到 MediaItem 中的元数据时长
+        final duration =
+            (playerDuration != null && playerDuration > Duration.zero)
+                ? playerDuration
+                : (mediaItem?.duration ?? Duration.zero);
+        
+        debugPrint('[PlayerProvider] Final Duration used: $duration');
+
+        return PositionData(
+          position: position,
+          bufferedPosition: bufferedPosition,
+          duration: duration,
+        );
+      },
+    ).asBroadcastStream(); // 转为广播流，允许多个监听者
+
+    return _positionDataStream!;
   }
 
   /// 播放视频

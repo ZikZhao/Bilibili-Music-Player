@@ -192,13 +192,21 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 更新 MediaItem（通知栏信息）
   void _updateMediaItem(VideoModel video, {Duration? duration}) {
+    // 如果没有传入 duration，尝试从 VideoModel 解析
+    final effectiveDuration = duration ??
+        (video.durationSeconds > 0
+            ? Duration(seconds: video.durationSeconds)
+            : null);
+    
+    debugPrint('[AudioHandler] _updateMediaItem - BVID: ${video.bvid}, Duration Arg: $duration, VideoModel Secs: ${video.durationSeconds}, Effective: $effectiveDuration');
+
     mediaItem.add(
       MediaItem(
         id: video.bvid,
         title: video.title,
         artist: video.author,
         artUri: Uri.parse(video.cover),
-        duration: duration,
+        duration: effectiveDuration,
       ),
     );
   }
