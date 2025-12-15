@@ -279,25 +279,29 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 获取播放模式对应的 MediaControl
   MediaControl _getModeControl() {
-    // 注意：resource 必须对应 drawable 文件夹下的 xml 文件名
+    // Requirements (Android Resource Handling):
+    // 请确保在 android/app/src/main/res/drawable 目录下添加以下图标资源，否则会报错：
+    // - ic_repeat (对应 PlayMode.loop)
+    // - ic_repeat_one (对应 PlayMode.single)
+    // - ic_shuffle (对应 PlayMode.shuffle)
     switch (_playMode) {
       case PlayMode.loop:
         return const MediaControl(
-          androidIcon: 'drawable/ic_mode_loop',
+          androidIcon: 'drawable/ic_repeat',
           label: 'Loop',
           action: MediaAction.custom,
           customAction: CustomMediaAction(name: 'custom_set_mode'),
         );
       case PlayMode.single:
         return const MediaControl(
-          androidIcon: 'drawable/ic_mode_single',
+          androidIcon: 'drawable/ic_repeat_one',
           label: 'Single',
           action: MediaAction.custom,
           customAction: CustomMediaAction(name: 'custom_set_mode'),
         );
       case PlayMode.shuffle:
         return const MediaControl(
-          androidIcon: 'drawable/ic_mode_shuffle',
+          androidIcon: 'drawable/ic_shuffle',
           label: 'Shuffle',
           action: MediaAction.custom,
           customAction: CustomMediaAction(name: 'custom_set_mode'),
@@ -307,6 +311,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
+    // Action Handling: 响应自定义按钮点击
     if (name == 'custom_set_mode') {
       cyclePlayMode();
     }
@@ -347,6 +352,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       processingState = AudioProcessingState.idle;
     }
 
+    // 动态图标 (Dynamic Icons)
     final modeControl = _getModeControl();
 
     playbackState.add(
@@ -356,11 +362,14 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         updatePosition: currentPosition,
         bufferedPosition: currentBuffered,
         
+        // 按钮布局 (Controls):
+        // 核心目标：实现“左图右文 + 底部4个按钮”的布局
+        // 顺序：[上一曲] [播放/暂停] [下一曲] [播放模式]
         controls: [
           MediaControl.skipToPrevious,
           if (isPlaying) MediaControl.pause else MediaControl.play,
           MediaControl.skipToNext,
-          modeControl,
+          modeControl, // 第 4 个按钮
         ],
         
         systemActions: const {
@@ -370,6 +379,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
           MediaAction.playPause,
           MediaAction.stop,
         },
+        // 紧凑视图显示前3个按钮 (Previous, Play/Pause, Next)
         androidCompactActionIndices: const [0, 1, 2],
         speed: _player.state.rate,
         queueIndex: _currentIndex,

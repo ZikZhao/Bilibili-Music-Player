@@ -32,22 +32,16 @@ class _HomeScaffoldState extends State<HomeScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Consumer<PlayerProvider>(
-        builder: (context, playerProvider, child) {
-          final hasCurrentVideo = playerProvider.currentVideo != null;
+      body: Column(
+        children: [
+          // 主内容区域
+          Expanded(
+            child: IndexedStack(index: _currentIndex, children: _pages),
+          ),
 
-          return Column(
-            children: [
-              // 主内容区域
-              Expanded(
-                child: IndexedStack(index: _currentIndex, children: _pages),
-              ),
-
-              // Mini Player（只在有播放内容时显示）
-              if (hasCurrentVideo) const MiniPlayer(),
-            ],
-          );
-        },
+          // Mini Player（内部会根据播放状态自动显示/隐藏）
+          const MiniPlayer(),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,

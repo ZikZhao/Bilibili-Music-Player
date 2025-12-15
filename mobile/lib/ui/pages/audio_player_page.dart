@@ -1,13 +1,15 @@
 import 'dart:ui';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart' hide DownloadProgress;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/video_model.dart';
 import '../../player/audio_handler.dart';
 import '../../providers/player_provider.dart';
+import '../../services/cache_manager.dart';
 import '../widgets/playlist_sheet.dart';
 
 /// 音频播放器页面
@@ -77,66 +79,98 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<PlayerProvider>(
-      builder: (context, playerProvider, child) {
+    final playerProvider = Provider.of<PlayerProvider>(context, listen: false);
+
+    return StreamBuilder<MediaItem?>(
+      stream: playerProvider.mediaItemStream,
+      builder: (context, mediaSnapshot) {
         final video = playerProvider.currentVideo ?? widget.initialVideo;
 
         if (video == null) {
           return _buildEmptyState(context);
         }
 
-        return DraggableScrollableSheet(
-          initialChildSize: 1.0,
-          minChildSize: 0.5,
-          maxChildSize: 1.0,
-          expand: false,
-          builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Layer 1: 背景图
-                    Positioned.fill(
-                      child: _buildBlurredBackground(video.cover),
-                    ),
+        return StreamBuilder<PlaybackState>(
+          stream: playerProvider.playbackStateStream,
+          builder: (context, playbackSnapshot) {
+            final playbackState = playbackSnapshot.data;
 
-                    // Layer 2: 内容层
-                    Material(
-                      color: Colors.transparent,
-                      child: Padding(
-                        // 2. 使用上面计算好的 effectiveTopPadding
-                        padding: EdgeInsets.only(
-                          top: MediaQueryData.fromView(
-                            View.of(context),
-                          ).padding.top,
+            return StreamBuilder<DownloadProgress>(
+              stream: CacheManager.instance.progressStream,
+              builder: (context, downloadSnapshot) {
+                // 计算下载状态
+                bool isDownloading = false;
+                double downloadProgress = 0.0;
+                
+                if (downloadSnapshot.hasData) {
+                  final progress = downloadSnapshot.data!;
+                  if (progress.bvid == video.bvid) {
+                     if (!progress.isComplete && !progress.hasError) {
+                       isDownloading = true;
+                       downloadProgress = progress.progress;
+                     }
+                  }
+                }
+
+                return DraggableScrollableSheet(
+                  initialChildSize: 1.0,
+                  minChildSize: 0.5,
+                  maxChildSize: 1.0,
+                  expand: false,
+                  builder: (context, scrollController) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
                         ),
-                        child: Column(
+                      ),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
                           children: [
-                            _buildCustomHeader(context),
-                            Expanded(
-                              child: _buildContent(
-                                context,
-                                playerProvider,
-                                video,
+                            // Layer 1: 背景图
+                            Positioned.fill(
+                              child: _buildBlurredBackground(video.cover),
+                            ),
+
+                            // Layer 2: 内容层
+                            Material(
+                              color: Colors.transparent,
+                              child: Padding(
+                                // 2. 使用上面计算好的 effectiveTopPadding
+                                padding: EdgeInsets.only(
+                                  top: MediaQueryData.fromView(
+                                    View.of(context),
+                                  ).padding.top,
+                                ),
+                                child: Column(
+                                  children: [
+                                    _buildCustomHeader(context),
+                                    Expanded(
+                                      child: _buildContent(
+                                        context,
+                                        playerProvider,
+                                        video,
+                                        playbackState,
+                                        isDownloading,
+                                        downloadProgress,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                    );
+                  },
+                );
+              },
             );
           },
         );
@@ -249,6 +283,9 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
     BuildContext context,
     PlayerProvider playerProvider,
     VideoModel video,
+    PlaybackState? playbackState,
+    bool isDownloading,
+    double downloadProgress,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -272,7 +309,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           const SizedBox(height: 24),
 
           // 控制按钮
-          _buildControlButtons(playerProvider),
+          _buildControlButtons(
+            playerProvider,
+            playbackState,
+            isDownloading,
+            downloadProgress,
+          ),
 
           const Spacer(flex: 2),
         ],
@@ -395,11 +437,17 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
   }
 
   /// 构建控制按钮
-  Widget _buildControlButtons(PlayerProvider playerProvider) {
+  Widget _buildControlButtons(
+    PlayerProvider playerProvider,
+    PlaybackState? playbackState,
+    bool isDownloading,
+    double downloadProgress,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isPlaying = playerProvider.isPlaying;
-    final isLoading = playerProvider.state == AppPlayerState.loading;
-    final isDownloading = playerProvider.isDownloading;
+    final isPlaying = playbackState?.playing ?? false;
+    final processingState = playbackState?.processingState;
+    final isLoading = processingState == AudioProcessingState.loading ||
+        processingState == AudioProcessingState.buffering;
 
     // 显示加载状态：正在加载或正在下载但尚未开始播放
     final showLoadingIndicator = isLoading || (isDownloading && !isPlaying);
@@ -433,7 +481,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
               ? null
               : () async {
                   if (isPlaying) {
-                    await playerProvider.pauseWithFade();
+                    await playerProvider.pause();
                   } else {
                     await playerProvider.play();
                   }
@@ -462,7 +510,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
                           width: 52,
                           height: 52,
                           child: CircularProgressIndicator(
-                            value: playerProvider.downloadProgress,
+                            value: downloadProgress,
                             strokeWidth: 3,
                             color: Colors.white.withOpacity(0.8),
                             backgroundColor: Colors.white.withOpacity(0.2),
@@ -480,7 +528,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
                       // 下载百分比
                       if (isDownloading)
                         Text(
-                          '${(playerProvider.downloadProgress * 100).toInt()}%',
+                          '${(downloadProgress * 100).toInt()}%',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,

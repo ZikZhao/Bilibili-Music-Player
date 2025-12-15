@@ -64,7 +64,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         // 使用 try-catch 避免在页面销毁时 context 不可用导致的异常
         try {
           if (mounted) {
-            context.read<PlayerProvider>().pauseWithFade();
+            context.read<PlayerProvider>().pause();
           }
         } catch (e) {
           debugPrint('暂停背景音乐失败: $e');
