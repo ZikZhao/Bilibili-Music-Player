@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../api/bilibili_client.dart';
+import '../models/play_url_info.dart';
+import '../models/video_detail_info.dart';
 import '../models/video_model.dart';
 import '../services/cache_manager.dart';
 

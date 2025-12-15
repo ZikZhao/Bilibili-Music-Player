@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../api/bilibili_client.dart';
+import '../models/play_url_info.dart';
+import '../models/video_detail_info.dart';
 import '../models/video_model.dart';
 import '../services/cache_manager.dart';
 

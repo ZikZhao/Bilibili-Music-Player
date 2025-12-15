@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../api/bilibili_client.dart';
+import '../../models/bilibili_api_exception.dart';
+import '../../models/play_url_info.dart';
+import '../../models/video_detail_info.dart';
 import '../../models/video_model.dart';
 import '../../providers/library_provider.dart';
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../api/bilibili_client.dart';
+import '../models/search_result.dart';
 import '../models/suggestion_model.dart';
 import '../models/video_model.dart';
 
