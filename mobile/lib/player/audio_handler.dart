@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart';
+import '../player/media_player_adapter.dart';
 
 import '../api/bilibili_client.dart';
 import '../models/video_model.dart';
@@ -13,8 +13,8 @@ import '../services/cache_manager.dart';
 ///
 /// 继承自 [BaseAudioHandler]，实现后台播放、播放列表管理等功能
 class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
-  /// just_audio 播放器实例
-  final AudioPlayer _player = AudioPlayer();
+  /// media_kit 播放器适配器实例
+  final MediaPlayerAdapter _player = MediaPlayerAdapter();
 
   /// B 站 API 客户端
   final BilibiliClient _client = BilibiliClient();
@@ -50,35 +50,31 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 初始化播放器监听
   void _init() {
-    // 监听播放状态变化
-    _player.playbackEventStream.listen(_broadcastState);
-
-    // 监听当前索引变化（用于 ConcatenatingAudioSource）
-    // 注意：我们使用单个 AudioSource 而非 ConcatenatingAudioSource，
-    // 所以这个监听器不应该更新我们手动管理的 _currentIndex
-    _player.currentIndexStream.listen((index) {
-      // 禁用此监听器的索引同步，因为我们手动管理播放列表和索引
-    });
-
-    // 监听播放完成
+    // 监听播放 / 处理状态变化并广播给 audio_service
     _player.processingStateStream.listen((state) {
-      // 只有在已经开始播放后才处理 completed 状态
-      // 避免初始化时或设置音频源前的 completed 触发跳转
+      _player.processingState = state;
+      _broadcastState();
+
       if (state == ProcessingState.completed && _hasStartedPlaying) {
         _handlePlaybackCompleted();
       }
     });
 
-    // 监听播放状态，标记已开始播放
     _player.playingStream.listen((playing) {
+      _player.playing = playing;
       if (playing) {
         _hasStartedPlaying = true;
       }
+      _broadcastState();
     });
+
+    // 更新位置与时长以便 UI / audio_service 可以读取
+    _player.positionStream.listen((_) => _broadcastState());
+    _player.durationStream.listen((_) => _broadcastState());
   }
 
   /// 获取当前播放器实例（供 UI 使用）
-  AudioPlayer get player => _player;
+  MediaPlayerAdapter get player => _player;
 
   /// 获取当前播放列表
   List<VideoModel> get playlist => List.unmodifiable(_playlist);
@@ -134,31 +130,23 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         targetVideo.bvid,
       );
 
-      AudioSource audioSource;
+      Duration? duration;
+      bool isLocal = false;
 
       if (cachedPath != null) {
         // ========== Cache Hit: 直接播放本地文件 ==========
-        // 不调用 fetchVideoInfo，避免触发 API 初始化
         debugPrint('[AudioHandler] 缓存命中，直接播放: $cachedPath');
 
-        // 使用 VideoModel 中的信息（如果有 duration）
-        // just_audio 会在加载文件后自动获取实际时长
         final modelDuration = targetVideo.durationSeconds > 0
             ? Duration(seconds: targetVideo.durationSeconds)
             : null;
 
-        audioSource = AudioSource.file(
+        duration = await _player.setAudioSourceFile(
           cachedPath,
-          tag: MediaItem(
-            id: targetVideo.bvid,
-            title: targetVideo.title,
-            artist: targetVideo.author,
-            duration: modelDuration,
-            artUri: Uri.parse(targetVideo.cover),
-          ),
+          durationTag: modelDuration,
         );
+        isLocal = true;
 
-        // 更新 MediaItem（如果有时长）
         if (modelDuration != null) {
           _updateMediaItem(targetVideo, duration: modelDuration);
         }
@@ -182,17 +170,10 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         // 获取播放地址
         final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
 
-        // 创建带 Header 的网络音频源
-        audioSource = AudioSource.uri(
-          Uri.parse(playUrl.url),
-          headers: _bilibiliHeaders,
-          tag: MediaItem(
-            id: targetVideo.bvid,
-            title: targetVideo.title,
-            artist: targetVideo.author,
-            duration: videoDuration,
-            artUri: Uri.parse(targetVideo.cover),
-          ),
+        // 使用网络 URI（注意：若需要特殊 headers，请先用 CacheManager 下载到本地再播放）
+        duration = await _player.setAudioSourceUri(
+          playUrl.url,
+          durationTag: videoDuration,
         );
 
         // 后台下载缓存（Fire and forget）
@@ -201,21 +182,14 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
           targetVideo.bvid,
         );
       }
-
-      // 设置音频源并等待加载完成
-      final duration = await _player.setAudioSource(audioSource);
       debugPrint(
         '[AudioHandler] 音频源加载完成，时长: $duration，播放器状态: ${_player.processingState}',
       );
 
-      // 在 Windows 平台，确保音频源完全加载后再播放
-      // 给一个短暂延迟让底层音频库准备好
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // 提前设置标志，避免时序问题
       _hasStartedPlaying = true;
 
-      // 开始播放
       debugPrint('[AudioHandler] 准备播放，当前 playing 状态: ${_player.playing}');
       await _player.play();
       debugPrint('[AudioHandler] 已调用 play()，新 playing 状态: ${_player.playing}');
@@ -240,7 +214,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   /// 广播播放状态
-  void _broadcastState(PlaybackEvent event) {
+  void _broadcastState() {
     final playing = _player.playing;
     final processingState = _player.processingState;
 

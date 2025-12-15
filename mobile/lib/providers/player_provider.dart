@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:just_audio/just_audio.dart' hide PlayerState;
+import '../player/media_player_adapter.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../models/video_model.dart';
@@ -141,10 +141,16 @@ class PlayerProvider extends ChangeNotifier {
 
     final player = _audioHandler!.player;
 
-    // 监听播放状态
+    // 监听播放/处理状态
     _subscriptions.add(
-      player.playerStateStream.listen((playerState) {
-        _updateState(playerState);
+      player.processingStateStream.listen((_) {
+        _updateState();
+      }),
+    );
+
+    _subscriptions.add(
+      player.playingStream.listen((_) {
+        _updateState();
       }),
     );
 
@@ -177,7 +183,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   /// 更新播放状态
-  void _updateState(dynamic playerState) {
+  void _updateState() {
     final player = _audioHandler?.player;
     if (player == null) return;
 

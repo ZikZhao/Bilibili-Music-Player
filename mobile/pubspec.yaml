@@ -39,10 +39,8 @@ dependencies:
   media_kit: ^1.1.11
   media_kit_video: ^1.2.5
   media_kit_libs_video: ^1.0.5
-
-  # Audio playback with background support
-  just_audio: ^0.9.40
-  just_audio_windows: ^0.2.2
+  # Audio playback with background support (replaced just_audio with media_kit)
+  # just_audio removed: migrated to media_kit
   audio_service: ^0.18.15
   audio_video_progress_bar: ^2.0.3
   rxdart: ^0.28.0
