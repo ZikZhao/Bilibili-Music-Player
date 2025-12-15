@@ -44,6 +44,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     super.initState();
     // 初始化 media_kit 播放器
     _player = Player();
+    // Use default configuration for now. If a specific Android texture
+    // option is available in the installed media_kit_video version,
+    // update the constructor here to pass that named parameter.
     _videoController = VideoController(_player);
 
     // 监听播放状态
@@ -235,7 +238,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     }
 
     // 播放器 - 使用 media_kit
-    return Video(controller: _videoController, controls: AdaptiveVideoControls);
+    return Video(controller: _videoController);
   }
 
   /// 封面占位图

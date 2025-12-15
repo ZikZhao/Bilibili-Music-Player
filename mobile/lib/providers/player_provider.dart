@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
-import '../player/media_player_adapter.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../models/video_model.dart';
@@ -139,18 +138,23 @@ class PlayerProvider extends ChangeNotifier {
   void _setupListeners() {
     if (_audioHandler == null) return;
 
-    final player = _audioHandler!.player;
-
-    // 监听播放/处理状态
+    // 监听 audio_service 的 playbackState，基于其值更新本地 UI 状态
     _subscriptions.add(
-      player.processingStateStream.listen((_) {
-        _updateState();
-      }),
-    );
+      _audioHandler!.playbackState.listen((state) {
+        final proc = state.processingState;
+        final playing = state.playing;
 
-    _subscriptions.add(
-      player.playingStream.listen((_) {
-        _updateState();
+        if (proc == AudioProcessingState.loading ||
+            proc == AudioProcessingState.buffering) {
+          _state = AppPlayerState.loading;
+        } else if (proc == AudioProcessingState.ready) {
+          _state = playing ? AppPlayerState.playing : AppPlayerState.paused;
+        } else if (proc == AudioProcessingState.completed) {
+          _state = AppPlayerState.paused;
+        } else {
+          _state = AppPlayerState.idle;
+        }
+        notifyListeners();
       }),
     );
 
@@ -183,26 +187,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   /// 更新播放状态
-  void _updateState() {
-    final player = _audioHandler?.player;
-    if (player == null) return;
-
-    final processingState = player.processingState;
-    final playing = player.playing;
-
-    if (processingState == ProcessingState.loading ||
-        processingState == ProcessingState.buffering) {
-      _state = AppPlayerState.loading;
-    } else if (processingState == ProcessingState.ready) {
-      _state = playing ? AppPlayerState.playing : AppPlayerState.paused;
-    } else if (processingState == ProcessingState.completed) {
-      _state = AppPlayerState.paused;
-    } else {
-      _state = AppPlayerState.idle;
-    }
-
-    notifyListeners();
-  }
+  // _updateState removed; playbackState listener updates UI state.
 
   /// 获取播放进度流
   ///
@@ -217,13 +202,12 @@ class PlayerProvider extends ChangeNotifier {
         ),
       );
     }
-
     final player = _audioHandler!.player;
 
     return Rx.combineLatest3<Duration, Duration, Duration?, PositionData>(
-      player.positionStream,
-      player.bufferedPositionStream,
-      player.durationStream,
+      player.streams.position,
+      player.streams.buffer,
+      player.streams.duration,
       (position, bufferedPosition, duration) => PositionData(
         position: position,
         bufferedPosition: bufferedPosition,

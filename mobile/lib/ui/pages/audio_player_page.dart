@@ -369,16 +369,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
               duration: Duration.zero,
             );
 
-        // 如果正在下载，使用下载进度作为缓冲进度
+        // 缓冲进度：仅使用播放器的实际缓冲位置。对于完全本地/已缓存的文件，
+        // 如果缓冲位置已达到时长，则显示为完整时长（100%）。
         Duration buffered = positionData.bufferedPosition;
-        if (playerProvider.isDownloading &&
-            positionData.duration.inMilliseconds > 0) {
-          buffered = Duration(
-            milliseconds:
-                (positionData.duration.inMilliseconds *
-                        playerProvider.downloadProgress)
-                    .toInt(),
-          );
+        if (positionData.duration.inMilliseconds > 0 &&
+            positionData.bufferedPosition >= positionData.duration) {
+          buffered = positionData.duration;
         }
 
         return ProgressBar(
@@ -386,6 +382,8 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           buffered: buffered,
           total: positionData.duration,
           onSeek: playerProvider.seek,
+          // 显示时间文本在进度条两侧，便于用户查看当前时间/总时长
+          timeLabelLocation: TimeLabelLocation.sides,
           barHeight: 4,
           baseBarColor: Colors.white.withOpacity(0.2),
           progressBarColor: Theme.of(context).colorScheme.primary,
