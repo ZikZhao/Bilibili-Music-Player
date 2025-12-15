@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 import 'models/video_model.dart';
@@ -24,6 +25,11 @@ Future<void> main() async {
 
   // 初始化缓存管理器
   await CacheManager.instance.initialize();
+
+  // 请求通知权限 (Android 13+)
+  if (await Permission.notification.isDenied) {
+    await Permission.notification.request();
+  }
 
   // 创建并初始化 LibraryProvider
   final libraryProvider = LibraryProvider();

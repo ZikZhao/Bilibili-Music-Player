@@ -12,11 +12,7 @@ class VideoResultCard extends StatelessWidget {
   final VideoModel video;
   final VoidCallback? onTap;
 
-  const VideoResultCard({
-    super.key,
-    required this.video,
-    this.onTap,
-  });
+  const VideoResultCard({super.key, required this.video, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -38,9 +34,7 @@ class VideoResultCard extends StatelessWidget {
               const SizedBox(width: 12),
 
               // 右侧：视频信息
-              Expanded(
-                child: _buildInfo(context, colorScheme),
-              ),
+              Expanded(child: _buildInfo(context, colorScheme)),
             ],
           ),
         ),
@@ -88,7 +82,7 @@ class VideoResultCard extends StatelessWidget {
               child: Center(
                 child: Icon(
                   Icons.image_outlined,
-                  color: colorScheme.onSurface.withOpacity(0.3),
+                  color: colorScheme.onSurface.withValues(alpha: 0.3),
                 ),
               ),
             ),
@@ -99,7 +93,7 @@ class VideoResultCard extends StatelessWidget {
               child: Center(
                 child: Icon(
                   Icons.broken_image_outlined,
-                  color: colorScheme.error.withOpacity(0.5),
+                  color: colorScheme.error.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -162,7 +156,6 @@ class VideoResultCard extends StatelessWidget {
                     children: [
                       SizedBox(
                         width: 16,
-                        alignment: Alignment.center,
                         child: Icon(
                           Icons.person_rounded,
                           size: 14,
@@ -191,7 +184,6 @@ class VideoResultCard extends StatelessWidget {
                     children: [
                       SizedBox(
                         width: 16,
-                        alignment: Alignment.center,
                         child: Icon(
                           Icons.play_arrow_rounded,
                           size: 14,

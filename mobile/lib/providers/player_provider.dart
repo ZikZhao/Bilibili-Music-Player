@@ -9,13 +9,7 @@ import '../player/audio_handler.dart';
 import '../services/cache_manager.dart';
 
 /// 播放器状态 (兼容 UI)
-enum AppPlayerState {
-  idle,
-  loading,
-  playing,
-  paused,
-  error,
-}
+enum AppPlayerState { idle, loading, playing, paused, error }
 
 /// 播放进度信息
 class PositionData {
@@ -52,6 +46,9 @@ class PlayerProvider extends ChangeNotifier {
   /// 获取 AudioHandler 实例
   BilibiliAudioHandler? get audioHandler => _audioHandler;
 
+  /// 获取当前播放模式
+  PlayMode get playMode => _audioHandler?.playMode ?? PlayMode.loop;
+
   /// 初始化音频服务
   Future<void> initialize() async {
     if (_audioHandler != null) return;
@@ -62,17 +59,22 @@ class PlayerProvider extends ChangeNotifier {
       _audioHandler = await AudioService.init<BilibiliAudioHandler>(
         builder: BilibiliAudioHandler.new,
         config: const AudioServiceConfig(
-          androidNotificationChannelId: 'com.bilibili.music.channel.audio',
-          androidNotificationChannelName: 'Bilibili Music',
-          androidNotificationOngoing: true,
-          androidStopForegroundOnPause: true,
+          androidNotificationChannelId: 'com.bilibili.music.channel.audio.v2',
+          androidNotificationChannelName: 'Bilibili Music Player',
+          androidNotificationChannelDescription: 'Music playback controls',
+          androidStopForegroundOnPause: false,
+          androidNotificationIcon: 'mipmap/ic_launcher',
+          androidShowNotificationBadge: true,
+          // 优化: 限制封面图大小，避免 IPC 传输过大导致崩溃或更新延迟
+          artDownscaleWidth: 300,
+          artDownscaleHeight: 300,
         ),
       );
 
       // ========== Bridge for Legacy UI (ChangeNotifier) ==========
       // 监听流并通知监听者，以便 Consumer<PlayerProvider> 可以重建
       // 这是一个桥接层，理想情况下 UI 应该直接使用 StreamBuilder
-      
+
       _playbackSubscription = _audioHandler!.playbackState.listen((_) {
         notifyListeners();
       });
@@ -82,9 +84,11 @@ class PlayerProvider extends ChangeNotifier {
       });
 
       // 恢复下载进度监听 (为了 UI 兼容)
-      _downloadSubscription = CacheManager.instance.progressStream.listen((progress) {
+      _downloadSubscription = CacheManager.instance.progressStream.listen((
+        progress,
+      ) {
         if (progress.bvid == currentVideo?.bvid) {
-           if (progress.isComplete || progress.hasError) {
+          if (progress.isComplete || progress.hasError) {
             _isDownloading = false;
             _downloadProgress = progress.isComplete ? 1.0 : 0.0;
           } else {
@@ -113,22 +117,24 @@ class PlayerProvider extends ChangeNotifier {
     final proc = pbState.processingState;
     final playing = pbState.playing;
 
-    if (proc == AudioProcessingState.loading || 
+    if (proc == AudioProcessingState.loading ||
         proc == AudioProcessingState.buffering) {
       return AppPlayerState.loading;
     } else if (proc == AudioProcessingState.error) {
       return AppPlayerState.error;
     } else if (playing) {
       return AppPlayerState.playing;
-    } else if (proc == AudioProcessingState.ready || proc == AudioProcessingState.completed) {
+    } else if (proc == AudioProcessingState.ready ||
+        proc == AudioProcessingState.completed) {
       return AppPlayerState.paused;
     } else {
       return AppPlayerState.idle;
     }
   }
-  
+
   /// 是否正在播放
-  bool get isPlaying => _audioHandler?.playbackState.valueOrNull?.playing ?? false;
+  bool get isPlaying =>
+      _audioHandler?.playbackState.valueOrNull?.playing ?? false;
 
   /// 下载状态 getters
   bool get isDownloading => _isDownloading;
@@ -197,25 +203,33 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   Future<void> play() async => await _audioHandler?.play();
-  
+
   Future<void> pause() async => await _audioHandler?.pause();
-  
+
   Future<void> stop() async => await _audioHandler?.stop();
-  
-  Future<void> seek(Duration position) async => await _audioHandler?.seek(position);
-  
+
+  Future<void> seek(Duration position) async =>
+      await _audioHandler?.seek(position);
+
   Future<void> skipToNext() async => await _audioHandler?.skipToNext();
-  
+
   Future<void> skipToPrevious() async => await _audioHandler?.skipToPrevious();
 
-  Future<void> skipToIndex(int index) async => await _audioHandler?.skipToIndex(index);
+  Future<void> skipToIndex(int index) async =>
+      await _audioHandler?.skipToIndex(index);
+
+  /// 切换播放模式
+  void cyclePlayMode() {
+    _audioHandler?.cyclePlayMode();
+    notifyListeners();
+  }
 
   // 兼容旧 API
   Future<void> pauseWithFade() async {
-     // 如果 AudioHandler 实现了 pauseWithFade，则调用；否则普通 pause
-     // 目前 BilibiliAudioHandler 没有暴露 pauseWithFade (它在内部是私有的或未定义接口)
-     // 检查 AudioHandler 是否有该方法，或者直接调用 pause
-     await _audioHandler?.pause();
+    // 如果 AudioHandler 实现了 pauseWithFade，则调用；否则普通 pause
+    // 目前 BilibiliAudioHandler 没有暴露 pauseWithFade (它在内部是私有的或未定义接口)
+    // 检查 AudioHandler 是否有该方法，或者直接调用 pause
+    await _audioHandler?.pause();
   }
 
   void setPlaylist(List<VideoModel> videos, {int startIndex = 0}) {

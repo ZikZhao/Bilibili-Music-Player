@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,18 @@ import '../models/play_url_info.dart';
 import '../models/video_detail_info.dart';
 import '../models/video_model.dart';
 import '../services/cache_manager.dart';
+
+/// 播放模式
+enum PlayMode {
+  /// 列表循环
+  loop,
+
+  /// 单曲循环
+  single,
+
+  /// 随机播放
+  shuffle,
+}
 
 /// B 站音频播放处理器
 ///
@@ -26,8 +39,14 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   /// 播放列表
   final List<VideoModel> _playlist = [];
 
+  /// 原始播放列表（用于随机播放恢复）
+  final List<VideoModel> _originalPlaylist = [];
+
   /// 当前播放索引
   int _currentIndex = -1;
+  
+  /// 播放模式
+  PlayMode _playMode = PlayMode.loop;
 
   /// Bilibili headers for media_kit
   static const Map<String, String> _bilibiliHeaders = {
@@ -86,7 +105,12 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     // 监听播放完成
     _player.stream.completed.listen((completed) {
       if (completed) {
-        if (hasNext) {
+        if (_playMode == PlayMode.single) {
+          // 单曲循环模式：重播当前
+          seek(Duration.zero);
+          play();
+        } else if (hasNext || _playMode == PlayMode.loop) {
+          // 列表循环或有下一首
           skipToNext();
         } else {
           stop();
@@ -99,6 +123,10 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     _player.stream.error.listen((error) {
        debugPrint('[AudioHandler] Player error: $error');
     });
+
+    // 初始化初始状态 (Critical for Android 11+ System Media Control)
+    // 确保系统立即知道这是一个活跃的媒体会话
+    _broadcastState();
   }
 
   /// 获取当前播放器实例
@@ -230,6 +258,60 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     );
   }
 
+  /// 获取当前播放模式
+  PlayMode get playMode => _playMode;
+
+  /// 切换播放模式
+  void cyclePlayMode() {
+    switch (_playMode) {
+      case PlayMode.loop:
+        _playMode = PlayMode.single;
+        break;
+      case PlayMode.single:
+        _playMode = PlayMode.shuffle;
+        break;
+      case PlayMode.shuffle:
+        _playMode = PlayMode.loop;
+        break;
+    }
+    _broadcastState();
+  }
+
+  /// 获取播放模式对应的 MediaControl
+  MediaControl _getModeControl() {
+    // 注意：resource 必须对应 drawable 文件夹下的 xml 文件名
+    switch (_playMode) {
+      case PlayMode.loop:
+        return const MediaControl(
+          androidIcon: 'drawable/ic_mode_loop',
+          label: 'Loop',
+          action: MediaAction.custom,
+          customAction: CustomMediaAction(name: 'custom_set_mode'),
+        );
+      case PlayMode.single:
+        return const MediaControl(
+          androidIcon: 'drawable/ic_mode_single',
+          label: 'Single',
+          action: MediaAction.custom,
+          customAction: CustomMediaAction(name: 'custom_set_mode'),
+        );
+      case PlayMode.shuffle:
+        return const MediaControl(
+          androidIcon: 'drawable/ic_mode_shuffle',
+          label: 'Shuffle',
+          action: MediaAction.custom,
+          customAction: CustomMediaAction(name: 'custom_set_mode'),
+        );
+    }
+  }
+
+  @override
+  Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
+    if (name == 'custom_set_mode') {
+      cyclePlayMode();
+    }
+  }
+
   /// 广播播放状态
   /// 
   /// 将 media_kit 的状态映射到 audio_service 的 PlaybackState
@@ -265,29 +347,30 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       processingState = AudioProcessingState.idle;
     }
 
+    final modeControl = _getModeControl();
+
     playbackState.add(
       playbackState.value.copyWith(
-        controls: [
-          MediaControl.skipToPrevious,
-          if (isPlaying) MediaControl.pause else MediaControl.play,
-          MediaControl.stop,
-          MediaControl.skipToNext,
-        ],
-        systemActions: const {
-          MediaAction.seek,
-          MediaAction.seekForward,
-          MediaAction.seekBackward,
-          MediaAction.skipToPrevious,
-          MediaAction.skipToNext,
-          MediaAction.play,
-          MediaAction.pause,
-          MediaAction.stop,
-        },
-        androidCompactActionIndices: const [0, 1, 3],
         processingState: processingState,
         playing: isPlaying,
         updatePosition: currentPosition,
         bufferedPosition: currentBuffered,
+        
+        controls: [
+          MediaControl.skipToPrevious,
+          if (isPlaying) MediaControl.pause else MediaControl.play,
+          MediaControl.skipToNext,
+          modeControl,
+        ],
+        
+        systemActions: const {
+          MediaAction.seek,
+          MediaAction.seekForward,
+          MediaAction.seekBackward,
+          MediaAction.playPause,
+          MediaAction.stop,
+        },
+        androidCompactActionIndices: const [0, 1, 2],
         speed: _player.state.rate,
         queueIndex: _currentIndex,
       ),
@@ -430,19 +513,41 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> skipToNext() async {
-    if (hasNext) {
+    if (_playlist.isEmpty) return;
+
+    if (_playMode == PlayMode.shuffle) {
+      // 随机播放
+      _currentIndex = Random().nextInt(_playlist.length);
+      await playVideo(_playlist[_currentIndex]);
+    } else if (hasNext) {
       _currentIndex++;
+      await playVideo(_playlist[_currentIndex]);
+    } else if (_playMode == PlayMode.loop) {
+      // 列表循环：回到开头
+      _currentIndex = 0;
       await playVideo(_playlist[_currentIndex]);
     }
   }
 
   @override
   Future<void> skipToPrevious() async {
+    if (_playlist.isEmpty) return;
+
     // 如果播放超过 3 秒，重播当前
     if (_player.state.position.inSeconds > 3) {
       await seek(Duration.zero);
+      return;
+    } 
+    
+    if (_playMode == PlayMode.shuffle) {
+       _currentIndex = Random().nextInt(_playlist.length);
+       await playVideo(_playlist[_currentIndex]);
     } else if (hasPrevious) {
       _currentIndex--;
+      await playVideo(_playlist[_currentIndex]);
+    } else if (_playMode == PlayMode.loop) {
+      // 列表循环：跳到最后一个
+      _currentIndex = _playlist.length - 1;
       await playVideo(_playlist[_currentIndex]);
     }
   }

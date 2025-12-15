@@ -6,20 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/video_model.dart';
+import '../../player/audio_handler.dart';
 import '../../providers/player_provider.dart';
 import '../widgets/playlist_sheet.dart';
-
-/// 播放模式
-enum PlayMode {
-  /// 列表循环
-  loop,
-
-  /// 单曲循环
-  single,
-
-  /// 随机播放
-  shuffle,
-}
 
 /// 音频播放器页面
 ///
@@ -39,9 +28,6 @@ class AudioPlayerPage extends StatefulWidget {
 
 class _AudioPlayerPageState extends State<AudioPlayerPage>
     with SingleTickerProviderStateMixin {
-  /// 播放模式
-  PlayMode _playMode = PlayMode.loop;
-
   /// 封面动画控制器
   late AnimationController _coverAnimController;
 
@@ -61,24 +47,16 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
   }
 
   /// 切换播放模式
-  void _togglePlayMode() {
-    setState(() {
-      switch (_playMode) {
-        case PlayMode.loop:
-          _playMode = PlayMode.single;
-        case PlayMode.single:
-          _playMode = PlayMode.shuffle;
-        case PlayMode.shuffle:
-          _playMode = PlayMode.loop;
-      }
-    });
+  void _togglePlayMode(PlayerProvider playerProvider) {
+    playerProvider.cyclePlayMode();
 
-    final modeName = switch (_playMode) {
+    final modeName = switch (playerProvider.playMode) {
       PlayMode.loop => '列表循环',
       PlayMode.single => '单曲循环',
       PlayMode.shuffle => '随机播放',
     };
 
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('已切换至 $modeName'),
@@ -89,8 +67,8 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
   }
 
   /// 获取播放模式图标
-  IconData _getPlayModeIcon() {
-    return switch (_playMode) {
+  IconData _getPlayModeIcon(PlayMode mode) {
+    return switch (mode) {
       PlayMode.loop => Icons.repeat_rounded,
       PlayMode.single => Icons.repeat_one_rounded,
       PlayMode.shuffle => Icons.shuffle_rounded,
@@ -431,12 +409,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
       children: [
         // 播放模式
         IconButton(
-          icon: Icon(_getPlayModeIcon()),
+          icon: Icon(_getPlayModeIcon(playerProvider.playMode)),
           iconSize: 24,
-          color: _playMode == PlayMode.loop
+          color: playerProvider.playMode == PlayMode.loop
               ? Colors.grey.shade400
               : colorScheme.primary,
-          onPressed: _togglePlayMode,
+          onPressed: () => _togglePlayMode(playerProvider),
         ),
 
         // 上一首
