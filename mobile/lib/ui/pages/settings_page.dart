@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../services/cache_manager.dart';
 
@@ -15,6 +16,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   // 播放设置（Mock）
   bool _autoPlay = true;
+  bool _enableFade = true;
   String _streamQuality = '高 (192K Hi-Res)';
 
   // 外观设置（Mock）
@@ -28,6 +30,8 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _loadCacheSize();
+    final settings = Hive.box('settings');
+    _enableFade = settings.get('enable_fade', defaultValue: true);
   }
 
   /// 加载缓存大小
@@ -61,6 +65,16 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: _streamQuality,
             icon: Icons.high_quality_rounded,
             onTap: () => _showQualityPicker(colorScheme),
+          ),
+          _buildSwitchTile(
+            title: '渐变播放',
+            subtitle: '暂停或开始时音量淡入淡出',
+            value: _enableFade,
+            icon: Icons.graphic_eq_rounded,
+            onChanged: (value) {
+              setState(() => _enableFade = value);
+              Hive.box('settings').put('enable_fade', value);
+            },
           ),
           _buildSwitchTile(
             title: '自动播放',

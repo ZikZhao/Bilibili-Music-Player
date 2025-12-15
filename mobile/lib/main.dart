@@ -18,6 +18,7 @@ Future<void> main() async {
   // 初始化 Hive
   await Hive.initFlutter();
   Hive.registerAdapter(VideoModelAdapter());
+  await Hive.openBox('settings');
 
   // 初始化 media_kit（支持 Windows/Linux/macOS）
   MediaKit.ensureInitialized();

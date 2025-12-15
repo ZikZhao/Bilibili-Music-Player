@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../api/bilibili_client.dart';
@@ -34,6 +35,17 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Referer': 'https://www.bilibili.com/',
   };
+
+  /// 渐变锁 - 已弃用，使用动态状态管理
+  // bool _isFading = false;
+  
+  /// 用户请求的播放状态
+  /// 
+  /// 如果不为 null，则强制覆盖底层播放器状态用于 UI 显示
+  bool? _userRequestedPlaying;
+  
+  /// 渐变计时器
+  Timer? _fadeTimer;
 
   BilibiliAudioHandler() {
     _init();
@@ -227,7 +239,8 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     Duration? duration,
     Duration? buffered,
   }) {
-    final isPlaying = playing ?? _player.state.playing;
+    // 优先使用用户请求的状态 (解决渐变时的状态闪烁)
+    final isPlaying = _userRequestedPlaying ?? playing ?? _player.state.playing;
     final currentPosition = position ?? _player.state.position;
     final currentBuffered = buffered ?? _player.state.buffer;
     // final totalDuration = duration ?? _player.state.duration;
@@ -281,11 +294,120 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     );
   }
 
-  @override
-  Future<void> play() => _player.play();
+  /// 执行带渐变的音量调整
+  /// 
+  /// [targetVolume] 目标音量 (0.0 - 100.0)
+  Future<void> _setVolumeWithFade(double targetVolume) async {
+    // 取消之前的渐变任务
+    _fadeTimer?.cancel();
+
+    final startVolume = _player.state.volume;
+    final delta = (targetVolume - startVolume).abs();
+    
+    // 如果差异很小，直接设置并结束
+    if (delta < 1.0) {
+      await _player.setVolume(targetVolume);
+      _onFadeComplete(targetVolume);
+      return;
+    }
+
+    // 计算总时长：全量渐变(0-100)给 500ms，部分渐变按比例缩减
+    // 比如 50 -> 0 只需要 250ms
+    const fullDurationMs = 500;
+    final durationMs = (fullDurationMs * (delta / 100)).toInt();
+    
+    // 至少执行一次
+    if (durationMs < 50) {
+       await _player.setVolume(targetVolume);
+      _onFadeComplete(targetVolume);
+      return;
+    }
+
+    final steps = (durationMs / 50).ceil();
+    final stepValue = (targetVolume - startVolume) / steps;
+    
+    int currentStep = 0;
+
+    _fadeTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) async {
+      currentStep++;
+      final newVolume = startVolume + (stepValue * currentStep);
+      
+      // 边界检查
+      bool finished = false;
+      if (stepValue > 0) { // 渐入
+        if (newVolume >= targetVolume) finished = true;
+      } else { // 渐出
+        if (newVolume <= targetVolume) finished = true;
+      }
+
+      if (finished || currentStep >= steps) {
+        timer.cancel();
+        await _player.setVolume(targetVolume);
+        _onFadeComplete(targetVolume);
+      } else {
+        await _player.setVolume(newVolume);
+      }
+    });
+  }
+
+  /// 渐变结束后的清理工作
+  Future<void> _onFadeComplete(double targetVolume) async {
+    if (targetVolume <= 0) {
+      // 只有音量归零时，才真正暂停底层播放器
+      await _player.pause();
+    } 
+    
+    // 恢复状态控制权给底层
+    _userRequestedPlaying = null;
+    
+    // 触发一次广播，确保 UI 与最终底层状态同步
+    _broadcastState();
+  }
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> play() async {
+    final settings = Hive.box('settings');
+    final enableFade = settings.get('enable_fade', defaultValue: true);
+
+    // 1. 立即响应用户意图
+    _userRequestedPlaying = true;
+    _broadcastState(); // 立即变暂停图标
+
+    if (!enableFade) {
+      _userRequestedPlaying = null;
+      await _player.setVolume(100);
+      return _player.play();
+    }
+
+    // 2. 确保底层开始播放 (静音或当前音量)
+    if (!_player.state.playing) {
+      // 如果之前是暂停的，可能音量还保留在暂停前的位置，或者被设为0了
+      // 无论是哪种，我们都从当前音量开始渐变到 100
+      await _player.play();
+    }
+
+    // 3. 执行渐变到 100
+    _setVolumeWithFade(100);
+  }
+
+  @override
+  Future<void> pause() async {
+    final settings = Hive.box('settings');
+    final enableFade = settings.get('enable_fade', defaultValue: true);
+
+    // 1. 立即响应用户意图
+    _userRequestedPlaying = false;
+    _broadcastState(); // 立即变播放图标
+
+    if (!enableFade) {
+      _userRequestedPlaying = null;
+      return _player.pause();
+    }
+
+    // 2. 执行渐变到 0
+    // 注意：不要先调用 _player.pause()，否则声音会骤停
+    _setVolumeWithFade(0);
+  }
 
   @override
   Future<void> stop() => _player.stop();

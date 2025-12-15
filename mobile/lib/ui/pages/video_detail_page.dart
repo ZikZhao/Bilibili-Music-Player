@@ -105,7 +105,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
       // MP4 格式包含视频+音频，直接播放即可
       await _player.open(
         Media(playUrl.url, httpHeaders: httpHeaders),
-        play: false, // 不自动播放
+        play: true, // 自动播放
       );
 
       setState(() {

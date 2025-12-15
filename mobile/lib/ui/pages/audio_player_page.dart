@@ -100,15 +100,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
   Widget build(BuildContext context) {
     return Consumer<PlayerProvider>(
       builder: (context, playerProvider, child) {
-        // 优先使用 Provider 中的当前视频，回退到初始视频
-        // 这解决了 Android 上 Provider 状态同步延迟的问题
         final video = playerProvider.currentVideo ?? widget.initialVideo;
 
         if (video == null) {
           return _buildEmptyState(context);
         }
 
-        // 使用 DraggableScrollableSheet 实现可拖拽的全屏效果
         return DraggableScrollableSheet(
           initialChildSize: 1.0,
           minChildSize: 0.5,
@@ -126,21 +123,39 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(20),
                 ),
-                child: Scaffold(
-                  extendBodyBehindAppBar: true,
-                  appBar: _buildAppBar(context),
-                  body: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // 模糊背景
-                      _buildBlurredBackground(video.cover),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Layer 1: 背景图
+                    Positioned.fill(
+                      child: _buildBlurredBackground(video.cover),
+                    ),
 
-                      // 主体内容
-                      SafeArea(
-                        child: _buildContent(context, playerProvider, video),
+                    // Layer 2: 内容层
+                    Material(
+                      color: Colors.transparent,
+                      child: Padding(
+                        // 2. 使用上面计算好的 effectiveTopPadding
+                        padding: EdgeInsets.only(
+                          top: MediaQueryData.fromView(
+                            View.of(context),
+                          ).padding.top,
+                        ),
+                        child: Column(
+                          children: [
+                            _buildCustomHeader(context),
+                            Expanded(
+                              child: _buildContent(
+                                context,
+                                playerProvider,
+                                video,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -199,21 +214,22 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
     );
   }
 
-  /// 构建 AppBar
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      title: const Text(
-        '正在播放',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      ),
-      centerTitle: true,
-      actions: [
+  /// 构建自定义 Header
+  Widget _buildCustomHeader(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        const Expanded(
+          child: Center(
+            child: Text(
+              '正在播放',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ),
         IconButton(
           icon: const Icon(Icons.more_vert_rounded),
           onPressed: () {
@@ -368,13 +384,6 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
               bufferedPosition: Duration.zero,
               duration: Duration.zero,
             );
-        
-        // Debug logs for UI
-        if (snapshot.hasData) {
-           debugPrint('[AudioPlayerPage] ProgressBar update - Pos: ${positionData.position}, Total: ${positionData.duration}');
-        } else {
-           debugPrint('[AudioPlayerPage] ProgressBar no data');
-        }
 
         // 缓冲进度：仅使用播放器的实际缓冲位置。对于完全本地/已缓存的文件，
         // 如果缓冲位置已达到时长，则显示为完整时长（100%）。
