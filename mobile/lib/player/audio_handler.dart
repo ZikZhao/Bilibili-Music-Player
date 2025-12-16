@@ -67,6 +67,24 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 初始化播放器监听
   Future<void> _init() async {
+    // Debug: 立即广播一个初始状态，用于测试通知栏
+    mediaItem.add(
+      const MediaItem(
+        id: 'debug_init',
+        title: 'Bilibili Music',
+        artist: 'Ready',
+        duration: Duration.zero,
+      ),
+    );
+    playbackState.add(
+      playbackState.value.copyWith(
+        processingState: AudioProcessingState.ready,
+        playing: false,
+        controls: [MediaControl.play],
+        systemActions: {MediaAction.play},
+      ),
+    );
+
     // Strict Rule 4: 确保初始化时配置 AudioOutput
     // 默认通常是正确的，但为了保险可以显式设置（media_kit 默认自动选择）
     // await _player.setAudioTrack(AudioTrack.auto());
@@ -95,6 +113,10 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
     _player.stream.buffer.listen((buffered) {
       _broadcastState(buffered: buffered);
+    });
+
+    _player.stream.buffering.listen((buffering) {
+      _broadcastState(buffering: buffering);
     });
 
     // 监听播放完成
@@ -164,10 +186,17 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       final targetVideo = _playlist[_currentIndex];
 
       // 2. 立即通知 UI 正在加载 (Strict Rule 3: 响应式)
+      // 保持与 _broadcastState 一致的按钮布局，避免 UI 跳变
+      final modeControl = _getModeControl();
       playbackState.add(
         playbackState.value.copyWith(
           processingState: AudioProcessingState.loading,
-          controls: [MediaControl.stop], // 加载时只显示停止
+          controls: [
+            MediaControl.skipToPrevious,
+            MediaControl.stop, // 加载中显示停止或暂停
+            MediaControl.skipToNext,
+            modeControl,
+          ],
         ),
       );
 
@@ -219,12 +248,12 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
       await _player.open(
         Media(
-          playPath!,
+          playPath,
           httpHeaders: isLocal ? null : _bilibiliHeaders, // 关键：网络请求必须带 Headers
         ),
         play: true, // 自动播放
       );
-      
+
       // Fix: 确保音量被恢复 (解决从详情页返回后音量为 0 的 bug)
       final settings = Hive.box('settings');
       final enableFade = settings.get('enable_fade', defaultValue: true);
@@ -330,12 +359,14 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   /// 将 media_kit 的状态映射到 audio_service 的 PlaybackState
   void _broadcastState({
     bool? playing,
+    bool? buffering,
     Duration? position,
     Duration? duration,
     Duration? buffered,
   }) {
     // 优先使用用户请求的状态 (解决渐变时的状态闪烁)
     final isPlaying = _userRequestedPlaying ?? playing ?? _player.state.playing;
+    final isBuffering = buffering ?? _player.state.buffering;
     final currentPosition = position ?? _player.state.position;
     final currentBuffered = buffered ?? _player.state.buffer;
     // final totalDuration = duration ?? _player.state.duration;
@@ -352,6 +383,8 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         !isPlaying &&
         currentPosition == Duration.zero) {
       processingState = AudioProcessingState.loading;
+    } else if (isBuffering) {
+      processingState = AudioProcessingState.buffering;
     } else if (isPlaying) {
       processingState = AudioProcessingState.ready;
     } else if (currentPosition > Duration.zero && !isPlaying) {

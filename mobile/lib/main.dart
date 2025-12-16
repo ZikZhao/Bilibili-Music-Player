@@ -27,8 +27,12 @@ Future<void> main() async {
   await CacheManager.instance.initialize();
 
   // 请求通知权限 (Android 13+)
-  if (await Permission.notification.isDenied) {
-    await Permission.notification.request();
+  final status = await Permission.notification.status;
+  debugPrint('[Main] Notification permission status: $status');
+  if (status.isDenied || status.isPermanentlyDenied) {
+    debugPrint('[Main] Requesting notification permission...');
+    final result = await Permission.notification.request();
+    debugPrint('[Main] Notification request result: $result');
   }
 
   // 创建并初始化 LibraryProvider

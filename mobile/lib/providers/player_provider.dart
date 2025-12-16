@@ -48,11 +48,11 @@ class PlayerProvider extends ChangeNotifier {
       _audioHandler = await AudioService.init<BilibiliAudioHandler>(
         builder: BilibiliAudioHandler.new,
         config: const AudioServiceConfig(
-          androidNotificationChannelId: 'com.bilibili.music.channel.audio.v2',
+          androidNotificationChannelId: 'com.bilibili.music.channel.audio.v4',
           androidNotificationChannelName: 'Bilibili Music Player',
           androidNotificationChannelDescription: 'Music playback controls',
           androidStopForegroundOnPause: false,
-          androidNotificationIcon: 'mipmap/ic_launcher',
+          androidNotificationIcon: 'drawable/ic_notification',
           androidShowNotificationBadge: true,
           // 优化: 限制封面图大小，避免 IPC 传输过大导致崩溃或更新延迟
           artDownscaleWidth: 300,
