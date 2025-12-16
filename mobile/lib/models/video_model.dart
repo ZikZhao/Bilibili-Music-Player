@@ -122,6 +122,23 @@ class VideoModel {
     return playCount.toString();
   }
 
+  /// 格式化时长（确保分钟和秒数都是两位数）
+  ///
+  /// 例如：
+  /// - 7:07 (7分7秒) -> "07:07"
+  /// - 1:07:07 (1小时7分7秒) -> "1:07:07"
+  String get formattedDuration {
+    final totalSeconds = durationSeconds;
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
   /// 时长秒数（从 "MM:SS" 或 "HH:MM:SS" 解析）
   int get durationSeconds {
     final parts = duration.split(':');

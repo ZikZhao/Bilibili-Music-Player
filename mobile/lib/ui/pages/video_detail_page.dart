@@ -52,6 +52,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   void initState() {
     super.initState();
 
+    // 进入详情页立即暂停背景音乐（带渐变）
+    context.read<PlayerProvider>().pause();
+
     // 初始化 media_kit 播放器
     _player = Player();
     _videoController = VideoController(_player);
@@ -60,15 +63,6 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     _playingSubscription = _player.stream.playing.listen((playing) {
       if (playing) {
         WakelockPlus.enable();
-        // 视频开始播放时，暂停全局音乐播放（带渐变）
-        // 使用 try-catch 避免在页面销毁时 context 不可用导致的异常
-        try {
-          if (mounted) {
-            context.read<PlayerProvider>().pause();
-          }
-        } catch (e) {
-          debugPrint('暂停背景音乐失败: $e');
-        }
       } else {
         WakelockPlus.disable();
       }
@@ -80,6 +74,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   @override
   void dispose() {
     _playingSubscription?.cancel();
+    // 确保释放前停止播放，释放音频焦点
+    _player.stop(); 
     _player.dispose();
     WakelockPlus.disable();
     super.dispose();
@@ -87,6 +83,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
   /// 加载视频数据
   Future<void> _loadVideoData() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -96,6 +93,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
       // 1. 获取视频详情（含 cid）
       final detail = await _client.fetchVideoInfo(widget.video.bvid);
 
+      if (!mounted) return;
       setState(() {
         _videoDetail = detail;
       });
@@ -107,6 +105,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         audioOnly: false, // 获取完整视频（MP4 格式，视频+音频合一）
       );
 
+      if (!mounted) return;
       setState(() {
         _playUrl = playUrl;
       });
@@ -124,15 +123,18 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         play: true, // 自动播放
       );
 
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
     } on BilibiliApiException catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorMessage = e.message;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _errorMessage = '加载失败: $e';

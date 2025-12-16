@@ -158,7 +158,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 Icon(
                   Icons.music_note_rounded,
                   size: 32,
-                  color: colorScheme.primary.withOpacity(0.3),
+                  color: colorScheme.primary.withValues(alpha: 0.3),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -357,7 +357,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.1),
+                color: colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(

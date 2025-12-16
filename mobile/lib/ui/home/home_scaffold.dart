@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../../providers/player_provider.dart';
 import '../pages/library_page.dart';
 import '../pages/search_page.dart';
 import '../pages/settings_page.dart';

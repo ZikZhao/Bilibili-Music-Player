@@ -177,8 +177,8 @@ class PlaylistSheet extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: isCurrentTrack
-                                            ? colorScheme.primary.withOpacity(
-                                                0.7,
+                                            ? colorScheme.primary.withValues(
+                                                alpha: 0.7,
                                               )
                                             : Colors.grey.shade500,
                                       ),

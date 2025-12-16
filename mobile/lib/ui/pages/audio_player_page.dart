@@ -331,7 +331,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.4),
+              color: Colors.black.withValues(alpha: 0.4),
               blurRadius: 30,
               offset: const Offset(0, 15),
             ),
@@ -422,9 +422,9 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           // 显示时间文本在进度条两侧，便于用户查看当前时间/总时长
           timeLabelLocation: TimeLabelLocation.sides,
           barHeight: 4,
-          baseBarColor: Colors.white.withOpacity(0.2),
+          baseBarColor: Colors.white.withValues(alpha: 0.2),
           progressBarColor: Theme.of(context).colorScheme.primary,
-          bufferedBarColor: Colors.white.withOpacity(0.3),
+          bufferedBarColor: Colors.white.withValues(alpha: 0.3),
           thumbColor: Theme.of(context).colorScheme.primary,
           thumbRadius: 6,
           timeLabelTextStyle: TextStyle(
@@ -494,7 +494,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: colorScheme.primary.withOpacity(0.4),
+                  color: colorScheme.primary.withValues(alpha: 0.4),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -512,8 +512,8 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
                           child: CircularProgressIndicator(
                             value: downloadProgress,
                             strokeWidth: 3,
-                            color: Colors.white.withOpacity(0.8),
-                            backgroundColor: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.8),
+                            backgroundColor: Colors.white.withValues(alpha: 0.2),
                           ),
                         )
                       else

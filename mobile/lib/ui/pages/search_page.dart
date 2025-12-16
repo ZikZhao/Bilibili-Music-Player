@@ -163,7 +163,7 @@ class _SearchPageState extends State<SearchPage> {
           Icon(
             Icons.search_rounded,
             size: 80,
-            color: colorScheme.primary.withOpacity(0.3),
+            color: colorScheme.primary.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
           Text(
@@ -373,7 +373,7 @@ class _SearchPageState extends State<SearchPage> {
             Icon(
               Icons.error_outline_rounded,
               size: 64,
-              color: colorScheme.error.withOpacity(0.7),
+              color: colorScheme.error.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             Text(

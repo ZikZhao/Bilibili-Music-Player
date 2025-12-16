@@ -7,8 +7,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../api/bilibili_client.dart';
-import '../models/play_url_info.dart';
-import '../models/video_detail_info.dart';
 import '../models/video_model.dart';
 import '../services/cache_manager.dart';
 
@@ -39,12 +37,9 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   /// 播放列表
   final List<VideoModel> _playlist = [];
 
-  /// 原始播放列表（用于随机播放恢复）
-  final List<VideoModel> _originalPlaylist = [];
-
   /// 当前播放索引
   int _currentIndex = -1;
-  
+
   /// 播放模式
   PlayMode _playMode = PlayMode.loop;
 
@@ -57,12 +52,12 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 渐变锁 - 已弃用，使用动态状态管理
   // bool _isFading = false;
-  
+
   /// 用户请求的播放状态
-  /// 
+  ///
   /// 如果不为 null，则强制覆盖底层播放器状态用于 UI 显示
   bool? _userRequestedPlaying;
-  
+
   /// 渐变计时器
   Timer? _fadeTimer;
 
@@ -74,7 +69,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> _init() async {
     // Strict Rule 4: 确保初始化时配置 AudioOutput
     // 默认通常是正确的，但为了保险可以显式设置（media_kit 默认自动选择）
-    // await _player.setAudioTrack(AudioTrack.auto()); 
+    // await _player.setAudioTrack(AudioTrack.auto());
 
     // 监听播放器状态流
     _player.stream.playing.listen((playing) {
@@ -93,7 +88,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       if (currentItem != null && duration != Duration.zero) {
         // 只有当时长确实改变且有效时才更新，避免死循环或无效更新
         if (currentItem.duration != duration) {
-           mediaItem.add(currentItem.copyWith(duration: duration));
+          mediaItem.add(currentItem.copyWith(duration: duration));
         }
       }
     });
@@ -118,10 +113,10 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         }
       }
     });
-    
+
     // 监听错误
     _player.stream.error.listen((error) {
-       debugPrint('[AudioHandler] Player error: $error');
+      debugPrint('[AudioHandler] Player error: $error');
     });
 
     // 初始化初始状态 (Critical for Android 11+ System Media Control)
@@ -169,11 +164,13 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       final targetVideo = _playlist[_currentIndex];
 
       // 2. 立即通知 UI 正在加载 (Strict Rule 3: 响应式)
-      playbackState.add(playbackState.value.copyWith(
-        processingState: AudioProcessingState.loading,
-        controls: [MediaControl.stop], // 加载时只显示停止
-      ));
-      
+      playbackState.add(
+        playbackState.value.copyWith(
+          processingState: AudioProcessingState.loading,
+          controls: [MediaControl.stop], // 加载时只显示停止
+        ),
+      );
+
       // 更新 MediaItem 基础信息
       _updateMediaItem(targetVideo);
 
@@ -183,8 +180,10 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       bool isLocal = false;
 
       // 检查缓存
-      final cachedPath = await CacheManager.instance.getAudioPath(targetVideo.bvid);
-      
+      final cachedPath = await CacheManager.instance.getAudioPath(
+        targetVideo.bvid,
+      );
+
       if (cachedPath != null) {
         debugPrint('[AudioHandler] 缓存命中: $cachedPath');
         playPath = cachedPath;
@@ -197,16 +196,16 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         // 获取视频详情（为了准确时长和 CID）
         final detail = await _client.fetchVideoInfo(targetVideo.bvid);
         duration = Duration(seconds: detail.duration);
-        
+
         // 更新播放列表中的详细信息
         _playlist[_currentIndex] = targetVideo.copyWith(
           duration: detail.formattedDuration,
         );
-        
+
         // 获取播放 URL
         final playUrl = await _client.fetchPlayUrl(detail.bvid, detail.cid);
         playPath = playUrl.url;
-        
+
         // 触发后台下载
         CacheManager.instance.downloadInBackground(playPath, targetVideo.bvid);
       }
@@ -216,33 +215,42 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
       // Strict Rule 2: 直接调用 _player.open，不要 stop()
       // Strict Rule 2: 确保 HTTP Headers 正确
-      if (playPath != null) {
-        debugPrint('[AudioHandler] 打开媒体资源: $playPath (Local: $isLocal)');
-        
-        await _player.open(
-          Media(
-            playPath,
-            httpHeaders: isLocal ? null : _bilibiliHeaders, // 关键：网络请求必须带 Headers
-          ),
-          play: true, // 自动播放
-        );
-        
-        debugPrint('[AudioHandler] 媒体资源已打开');
+      debugPrint('[AudioHandler] 打开媒体资源: $playPath (Local: $isLocal)');
+
+      await _player.open(
+        Media(
+          playPath!,
+          httpHeaders: isLocal ? null : _bilibiliHeaders, // 关键：网络请求必须带 Headers
+        ),
+        play: true, // 自动播放
+      );
+      
+      // Fix: 确保音量被恢复 (解决从详情页返回后音量为 0 的 bug)
+      final settings = Hive.box('settings');
+      final enableFade = settings.get('enable_fade', defaultValue: true);
+      if (enableFade) {
+        _setVolumeWithFade(100);
+      } else {
+        await _player.setVolume(100);
       }
 
+      debugPrint('[AudioHandler] 媒体资源已打开');
     } catch (e, stack) {
       debugPrint('[AudioHandler] 播放失败: $e');
       debugPrint(stack.toString());
-      playbackState.add(playbackState.value.copyWith(
-        processingState: AudioProcessingState.error,
-        errorMessage: e.toString(),
-      ));
+      playbackState.add(
+        playbackState.value.copyWith(
+          processingState: AudioProcessingState.error,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
   /// 更新 MediaItem
   void _updateMediaItem(VideoModel video, {Duration? duration}) {
-    final effectiveDuration = duration ??
+    final effectiveDuration =
+        duration ??
         (video.durationSeconds > 0
             ? Duration(seconds: video.durationSeconds)
             : null);
@@ -318,7 +326,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   /// 广播播放状态
-  /// 
+  ///
   /// 将 media_kit 的状态映射到 audio_service 的 PlaybackState
   void _broadcastState({
     bool? playing,
@@ -337,13 +345,13 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     // 但这里简化处理，主要依赖 playing 状态。
     // 如果需要更精确的 buffering 状态，可以监听 _player.stream.buffering
     AudioProcessingState processingState;
-    
+
     // 如果正在加载（通过 playVideo 设置的 loading 状态），保持 loading
     // 直到播放器真正开始播放或缓冲
-    if (playbackState.value.processingState == AudioProcessingState.loading && 
-        !isPlaying && 
+    if (playbackState.value.processingState == AudioProcessingState.loading &&
+        !isPlaying &&
         currentPosition == Duration.zero) {
-        processingState = AudioProcessingState.loading;
+      processingState = AudioProcessingState.loading;
     } else if (isPlaying) {
       processingState = AudioProcessingState.ready;
     } else if (currentPosition > Duration.zero && !isPlaying) {
@@ -361,7 +369,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         playing: isPlaying,
         updatePosition: currentPosition,
         bufferedPosition: currentBuffered,
-        
+
         // 按钮布局 (Controls):
         // 核心目标：实现“左图右文 + 底部4个按钮”的布局
         // 顺序：[上一曲] [播放/暂停] [下一曲] [播放模式]
@@ -371,7 +379,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
           MediaControl.skipToNext,
           modeControl, // 第 4 个按钮
         ],
-        
+
         systemActions: const {
           MediaAction.seek,
           MediaAction.seekForward,
@@ -388,7 +396,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   /// 执行带渐变的音量调整
-  /// 
+  ///
   /// [targetVolume] 目标音量 (0.0 - 100.0)
   Future<void> _setVolumeWithFade(double targetVolume) async {
     // 取消之前的渐变任务
@@ -396,7 +404,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
     final startVolume = _player.state.volume;
     final delta = (targetVolume - startVolume).abs();
-    
+
     // 如果差异很小，直接设置并结束
     if (delta < 1.0) {
       await _player.setVolume(targetVolume);
@@ -407,10 +415,10 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     // 计算总时长：增加到 800ms 让渐变更平滑
     const fullDurationMs = 800;
     final durationMs = (fullDurationMs * (delta / 100)).toInt();
-    
+
     // 至少执行一次
     if (durationMs < 50) {
-       await _player.setVolume(targetVolume);
+      await _player.setVolume(targetVolume);
       _onFadeComplete(targetVolume);
       return;
     }
@@ -419,27 +427,29 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     int currentStep = 0;
     final isFadeOut = targetVolume < startVolume;
 
-    _fadeTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) async {
+    _fadeTimer = Timer.periodic(const Duration(milliseconds: 50), (
+      timer,
+    ) async {
       currentStep++;
       final progress = currentStep / steps; // 0.0 -> 1.0
-      
+
       double newVolume;
       if (isFadeOut) {
         // 渐出：使用抛物线曲线 (t^2)，使音量在结束时下降更平缓，避免突然切断的感觉
         // t 从 1.0 降到 0.0
         final t = 1.0 - progress;
         // factor 从 1.0 降到 0.0 (非线性)
-        final factor = t * t; 
+        final factor = t * t;
         newVolume = targetVolume + (startVolume - targetVolume) * factor;
       } else {
         // 渐入：保持线性或使用 sqrt
         newVolume = startVolume + (targetVolume - startVolume) * progress;
       }
-      
+
       // 边界检查
       if (newVolume < 0) newVolume = 0;
       if (newVolume > 100) newVolume = 100;
-      
+
       // 检查是否结束
       bool finished = currentStep >= steps;
       // 额外的容错检查
@@ -461,11 +471,11 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     if (targetVolume <= 0) {
       // 只有音量归零时，才真正暂停底层播放器
       await _player.pause();
-    } 
-    
+    }
+
     // 恢复状态控制权给底层
     _userRequestedPlaying = null;
-    
+
     // 触发一次广播，确保 UI 与最终底层状态同步
     _broadcastState();
   }
@@ -547,11 +557,11 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     if (_player.state.position.inSeconds > 3) {
       await seek(Duration.zero);
       return;
-    } 
-    
+    }
+
     if (_playMode == PlayMode.shuffle) {
-       _currentIndex = Random().nextInt(_playlist.length);
-       await playVideo(_playlist[_currentIndex]);
+      _currentIndex = Random().nextInt(_playlist.length);
+      await playVideo(_playlist[_currentIndex]);
     } else if (hasPrevious) {
       _currentIndex--;
       await playVideo(_playlist[_currentIndex]);
@@ -561,13 +571,13 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       await playVideo(_playlist[_currentIndex]);
     }
   }
-  
+
   // 辅助方法：清空/设置播放列表等
-  
+
   void setPlaylist(List<VideoModel> videos, {int startIndex = 0}) {
     _playlist.clear();
     _playlist.addAll(videos);
-    
+
     // 只是更新列表，不立即播放（除非 caller 随后调用 playVideo）
     // 但为了 UI 显示，可以更新 index
     if (startIndex >= 0 && startIndex < videos.length) {
@@ -575,7 +585,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       // 预先更新 UI 显示
       _updateMediaItem(videos[startIndex]);
     }
-    
+
     _updateQueue();
   }
 
@@ -597,7 +607,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     }
     _updateQueue();
   }
-  
+
   void clearPlaylist() {
     _playlist.clear();
     _currentIndex = -1;
@@ -613,12 +623,18 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   void _updateQueue() {
-    queue.add(_playlist.map((v) => MediaItem(
-      id: v.bvid,
-      title: v.title,
-      artist: v.author,
-      artUri: Uri.parse(v.cover),
-    )).toList());
+    queue.add(
+      _playlist
+          .map(
+            (v) => MediaItem(
+              id: v.bvid,
+              title: v.title,
+              artist: v.author,
+              artUri: Uri.parse(v.cover),
+            ),
+          )
+          .toList(),
+    );
   }
 
   Future<void> dispose() async {
