@@ -19,8 +19,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _enableFade = true;
   String _streamQuality = '高 (192K Hi-Res)';
 
-  // 外观设置（Mock）
-  bool _darkMode = true;
+  // 外观设置
+  String _themeMode = 'system';
 
   // 缓存大小
   String _cacheSize = '计算中...';
@@ -32,6 +32,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadCacheSize();
     final settings = Hive.box('settings');
     _enableFade = settings.get('enable_fade', defaultValue: true);
+    _themeMode = settings.get('theme_mode', defaultValue: 'system');
   }
 
   /// 加载缓存大小
@@ -47,134 +48,169 @@ class _SettingsPageState extends State<SettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          '设置',
-          style: TextStyle(
-            color: colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-      body: ListView(
-        children: [
-          // ========== 播放设置 ==========
-          _buildSectionHeader('播放', colorScheme),
-          _buildListTile(
-            title: '音频质量',
-            subtitle: _streamQuality,
-            icon: Icons.high_quality_rounded,
-            onTap: () => _showQualityPicker(colorScheme),
-          ),
-          _buildSwitchTile(
-            title: '渐变播放',
-            subtitle: '暂停或开始时音量淡入淡出',
-            value: _enableFade,
-            icon: Icons.graphic_eq_rounded,
-            onChanged: (value) {
-              setState(() => _enableFade = value);
-              Hive.box('settings').put('enable_fade', value);
-            },
-          ),
-          _buildSwitchTile(
-            title: '自动播放',
-            subtitle: '收藏列表点击后自动开始播放',
-            value: _autoPlay,
-            icon: Icons.play_circle_outline_rounded,
-            onChanged: (value) {
-              setState(() => _autoPlay = value);
-            },
-          ),
-
-          const SizedBox(height: 8),
-
-          // ========== 外观设置 ==========
-          _buildSectionHeader('外观', colorScheme),
-          _buildSwitchTile(
-            title: '深色模式',
-            subtitle: '使用深色主题（当前已锁定）',
-            value: _darkMode,
-            icon: Icons.dark_mode_rounded,
-            onChanged: (value) {
-              // Mock: 仅切换状态，实际主题不变
-              setState(() => _darkMode = value);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('主题切换功能开发中'),
-                  duration: Duration(seconds: 1),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar.medium(
+            pinned: true,
+            expandedHeight: 120,
+            flexibleSpace: FlexibleSpaceBar(
+              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
+              title: const Text(
+                '设置',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
                 ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 8),
-
-          // ========== 数据与存储 ==========
-          _buildSectionHeader('数据与存储', colorScheme),
-          ListTile(
-            leading: const Icon(Icons.folder_rounded),
-            title: const Text('清除缓存'),
-            subtitle: Text(
-              '已使用: $_cacheSize',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
+              background: Container(color: colorScheme.surface),
             ),
-            trailing: _isClearing
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(Icons.delete_outline_rounded, color: colorScheme.error),
-            onTap: _isClearing ? null : _showClearCacheDialog,
+            backgroundColor: colorScheme.surface,
+            scrolledUnderElevation: 0,
+            surfaceTintColor: Colors.transparent,
           ),
+          SliverList(
+            delegate: SliverChildListDelegate([
+              // ========== 播放设置 ==========
+              _buildSectionHeader('播放', colorScheme),
+              _buildListTile(
+                title: '音频质量',
+                subtitle: _streamQuality,
+                icon: Icons.high_quality_rounded,
+                onTap: () => _showQualityPicker(colorScheme),
+              ),
+              _buildSwitchTile(
+                title: '渐变播放',
+                subtitle: '暂停或开始时音量淡入淡出',
+                value: _enableFade,
+                icon: Icons.graphic_eq_rounded,
+                onChanged: (value) {
+                  setState(() => _enableFade = value);
+                  Hive.box('settings').put('enable_fade', value);
+                },
+              ),
+              _buildSwitchTile(
+                title: '自动播放',
+                subtitle: '收藏列表点击后自动开始播放',
+                value: _autoPlay,
+                icon: Icons.play_circle_outline_rounded,
+                onChanged: (value) {
+                  setState(() => _autoPlay = value);
+                },
+              ),
 
-          const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-          // ========== 关于 ==========
-          _buildSectionHeader('关于', colorScheme),
-          _buildListTile(
-            title: '版本',
-            subtitle: 'Bilibili Music Player v0.2.0',
-            icon: Icons.info_outline_rounded,
-            onTap: _showAboutDialog,
-          ),
-          _buildListTile(
-            title: '开源许可',
-            subtitle: 'MIT License',
-            icon: Icons.code_rounded,
-            onTap: () {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('开源许可页面开发中')));
-            },
-          ),
-
-          const SizedBox(height: 32),
-
-          // 版权信息
-          Center(
-            child: Column(
-              children: [
-                Icon(
-                  Icons.music_note_rounded,
-                  size: 32,
-                  color: colorScheme.primary.withValues(alpha: 0.3),
+              // ========== 外观设置 ==========
+              _buildSectionHeader('外观', colorScheme),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
+                        value: 'system',
+                        label: Text('跟随系统'),
+                        icon: Icon(Icons.brightness_auto_rounded),
+                      ),
+                      ButtonSegment(
+                        value: 'light',
+                        label: Text('亮色'),
+                        icon: Icon(Icons.wb_sunny_rounded),
+                      ),
+                      ButtonSegment(
+                        value: 'dark',
+                        label: Text('深色'),
+                        icon: Icon(Icons.dark_mode_rounded),
+                      ),
+                    ],
+                    selected: {_themeMode},
+                    onSelectionChanged: (Set<String> newSelection) {
+                      setState(() {
+                        _themeMode = newSelection.first;
+                      });
+                      Hive.box('settings').put('theme_mode', _themeMode);
+                    },
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.comfortable,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      side: WidgetStateProperty.all(
+                        BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '© 2024 Bilibili Music Player',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Made with ♥ using Flutter',
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
+              ),
 
-          const SizedBox(height: 32),
+              const SizedBox(height: 8),
+
+              // ========== 数据与存储 ==========
+              _buildSectionHeader('数据与存储', colorScheme),
+              ListTile(
+                leading: const Icon(Icons.folder_rounded),
+                title: const Text('清除缓存'),
+                subtitle: Text(
+                  '已使用: $_cacheSize',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                ),
+                trailing: _isClearing
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(Icons.delete_outline_rounded, color: colorScheme.error),
+                onTap: _isClearing ? null : _showClearCacheDialog,
+              ),
+
+              const SizedBox(height: 8),
+
+              // ========== 关于 ==========
+              _buildSectionHeader('关于', colorScheme),
+              _buildListTile(
+                title: '版本',
+                subtitle: 'Bilibili Music Player v0.2.0',
+                icon: Icons.info_outline_rounded,
+                onTap: _showAboutDialog,
+              ),
+              _buildListTile(
+                title: '开源许可',
+                subtitle: 'MIT License',
+                icon: Icons.code_rounded,
+                onTap: () {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('开源许可页面开发中')));
+                },
+              ),
+
+              const SizedBox(height: 32),
+
+              // 版权信息
+              Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.music_note_rounded,
+                      size: 32,
+                      color: colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '© 2024 Bilibili Music Player',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Made with ♥ using Flutter',
+                      style: TextStyle(color: Colors.grey.shade700, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+            ]),
+          ),
         ],
       ),
     );
@@ -347,71 +383,58 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// 显示关于对话框
   void _showAboutDialog() {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showDialog<void>(
+    showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('关于', textAlign: TextAlign.center),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Logo
+              Icon(
                 Icons.music_note_rounded,
-                color: colorScheme.primary,
-                size: 24,
+                size: 64,
+                color: Theme.of(context).colorScheme.primary,
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
+              const SizedBox(height: 16),
+              
+              // App Name
+              const Text(
                 'Bilibili Music Player',
-                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'v0.2.0',
-              style: TextStyle(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
+              
+              const SizedBox(height: 8),
+              
+              // Version
+              Text(
+                'v0.2.0',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 14,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '一个简洁优雅的 Bilibili 音频播放器',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '• 搜索 B 站视频并提取音频\n'
-              '• 支持收藏与本地缓存\n'
-              '• 后台播放与系统媒体控制\n'
-              '• 跨平台支持 (Android/Windows)',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade400,
-                height: 1.5,
+              
+              const SizedBox(height: 16),
+              
+              // Description
+              const Text(
+                '一个基于 Flutter 的第三方 Bilibili 音乐播放器。\n仅供学习交流使用。',
+                textAlign: TextAlign.center,
+                style: TextStyle(height: 1.5),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
+            ],
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

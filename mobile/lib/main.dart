@@ -69,12 +69,25 @@ class BilibiliMusicApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: libraryProvider),
         ChangeNotifierProvider.value(value: playerProvider),
       ],
-      child: MaterialApp(
-        title: 'Bilibili Music',
-        debugShowCheckedModeBanner: false,
-        themeMode: ThemeMode.dark,
-        darkTheme: AppTheme.darkTheme,
-        home: const HomeScaffold(),
+      child: ValueListenableBuilder<Box>(
+        valueListenable: Hive.box('settings').listenable(keys: ['theme_mode']),
+        builder: (context, box, _) {
+          final modeStr = box.get('theme_mode', defaultValue: 'system');
+          final themeMode = switch (modeStr) {
+            'light' => ThemeMode.light,
+            'dark' => ThemeMode.dark,
+            _ => ThemeMode.system,
+          };
+
+          return MaterialApp(
+            title: 'Bilibili Music',
+            debugShowCheckedModeBanner: false,
+            themeMode: themeMode,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            home: const HomeScaffold(),
+          );
+        },
       ),
     );
   }

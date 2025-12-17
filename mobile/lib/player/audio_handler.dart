@@ -230,7 +230,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
       await _player.open(
         Media(
-          playPath!,
+          playPath,
           httpHeaders: isLocal ? null : AppConstants.bilibiliHeaders, // 关键：网络请求必须带 Headers
         ),
         play: true, // 自动播放

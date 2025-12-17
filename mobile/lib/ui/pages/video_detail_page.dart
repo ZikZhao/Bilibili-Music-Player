@@ -155,9 +155,6 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
               ? '已添加「${widget.video.title}」到收藏'
               : '已从收藏中移除「${widget.video.title}」',
         ),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -301,6 +298,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                   onPressed: () => Navigator.of(context).pop(),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
+                  color: colorScheme.onSurface,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -312,9 +310,10 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                     },
                     child: Text(
                       detail?.title ?? widget.video.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
                       ),
                       maxLines: _isDescExpanded ? null : 2,
                       overflow: _isDescExpanded ? null : TextOverflow.ellipsis,
@@ -338,12 +337,12 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
             // 简介
             if (detail != null && detail.desc.isNotEmpty) ...[
-              const Text(
+              Text(
                 '简介',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white70,
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 8),
@@ -355,9 +354,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                 },
                 child: Text(
                   detail.desc,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white60,
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                     height: 1.5,
                   ),
                   maxLines: _isDescExpanded ? null : 3,
@@ -400,7 +399,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                   const SizedBox(width: 8),
                   Text(
                     _playUrl!.format.toUpperCase(),
-                    style: const TextStyle(fontSize: 12, color: Colors.white54),
+                    style: TextStyle(fontSize: 12, color: colorScheme.outline),
                   ),
                 ],
               ),
@@ -421,7 +420,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         // 头像
         CircleAvatar(
           radius: 20,
-          backgroundColor: Colors.grey[800],
+          backgroundColor: colorScheme.surfaceContainerHighest,
           backgroundImage: owner != null && owner.face.isNotEmpty
               ? CachedNetworkImageProvider(
                   owner.face,
@@ -429,7 +428,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
                 )
               : null,
           child: owner == null || owner.face.isEmpty
-              ? const Icon(Icons.person, color: Colors.white54)
+              ? Icon(Icons.person, color: colorScheme.outline)
               : null,
         ),
 
@@ -439,7 +438,11 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         Expanded(
           child: Text(
             owner?.name ?? widget.video.author,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurface,
+            ),
           ),
         ),
 
@@ -491,12 +494,16 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
   }
 
   Widget _buildStatItem(IconData icon, String text) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: Colors.white54),
+        Icon(icon, size: 16, color: colorScheme.outline),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(fontSize: 13, color: Colors.white54)),
+        Text(
+          text,
+          style: TextStyle(fontSize: 13, color: colorScheme.outline),
+        ),
       ],
     );
   }

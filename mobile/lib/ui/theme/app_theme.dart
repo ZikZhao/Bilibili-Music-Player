@@ -23,6 +23,9 @@ class AppTheme {
         backgroundColor: AppColors.surface,
         elevation: 0,
         centerTitle: true,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: AppColors.onSurface,
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.surface,
@@ -55,6 +58,108 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
         ),
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return AppColors.bilibiliPink;
+            }
+            return Colors.transparent;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.white;
+            }
+            return AppColors.onSurface;
+          }),
+          iconColor: WidgetStateProperty.resolveWith<Color>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.white;
+            }
+            return AppColors.onSurface;
+          }),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get lightTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      textTheme: GoogleFonts.notoSansScTextTheme(
+        ThemeData.light().textTheme,
+      ),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.bilibiliPink,
+        brightness: Brightness.light,
+        primary: AppColors.bilibiliPink,
+        // 保持一些品牌色一致性
+        secondary: AppColors.bilibiliBlue,
+      ),
+      scaffoldBackgroundColor: const Color(0xFFF9F9F9), // 柔和的浅灰背景
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFFF9F9F9),
+        elevation: 0,
+        centerTitle: true,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        foregroundColor: Colors.black, // 统一标题颜色为黑
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: AppColors.bilibiliPink,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+      ),
+      cardTheme: const CardThemeData(
+        color: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.grey[100],
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide.none,
+        ),
+        hintStyle: TextStyle(color: Colors.grey[400]),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF333333), // 亮色模式下用深色背景，对比度高
+        contentTextStyle: const TextStyle(color: Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return AppColors.bilibiliPink;
+            }
+            return Colors.transparent;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.white;
+            }
+            return Colors.black;
+          }),
+          iconColor: WidgetStateProperty.resolveWith<Color>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.white;
+            }
+            return Colors.black;
+          }),
+        ),
       ),
     );
   }

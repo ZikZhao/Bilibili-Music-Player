@@ -111,7 +111,7 @@ class LibraryPage extends StatelessWidget {
 
   Widget _buildFavoritesList(BuildContext context, List<VideoModel> favorites) {
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.only(top: 16, bottom: 16, left: 16, right: 16),
       itemCount: favorites.length,
       itemBuilder: (context, index) {
         final video = favorites[index];
