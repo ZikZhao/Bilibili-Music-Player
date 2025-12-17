@@ -317,31 +317,37 @@ class _SearchPageState extends State<SearchPage> {
       return _buildNoResultsState(colorScheme);
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: provider.results.length + (provider.hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == provider.results.length) {
-          // 加载更多指示器
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          );
-        }
-
-        final video = provider.results[index];
-        return VideoResultCard(
-          video: video,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => VideoDetailPage(video: video),
-              ),
-            );
-          },
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        await provider.refresh();
       },
+      child: ListView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: provider.results.length + (provider.hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == provider.results.length) {
+            // 加载更多指示器
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          }
+
+          final video = provider.results[index];
+          return VideoResultCard(
+            video: video,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => VideoDetailPage(video: video),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 

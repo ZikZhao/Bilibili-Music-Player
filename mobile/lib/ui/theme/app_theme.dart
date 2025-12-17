@@ -47,6 +47,15 @@ class AppTheme {
         hintStyle: TextStyle(color: Colors.grey[400]),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16),
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.surfaceContainerHighest,
+        contentTextStyle: const TextStyle(color: Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
     );
   }
 }

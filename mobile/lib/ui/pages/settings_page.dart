@@ -367,7 +367,12 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             const SizedBox(width: 12),
-            const Text('Bilibili Music Player'),
+            Expanded(
+              child: Text(
+                'Bilibili Music Player',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: Column(

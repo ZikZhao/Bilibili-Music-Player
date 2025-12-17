@@ -153,6 +153,29 @@ class SearchProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 刷新当前搜索结果
+  Future<void> refresh() async {
+    if (_currentKeyword.trim().isEmpty) return;
+
+    // 不改变状态为 searching，以免清空列表导致 RefreshIndicator 消失
+    // 也不清空 _results，保留当前显示直到新数据回来
+    _currentPage = 1;
+
+    try {
+      final result = await _client.searchVideos(_currentKeyword);
+      _results = result.videos;
+      _hasMore = result.hasMore;
+      _state = SearchState.showingResults;
+      _errorMessage = null;
+    } catch (e) {
+      debugPrint('Refresh failed: $e');
+      // 刷新失败不改变状态，仅在控制台记录，或者可以抛出异常供 UI 处理
+      rethrow;
+    }
+
+    notifyListeners();
+  }
+
   /// 加载更多结果
   Future<void> loadMore() async {
     if (!_hasMore || _state == SearchState.searching) return;
@@ -199,46 +222,30 @@ class SearchProvider extends ChangeNotifier {
 
   // ==================== 私有方法 ====================
 
-  /// 获取搜索建议
   Future<void> _fetchSuggestions(String keyword) async {
-    // 状态已经在 onInputChanged 中设置为 loadingSuggestions
-
+    if (keyword.isEmpty) return;
     try {
       final suggestions = await _client.fetchSuggestions(keyword);
-
-      // 检查关键词是否已改变（用户继续输入）
-      // 或者当前正在搜索/显示结果（用户已经提交了搜索）
-      if (_currentKeyword != keyword || 
-          _state == SearchState.searching || 
-          _state == SearchState.showingResults) {
-        return; // 忽略过时的请求结果
+      // 只有当关键词仍匹配时才更新（防止旧请求覆盖新请求）
+      if (_currentKeyword == keyword) {
+        _suggestions = suggestions;
+        _state = SearchState.showingSuggestions;
       }
-
-      _suggestions = suggestions;
-      _state = suggestions.isEmpty
-          ? SearchState.idle
-          : SearchState.showingSuggestions;
     } catch (e) {
-      // 如果正在搜索，不要重置状态
-      if (_state == SearchState.searching || _state == SearchState.showingResults) {
-        return;
-      }
-      _suggestions = [];
-      _state = SearchState.idle;
+      // ignore error
+      debugPrint('Fetch suggestions error: $e');
     }
-
     notifyListeners();
   }
 
-  /// 添加到搜索历史
   void _addToHistory(String keyword) {
-    // 移除已存在的相同关键词
-    _history.remove(keyword);
-    // 添加到开头
-    _history.insert(0, keyword);
-    // 限制历史数量
-    if (_history.length > 20) {
-      _history = _history.sublist(0, 20);
+    if (_history.contains(keyword)) {
+      _history.remove(keyword);
     }
+    _history.insert(0, keyword);
+    if (_history.length > 10) {
+      _history.removeLast();
+    }
+    // TODO: Save history to local storage
   }
 }
