@@ -129,9 +129,6 @@ class _SearchPageState extends State<SearchPage> {
       case SearchState.idle:
         return _buildIdleState(provider, colorScheme);
 
-      case SearchState.loadingSuggestions:
-        return _buildSuggestionsLoading(colorScheme);
-
       case SearchState.showingSuggestions:
         return _buildSuggestionsList(provider, colorScheme);
 
@@ -224,26 +221,6 @@ class _SearchPageState extends State<SearchPage> {
           }).toList(),
         ),
       ],
-    );
-  }
-
-  /// 建议加载中
-  Widget _buildSuggestionsLoading(ColorScheme colorScheme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(strokeWidth: 2),
-            const SizedBox(height: 16),
-            Text(
-              '正在获取搜索建议...',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

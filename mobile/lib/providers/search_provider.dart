@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../api/bilibili_client.dart';
 import '../models/suggestion_model.dart';
@@ -10,9 +11,6 @@ import '../models/video_model.dart';
 enum SearchState {
   /// 初始状态
   idle,
-
-  /// 加载建议中
-  loadingSuggestions,
 
   /// 搜索中
   searching,
@@ -79,7 +77,10 @@ class SearchProvider extends ChangeNotifier {
   // ==================== 构造 ====================
 
   SearchProvider({BilibiliClient? client})
-    : _client = client ?? BilibiliClient();
+    : _client = client ?? BilibiliClient() {
+    debugPrint('SearchProvider initialized');
+    _loadHistory();
+  }
 
   @override
   void dispose() {
@@ -106,9 +107,12 @@ class SearchProvider extends ChangeNotifier {
       return;
     }
 
-    // 立即显示加载状态（提升用户体验）
-    if (_state != SearchState.loadingSuggestions) {
-      _state = SearchState.loadingSuggestions;
+    // 如果当前是在展示结果或错误状态，切换回初始状态以显示历史记录
+    // 如果当前已有建议，保持显示旧建议，直到新建议加载完成
+    if (_state == SearchState.showingResults ||
+        _state == SearchState.searching ||
+        _state == SearchState.error) {
+      _state = SearchState.idle;
       notifyListeners();
     }
 
@@ -137,7 +141,7 @@ class SearchProvider extends ChangeNotifier {
     notifyListeners();
 
     // 添加到搜索历史
-    _addToHistory(keyword);
+    await _addToHistory(keyword);
 
     try {
       final result = await _client.searchVideos(keyword);
@@ -209,18 +213,41 @@ class SearchProvider extends ChangeNotifier {
   }
 
   /// 清空搜索历史
-  void clearHistory() {
+  Future<void> clearHistory() async {
     _history = [];
+    await _saveHistory();
     notifyListeners();
   }
 
   /// 从历史中删除某项
-  void removeFromHistory(String keyword) {
+  Future<void> removeFromHistory(String keyword) async {
     _history.remove(keyword);
+    await _saveHistory();
     notifyListeners();
   }
 
   // ==================== 私有方法 ====================
+
+  void _loadHistory() {
+    try {
+      final box = Hive.box('settings');
+      final history = box.get('search_history', defaultValue: <String>[]);
+      if (history is List) {
+        _history = history.cast<String>().toList();
+      }
+    } catch (e) {
+      debugPrint('Error loading search history: $e');
+    }
+  }
+
+  Future<void> _saveHistory() async {
+    try {
+      final box = Hive.box('settings');
+      await box.put('search_history', _history);
+    } catch (e) {
+      debugPrint('Error saving search history: $e');
+    }
+  }
 
   Future<void> _fetchSuggestions(String keyword) async {
     if (keyword.isEmpty) return;
@@ -238,7 +265,7 @@ class SearchProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _addToHistory(String keyword) {
+  Future<void> _addToHistory(String keyword) async {
     if (_history.contains(keyword)) {
       _history.remove(keyword);
     }
@@ -246,6 +273,6 @@ class SearchProvider extends ChangeNotifier {
     if (_history.length > 10) {
       _history.removeLast();
     }
-    // TODO: Save history to local storage
+    await _saveHistory();
   }
 }
