@@ -67,24 +67,6 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// 初始化播放器监听
   Future<void> _init() async {
-    // Debug: 立即广播一个初始状态，用于测试通知栏
-    mediaItem.add(
-      const MediaItem(
-        id: 'debug_init',
-        title: 'Bilibili Music',
-        artist: 'Ready',
-        duration: Duration.zero,
-      ),
-    );
-    playbackState.add(
-      playbackState.value.copyWith(
-        processingState: AudioProcessingState.ready,
-        playing: false,
-        controls: [MediaControl.play],
-        systemActions: {MediaAction.play},
-      ),
-    );
-
     // Strict Rule 4: 确保初始化时配置 AudioOutput
     // 默认通常是正确的，但为了保险可以显式设置（media_kit 默认自动选择）
     // await _player.setAudioTrack(AudioTrack.auto());
@@ -92,10 +74,6 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     // 监听播放器状态流
     _player.stream.playing.listen((playing) {
       _broadcastState(playing: playing);
-    });
-
-    _player.stream.position.listen((position) {
-      _broadcastState(position: position);
     });
 
     _player.stream.duration.listen((duration) {
@@ -187,7 +165,6 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
 
       // 2. 立即通知 UI 正在加载 (Strict Rule 3: 响应式)
       // 保持与 _broadcastState 一致的按钮布局，避免 UI 跳变
-      final modeControl = _getModeControl();
       playbackState.add(
         playbackState.value.copyWith(
           processingState: AudioProcessingState.loading,
@@ -195,7 +172,6 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
             MediaControl.skipToPrevious,
             MediaControl.stop, // 加载中显示停止或暂停
             MediaControl.skipToNext,
-            modeControl,
           ],
         ),
       );
@@ -284,15 +260,16 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
             ? Duration(seconds: video.durationSeconds)
             : null);
 
-    mediaItem.add(
-      MediaItem(
-        id: video.bvid,
-        title: video.title,
-        artist: video.author,
-        artUri: Uri.parse(video.cover),
-        duration: effectiveDuration,
-      ),
+    final item = MediaItem(
+      id: video.bvid,
+      title: video.title,
+      artist: video.author,
+      artUri: Uri.parse(video.cover),
+      duration: effectiveDuration,
     );
+
+    debugPrint('[AudioHandler] Updating MediaItem: ${item.title}, Duration: ${item.duration}');
+    mediaItem.add(item);
   }
 
   /// 获取当前播放模式
@@ -314,45 +291,7 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     _broadcastState();
   }
 
-  /// 获取播放模式对应的 MediaControl
-  MediaControl _getModeControl() {
-    // Requirements (Android Resource Handling):
-    // 请确保在 android/app/src/main/res/drawable 目录下添加以下图标资源，否则会报错：
-    // - ic_repeat (对应 PlayMode.loop)
-    // - ic_repeat_one (对应 PlayMode.single)
-    // - ic_shuffle (对应 PlayMode.shuffle)
-    switch (_playMode) {
-      case PlayMode.loop:
-        return const MediaControl(
-          androidIcon: 'drawable/ic_repeat',
-          label: 'Loop',
-          action: MediaAction.custom,
-          customAction: CustomMediaAction(name: 'custom_set_mode'),
-        );
-      case PlayMode.single:
-        return const MediaControl(
-          androidIcon: 'drawable/ic_repeat_one',
-          label: 'Single',
-          action: MediaAction.custom,
-          customAction: CustomMediaAction(name: 'custom_set_mode'),
-        );
-      case PlayMode.shuffle:
-        return const MediaControl(
-          androidIcon: 'drawable/ic_shuffle',
-          label: 'Shuffle',
-          action: MediaAction.custom,
-          customAction: CustomMediaAction(name: 'custom_set_mode'),
-        );
-    }
-  }
 
-  @override
-  Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
-    // Action Handling: 响应自定义按钮点击
-    if (name == 'custom_set_mode') {
-      cyclePlayMode();
-    }
-  }
 
   /// 广播播放状态
   ///
@@ -393,8 +332,19 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       processingState = AudioProcessingState.idle;
     }
 
-    // 动态图标 (Dynamic Icons)
-    final modeControl = _getModeControl();
+    // Debug Log: 打印广播状态详情
+    if (kDebugMode) {
+      final currentMediaItem = mediaItem.valueOrNull;
+      debugPrint('''
+[AudioHandler] Broadcast State:
+  - ProcessingState: $processingState
+  - Playing: $isPlaying
+  - Buffering: $isBuffering
+  - Position: $currentPosition
+  - MediaItem: ${currentMediaItem?.title ?? 'None'}
+  - Controls: ${isPlaying ? 'Pause' : 'Play'}
+''');
+    }
 
     playbackState.add(
       playbackState.value.copyWith(
@@ -404,13 +354,12 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
         bufferedPosition: currentBuffered,
 
         // 按钮布局 (Controls):
-        // 核心目标：实现“左图右文 + 底部4个按钮”的布局
-        // 顺序：[上一曲] [播放/暂停] [下一曲] [播放模式]
+        // 核心目标：实现“左图右文 + 底部3个按钮”的布局
+        // 顺序：[上一曲] [播放/暂停] [下一曲]
         controls: [
           MediaControl.skipToPrevious,
           if (isPlaying) MediaControl.pause else MediaControl.play,
           MediaControl.skipToNext,
-          modeControl, // 第 4 个按钮
         ],
 
         systemActions: const {

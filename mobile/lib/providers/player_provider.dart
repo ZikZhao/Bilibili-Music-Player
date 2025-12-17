@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../models/video_model.dart';
@@ -45,14 +46,28 @@ class PlayerProvider extends ChangeNotifier {
     try {
       debugPrint('[PlayerProvider] 初始化音频服务...');
 
+      // 清理旧的 Notification Channel (Android)
+      try {
+        const platform = MethodChannel('com.bilibili.music/utils');
+        await platform.invokeMethod('deleteNotificationChannel', {
+          'channelId': 'com.bilibili.music.channel.audio.v4',
+        });
+        // 尝试删除其他旧版本
+        await platform.invokeMethod('deleteNotificationChannel', {
+          'channelId': 'com.bilibili.music.channel.audio.v3',
+        });
+      } catch (e) {
+        debugPrint('[PlayerProvider] Failed to delete old channel: $e');
+      }
+
       _audioHandler = await AudioService.init<BilibiliAudioHandler>(
         builder: BilibiliAudioHandler.new,
         config: const AudioServiceConfig(
-          androidNotificationChannelId: 'com.bilibili.music.channel.audio.v4',
+          androidNotificationChannelId: 'com.bilibili.music.channel.release.v1',
           androidNotificationChannelName: 'Bilibili Music Player',
           androidNotificationChannelDescription: 'Music playback controls',
           androidStopForegroundOnPause: false,
-          androidNotificationIcon: 'drawable/ic_notification',
+          androidNotificationIcon: 'mipmap/ic_launcher',
           androidShowNotificationBadge: true,
           // 优化: 限制封面图大小，避免 IPC 传输过大导致崩溃或更新延迟
           artDownscaleWidth: 300,
