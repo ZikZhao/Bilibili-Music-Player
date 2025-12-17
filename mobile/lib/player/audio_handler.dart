@@ -7,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 
 import '../api/bilibili_client.dart';
+import '../constants.dart';
 import '../models/video_model.dart';
 import '../services/cache_manager.dart';
 
@@ -43,12 +44,8 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
   /// 播放模式
   PlayMode _playMode = PlayMode.loop;
 
-  /// Bilibili headers for media_kit
-  static const Map<String, String> _bilibiliHeaders = {
-    'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Referer': 'https://www.bilibili.com/',
-  };
+  /// Race Condition Lock
+  String? _pendingBvid;
 
   /// 渐变锁 - 已弃用，使用动态状态管理
   // bool _isFading = false;
@@ -152,6 +149,9 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
     try {
       debugPrint('[AudioHandler] 准备播放: ${video.title}');
 
+      // 0. 设置 Race Condition Lock
+      _pendingBvid = video.bvid;
+
       // 1. 更新播放列表索引
       final existingIndex = _playlist.indexWhere((v) => v.bvid == video.bvid);
       if (existingIndex == -1) {
@@ -222,10 +222,16 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       // Strict Rule 2: 确保 HTTP Headers 正确
       debugPrint('[AudioHandler] 打开媒体资源: $playPath (Local: $isLocal)');
 
+      // 4. Race Condition Check
+      if (_pendingBvid != video.bvid) {
+        debugPrint('[AudioHandler] Play cancelled: race condition detected');
+        return;
+      }
+
       await _player.open(
         Media(
-          playPath,
-          httpHeaders: isLocal ? null : _bilibiliHeaders, // 关键：网络请求必须带 Headers
+          playPath!,
+          httpHeaders: isLocal ? null : AppConstants.bilibiliHeaders, // 关键：网络请求必须带 Headers
         ),
         play: true, // 自动播放
       );

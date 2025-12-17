@@ -8,10 +8,12 @@ import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../api/bilibili_client.dart';
+import '../../constants.dart';
 import '../../models/bilibili_api_exception.dart';
 import '../../models/play_url_info.dart';
 import '../../models/video_detail_info.dart';
 import '../../models/video_model.dart';
+import '../../player/video_player_manager.dart';
 import '../../providers/library_provider.dart';
 import '../../providers/player_provider.dart';
 
@@ -56,7 +58,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     context.read<PlayerProvider>().pause();
 
     // 初始化 media_kit 播放器
-    _player = Player();
+    _player = VideoPlayerManager().player;
     _videoController = VideoController(_player);
 
     // 监听播放状态（控制屏幕常亮及音频焦点）
@@ -76,7 +78,8 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
     _playingSubscription?.cancel();
     // 确保释放前停止播放，释放音频焦点
     _player.stop(); 
-    _player.dispose();
+    // VideoPlayerManager 单例不销毁，供下次复用
+    // _player.dispose();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -111,15 +114,11 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
       });
 
       // 3. 设置播放源（关键：必须设置 headers）
-      final httpHeaders = {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.bilibili.com/',
-      };
-
+      // 使用 AppConstants 中的统一 Headers
+      
       // MP4 格式包含视频+音频，直接播放即可
       await _player.open(
-        Media(playUrl.url, httpHeaders: httpHeaders),
+        Media(playUrl.url, httpHeaders: AppConstants.bilibiliHeaders),
         play: true, // 自动播放
       );
 

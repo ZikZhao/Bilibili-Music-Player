@@ -74,6 +74,7 @@ class VideoResultCard extends StatelessWidget {
             imageUrl: video.cover,
             width: 120,
             height: 75, // 16:10 比例，更适合 B 站封面
+            memCacheWidth: 300, // 防止列表滚动内存溢出
             fit: BoxFit.cover,
             placeholder: (context, url) => Container(
               width: 120,
