@@ -10,4 +10,8 @@ class AppColors {
   
   static const Color onSurface = Colors.white;
   static const Color unselectedItem = Colors.grey;
+
+  // Search Bar / Input Field Colors
+  static const Color lightInputFill = Color(0xFFF2F2F2); // Grey 100
+  static const Color darkInputFill = Color(0xFF1C1C1E); // Darker Charcoal
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:provider/provider.dart';
@@ -164,8 +165,10 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: _canPop,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: PopScope(
+        canPop: _canPop,
       onPopInvoked: (didPop) async {
         if (didPop) return;
 
@@ -201,6 +204,7 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
         // 底部操作栏
         bottomNavigationBar: _buildBottomBar(),
       ),
+    ),
     );
   }
 

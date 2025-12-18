@@ -97,7 +97,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     segments: const [
                       ButtonSegment(
                         value: 'system',
-                        label: Text('跟随系统'),
+                        label: Text('自动'),
                         icon: Icon(Icons.brightness_auto_rounded),
                       ),
                       ButtonSegment(
@@ -372,7 +372,10 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('清除失败: $e', style: const TextStyle(color: Colors.white)),
+            content: Text(
+              '清除失败: $e',
+              style: const TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.red,
           ),
         );

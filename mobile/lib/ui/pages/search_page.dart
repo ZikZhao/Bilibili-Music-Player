@@ -59,6 +59,7 @@ class _SearchPageState extends State<SearchPage> {
   void _onClear() {
     _searchController.clear();
     context.read<SearchProvider>().clearSearch();
+    setState(() {});
   }
 
   @override
@@ -93,6 +94,9 @@ class _SearchPageState extends State<SearchPage> {
         controller: _searchController,
         focusNode: _focusNode,
         decoration: InputDecoration(
+          filled: true,
+          // 使用主题定义的颜色，无需在此处手动判断
+          // fillColor: ... 
           hintText: '搜索 Bilibili 视频...',
           hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
           prefixIcon: Padding(
@@ -100,12 +104,12 @@ class _SearchPageState extends State<SearchPage> {
             child: Icon(Icons.search_rounded, color: colorScheme.primary),
           ),
           suffixIcon: _searchController.text.isNotEmpty
-              ? Padding(
-                  padding: const EdgeInsets.only(left: 4, right: 8),
-                  child: IconButton(
-                    icon: const Icon(Icons.clear_rounded),
-                    onPressed: _onClear,
+              ? IconButton(
+                  icon: const Icon(Icons.clear_rounded, size: 20),
+                  style: IconButton.styleFrom(
+                    shape: const CircleBorder(), // 确保按下效果是圆形
                   ),
+                  onPressed: _onClear,
                 )
               : null,
         ),
@@ -191,10 +195,11 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ],
             ),
-            TextButton(
-              onPressed: provider.clearHistory,
-              child: Text('清空', style: TextStyle(color: Colors.grey.shade500)),
-            ),
+            if (provider.history.isNotEmpty)
+              TextButton(
+                onPressed: provider.clearHistory,
+                child: Text('清空', style: TextStyle(color: Colors.grey.shade500)),
+              ),
           ],
         ),
 
@@ -208,8 +213,10 @@ class _SearchPageState extends State<SearchPage> {
             return ActionChip(
               label: Text(keyword),
               onPressed: () => _onSuggestionTap(keyword),
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              side: BorderSide.none,
+              // 使用主题默认样式
+              // backgroundColor: ...
+              // side: ...
+              // shape: ...
             );
           }).toList(),
         ),
@@ -228,27 +235,18 @@ class _SearchPageState extends State<SearchPage> {
       itemBuilder: (context, index) {
         final suggestion = provider.suggestions[index];
         return ListTile(
+          // Align with Search Bar icon: padding + size adjustment
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          minLeadingWidth: 20,
           leading: Icon(
             Icons.search_rounded,
             color: Colors.grey.shade500,
-            size: 20,
+            size: 20, // Match Search Bar icon size
           ),
           title: Text(suggestion.value),
-          contentPadding: EdgeInsets.zero,
           onTap: () => _onSuggestionTap(suggestion.value),
-          trailing: IconButton(
-            icon: Icon(
-              Icons.north_west_rounded,
-              color: Colors.grey.shade500,
-              size: 18,
-            ),
-            onPressed: () {
-              _searchController.text = suggestion.value;
-              _searchController.selection = TextSelection.fromPosition(
-                TextPosition(offset: suggestion.value.length),
-              );
-            },
-          ),
+          // Remove meaningless trailing arrow
+          trailing: null,
         );
       },
     );

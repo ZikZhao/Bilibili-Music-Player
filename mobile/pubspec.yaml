@@ -60,6 +60,13 @@ dev_dependencies:
   # Hive code generation
   hive_generator: ^2.0.1
   build_runner: ^2.4.13
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  android: "launcher_icon"
+  ios: true
+  adaptive_icon_background: "#121212"

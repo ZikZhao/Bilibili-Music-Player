@@ -42,13 +42,21 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceContainerHighest,
+        fillColor: AppColors.darkInputFill,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(12), // 统一圆角
           borderSide: BorderSide.none,
         ),
         hintStyle: TextStyle(color: Colors.grey[400]),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.darkInputFill,
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8), // 减小圆角
+        ),
+        labelStyle: const TextStyle(color: AppColors.onSurface),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -123,13 +131,21 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.grey[100],
+        fillColor: AppColors.lightInputFill,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(12), // 统一圆角
           borderSide: BorderSide.none,
         ),
         hintStyle: TextStyle(color: Colors.grey[400]),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.lightInputFill,
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8), // 减小圆角
+        ),
+        labelStyle: const TextStyle(color: Colors.black87),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,

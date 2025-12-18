@@ -188,23 +188,27 @@ class _LibraryPageState extends State<LibraryPage> {
         child: Row(
           children: [
             // Leading: 16:9 Image with Stack
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.3,
+              ),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
                     // Layer 1: Image
                     CachedNetworkImage(
                       imageUrl: video.cover,
@@ -279,6 +283,7 @@ class _LibraryPageState extends State<LibraryPage> {
                   ],
                 ),
               ),
+            ),
             ),
             const SizedBox(width: 12),
 

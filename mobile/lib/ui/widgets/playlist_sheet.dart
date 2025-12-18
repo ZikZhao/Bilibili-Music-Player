@@ -31,13 +31,24 @@ class PlaylistSheet extends StatelessWidget {
               (item) => item.id == currentItem?.id,
             );
 
-            return DraggableScrollableSheet(
-              initialChildSize: 0.6,
-              minChildSize: 0.3,
-              maxChildSize: 0.9,
-              builder: (context, scrollController) {
-                return Container(
-                  decoration: BoxDecoration(
+            return Stack(
+              children: [
+                // 点击背景关闭
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const SizedBox.expand(),
+                ),
+                // 播放列表 Sheet
+                DraggableScrollableSheet(
+                  initialChildSize: 0.6,
+                  minChildSize: 0.3,
+                  maxChildSize: 0.9,
+                  builder: (context, scrollController) {
+                    return Container(
+                      decoration: BoxDecoration(
                     color: colorScheme.surface,
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(20),
@@ -82,15 +93,23 @@ class PlaylistSheet extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            TextButton.icon(
+                            TextButton(
                               onPressed: () {
                                 playerProvider.clearPlaylist();
                                 Navigator.of(context).pop();
                               },
-                              icon: const Icon(Icons.delete_outline, size: 18),
-                              label: const Text('清空'),
                               style: TextButton.styleFrom(
                                 foregroundColor: Colors.grey.shade400,
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.delete_outline, size: 18),
+                                  SizedBox(width: 4),
+                                  Text('清空'),
+                                ],
                               ),
                             ),
                           ],
@@ -110,15 +129,14 @@ class PlaylistSheet extends StatelessWidget {
                               )
                             : ListView.builder(
                                 controller: scrollController,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
+                                padding: EdgeInsets.zero,
                                 itemCount: playlist.length,
                                 itemBuilder: (context, index) {
                                   final item = playlist[index];
                                   final isCurrentTrack = index == currentIndex;
 
                                   return ListTile(
+                                    contentPadding: const EdgeInsets.only(left: 20, right: 4),
                                     leading: SizedBox(
                                       width: 48,
                                       height: 48,
@@ -193,6 +211,8 @@ class PlaylistSheet extends StatelessWidget {
                                         size: 20,
                                         color: Colors.grey,
                                       ),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
                                       onPressed: () {
                                         playerProvider.removeFromPlaylist(
                                           index,
@@ -207,9 +227,11 @@ class PlaylistSheet extends StatelessWidget {
                   ),
                 );
               },
-            );
-          },
+            ),
+          ],
         );
+      },
+    );
       },
     );
   }

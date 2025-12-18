@@ -593,14 +593,34 @@ class BilibiliAudioHandler extends BaseAudioHandler with SeekHandler {
       stop(); // 移除当前播放的，停止
       _currentIndex = -1;
     }
+
+    if (_playlist.isEmpty) {
+      stop();
+      mediaItem.add(null);
+    }
+
     _updateQueue();
   }
 
   void clearPlaylist() {
+    // 1. 先清空数据
     _playlist.clear();
     _currentIndex = -1;
+    
+    // 2. 立即更新 UI (隐藏 MiniPlayer)
+    mediaItem.add(null);
+    
+    // 3. 停止播放器
     stop();
+    
+    // 4. 更新队列和状态
     _updateQueue();
+    
+    // 强制广播 Idle 状态
+    playbackState.add(playbackState.value.copyWith(
+      processingState: AudioProcessingState.idle,
+      playing: false,
+    ));
   }
 
   Future<void> skipToIndex(int index) async {

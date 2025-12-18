@@ -86,7 +86,7 @@ class MiniPlayer extends StatelessWidget {
                         // 标题和作者
                         Expanded(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.only(left: 12, right: 4),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,

@@ -4,6 +4,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:audio_video_progress_bar/audio_video_progress_bar.dart';
 import 'package:cached_network_image/cached_network_image.dart' hide DownloadProgress;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/video_model.dart';
@@ -87,7 +88,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
         final video = playerProvider.currentVideo ?? widget.initialVideo;
 
         if (video == null) {
-          return _buildEmptyState(context);
+          return const SizedBox.shrink();
         }
 
         return StreamBuilder<PlaybackState>(
@@ -112,13 +113,15 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
                   }
                 }
 
-                return DraggableScrollableSheet(
-                  initialChildSize: 1.0,
-                  minChildSize: 0.5,
-                  maxChildSize: 1.0,
-                  expand: false,
-                  builder: (context, scrollController) {
-                    return Container(
+                return AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: SystemUiOverlayStyle.light,
+                  child: DraggableScrollableSheet(
+                    initialChildSize: 1.0,
+                    minChildSize: 0.5,
+                    maxChildSize: 1.0,
+                    expand: false,
+                    builder: (context, scrollController) {
+                      return Container(
                       decoration: BoxDecoration(
                         color: Theme.of(context).scaffoldBackgroundColor,
                         borderRadius: const BorderRadius.vertical(
@@ -169,59 +172,11 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
                       ),
                     );
                   },
-                );
-              },
+                ),
+              );
+            },
             );
           },
-        );
-      },
-    );
-  }
-
-  /// 构建空状态
-  Widget _buildEmptyState(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 1.0,
-      minChildSize: 0.5,
-      maxChildSize: 1.0,
-      expand: false,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            child: Scaffold(
-              appBar: AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                leading: IconButton(
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-              body: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.music_off_rounded, size: 64, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      '暂无播放内容',
-                      style: TextStyle(fontSize: 18, color: Colors.grey),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      '从收藏或搜索中选择音乐开始播放',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
         );
       },
     );
@@ -430,9 +385,9 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           timeLabelLocation: TimeLabelLocation.sides,
           barHeight: 4,
           baseBarColor: Colors.white.withValues(alpha: 0.2),
-          progressBarColor: Colors.white,
+          progressBarColor: Theme.of(context).colorScheme.primary,
           bufferedBarColor: Colors.white.withValues(alpha: 0.3),
-          thumbColor: Colors.white,
+          thumbColor: Theme.of(context).colorScheme.primary,
           thumbRadius: 6,
           timeLabelTextStyle: const TextStyle(
             color: Colors.white,

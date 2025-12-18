@@ -56,6 +56,9 @@ class PlayerProvider extends ChangeNotifier {
         await platform.invokeMethod('deleteNotificationChannel', {
           'channelId': 'com.bilibili.music.channel.audio.v3',
         });
+        await platform.invokeMethod('deleteNotificationChannel', {
+          'channelId': 'com.bilibili.music.channel.release.v1',
+        });
       } catch (e) {
         debugPrint('[PlayerProvider] Failed to delete old channel: $e');
       }
@@ -63,11 +66,11 @@ class PlayerProvider extends ChangeNotifier {
       _audioHandler = await AudioService.init<BilibiliAudioHandler>(
         builder: BilibiliAudioHandler.new,
         config: const AudioServiceConfig(
-          androidNotificationChannelId: 'com.bilibili.music.channel.release.v1',
+          androidNotificationChannelId: 'com.bilibili.music.channel.release.v2',
           androidNotificationChannelName: 'Bilibili Music Player',
           androidNotificationChannelDescription: 'Music playback controls',
           androidStopForegroundOnPause: false,
-          androidNotificationIcon: 'mipmap/ic_launcher',
+          androidNotificationIcon: 'mipmap/launcher_icon',
           androidShowNotificationBadge: true,
           // 优化: 限制封面图大小，避免 IPC 传输过大导致崩溃或更新延迟
           artDownscaleWidth: 300,
