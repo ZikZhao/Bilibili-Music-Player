@@ -1,4 +1,4 @@
-package com.example.mobile
+package me.zikzhao.bilimusic
 
 import android.app.NotificationManager
 import android.content.Context
