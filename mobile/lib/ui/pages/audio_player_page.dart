@@ -233,18 +233,24 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
       children: [
         IconButton(
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 32),
+          color: Colors.white,
           onPressed: () => Navigator.of(context).pop(),
         ),
         const Expanded(
           child: Center(
             child: Text(
               '正在播放',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
             ),
           ),
         ),
         IconButton(
           icon: const Icon(Icons.more_vert_rounded),
+          color: Colors.white,
           onPressed: () {
             // TODO: 显示更多选项
           },
@@ -273,7 +279,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
         ),
 
         // 深色遮罩
-        Container(color: Colors.black54),
+        Container(color: Colors.black.withValues(alpha: 0.4)),
       ],
     );
   }
@@ -379,6 +385,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
             fontSize: 20,
             fontWeight: FontWeight.bold,
             height: 1.3,
+            color: Colors.white,
           ),
         ),
 
@@ -387,7 +394,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
         // UP主
         Text(
           video.author,
-          style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+          style: const TextStyle(fontSize: 14, color: Colors.white70),
         ),
       ],
     );
@@ -423,12 +430,12 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
           timeLabelLocation: TimeLabelLocation.sides,
           barHeight: 4,
           baseBarColor: Colors.white.withValues(alpha: 0.2),
-          progressBarColor: Theme.of(context).colorScheme.primary,
+          progressBarColor: Colors.white,
           bufferedBarColor: Colors.white.withValues(alpha: 0.3),
-          thumbColor: Theme.of(context).colorScheme.primary,
+          thumbColor: Colors.white,
           thumbRadius: 6,
-          timeLabelTextStyle: TextStyle(
-            color: Colors.grey.shade400,
+          timeLabelTextStyle: const TextStyle(
+            color: Colors.white,
             fontSize: 12,
           ),
         );
@@ -459,9 +466,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
         IconButton(
           icon: Icon(_getPlayModeIcon(playerProvider.playMode)),
           iconSize: 24,
-          color: playerProvider.playMode == PlayMode.loop
-              ? Colors.grey.shade400
-              : colorScheme.primary,
+          color: Colors.white,
           onPressed: () => _togglePlayMode(playerProvider),
         ),
 
@@ -469,7 +474,8 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
         IconButton(
           icon: const Icon(Icons.skip_previous_rounded),
           iconSize: 40,
-          color: playerProvider.hasPrevious ? Colors.white : Colors.grey,
+          color: Colors.white,
+          disabledColor: Colors.white60,
           onPressed: playerProvider.hasPrevious
               ? playerProvider.skipToPrevious
               : null,
@@ -549,7 +555,8 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
         IconButton(
           icon: const Icon(Icons.skip_next_rounded),
           iconSize: 40,
-          color: playerProvider.hasNext ? Colors.white : Colors.grey,
+          color: Colors.white,
+          disabledColor: Colors.white60,
           onPressed: playerProvider.hasNext ? playerProvider.skipToNext : null,
         ),
 
@@ -557,7 +564,7 @@ class _AudioPlayerPageState extends State<AudioPlayerPage>
         IconButton(
           icon: const Icon(Icons.queue_music_rounded),
           iconSize: 24,
-          color: Colors.grey.shade400,
+          color: Colors.white,
           onPressed: () {
             _showPlaylistSheet(context, playerProvider);
           },

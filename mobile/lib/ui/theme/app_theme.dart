@@ -54,6 +54,7 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.surfaceContainerHighest,
         contentTextStyle: const TextStyle(color: Colors.white),
+        actionTextColor: AppColors.bilibiliPink,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -132,8 +133,10 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF333333), // 亮色模式下用深色背景，对比度高
-        contentTextStyle: const TextStyle(color: Colors.white),
+        backgroundColor: Colors.white,
+        contentTextStyle: const TextStyle(color: Colors.black87),
+        actionTextColor: AppColors.bilibiliPink,
+        elevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),

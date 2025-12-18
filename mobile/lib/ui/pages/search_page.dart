@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/search_provider.dart';
+import '../widgets/bili_app_bar.dart';
 import '../widgets/video_result_card.dart';
 import 'video_detail_page.dart';
 
@@ -65,15 +66,7 @@ class _SearchPageState extends State<SearchPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          '搜索音乐',
-          style: TextStyle(
-            color: colorScheme.primary,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
+      appBar: const BiliAppBar(title: '搜索音乐'),
       body: Column(
         children: [
           // 搜索框
@@ -101,7 +94,7 @@ class _SearchPageState extends State<SearchPage> {
         focusNode: _focusNode,
         decoration: InputDecoration(
           hintText: '搜索 Bilibili 视频...',
-          hintStyle: TextStyle(color: Colors.grey.shade500),
+          hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
           prefixIcon: Padding(
             padding: const EdgeInsets.only(left: 8, right: 4),
             child: Icon(Icons.search_rounded, color: colorScheme.primary),

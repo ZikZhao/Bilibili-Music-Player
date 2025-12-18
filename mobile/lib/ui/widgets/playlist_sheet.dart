@@ -77,7 +77,7 @@ class PlaylistSheet extends StatelessWidget {
                                   '(${playlist.length})',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.grey.shade400,
+                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
@@ -165,7 +165,7 @@ class PlaylistSheet extends StatelessWidget {
                                       style: TextStyle(
                                         color: isCurrentTrack
                                             ? colorScheme.primary
-                                            : Colors.white,
+                                            : colorScheme.onSurface,
                                         fontWeight: isCurrentTrack
                                             ? FontWeight.bold
                                             : FontWeight.normal,
@@ -180,7 +180,7 @@ class PlaylistSheet extends StatelessWidget {
                                             ? colorScheme.primary.withValues(
                                                 alpha: 0.7,
                                               )
-                                            : Colors.grey.shade500,
+                                            : colorScheme.onSurface.withValues(alpha: 0.6),
                                       ),
                                     ),
                                     onTap: () {

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/player_provider.dart';
 import '../pages/audio_player_page.dart';
+import 'marquee_text.dart';
 import 'playlist_sheet.dart';
 
 /// Mini Player 组件
@@ -90,10 +91,8 @@ class MiniPlayer extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  mediaItem.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                MarqueeText(
+                                  text: mediaItem.title,
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -106,7 +105,7 @@ class MiniPlayer extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey.shade400,
+                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
@@ -126,7 +125,7 @@ class MiniPlayer extends StatelessWidget {
                         IconButton(
                           icon: const Icon(Icons.queue_music_rounded),
                           iconSize: 24,
-                          color: Colors.grey.shade400,
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
                           onPressed: () =>
                               _showPlaylistSheet(context, playerProvider),
                         ),

@@ -49,6 +49,9 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
   // 是否展开简介
   bool _isDescExpanded = false;
+  
+  // 用于控制 PopScope 的返回逻辑
+  bool _canPop = false;
 
   @override
   void initState() {
@@ -161,22 +164,43 @@ class _VideoDetailPageState extends State<VideoDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // 播放器区域
-            _buildPlayerSection(),
+    return PopScope(
+      canPop: _canPop,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
 
-            // 视频信息区域
-            Expanded(child: _buildInfoSection()),
-          ],
+        // 停止播放器
+        await _player.stop();
+
+        if (context.mounted) {
+          setState(() {
+            _canPop = true;
+          });
+          // 等待下一帧重建后再次尝试返回
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Column(
+            children: [
+              // 播放器区域
+              _buildPlayerSection(),
+
+              // 视频信息区域
+              Expanded(child: _buildInfoSection()),
+            ],
+          ),
         ),
-      ),
 
-      // 底部操作栏
-      bottomNavigationBar: _buildBottomBar(),
+        // 底部操作栏
+        bottomNavigationBar: _buildBottomBar(),
+      ),
     );
   }
 

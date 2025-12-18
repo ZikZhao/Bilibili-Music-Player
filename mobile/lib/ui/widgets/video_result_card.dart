@@ -106,7 +106,7 @@ class VideoResultCard extends StatelessWidget {
           right: 4,
           bottom: 4,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.only(left: 6, right: 6, top: 1, bottom: 3),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(4),

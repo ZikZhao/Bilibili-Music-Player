@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../services/cache_manager.dart';
+import '../widgets/bili_app_bar.dart';
 
 /// 设置页面
 ///
@@ -17,7 +18,7 @@ class _SettingsPageState extends State<SettingsPage> {
   // 播放设置（Mock）
   bool _autoPlay = true;
   bool _enableFade = true;
-  String _streamQuality = '高 (192K Hi-Res)';
+  String _streamQuality = '高 (192K)';
 
   // 外观设置
   String _themeMode = 'system';
@@ -48,25 +49,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      appBar: const BiliAppBar(title: '设置'),
       body: CustomScrollView(
         slivers: [
-          SliverAppBar.medium(
-            pinned: true,
-            expandedHeight: 120,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
-              title: const Text(
-                '设置',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              background: Container(color: colorScheme.surface),
-            ),
-            backgroundColor: colorScheme.surface,
-            scrolledUnderElevation: 0,
-            surfaceTintColor: Colors.transparent,
-          ),
           SliverList(
             delegate: SliverChildListDelegate([
               // ========== 播放设置 ==========
@@ -102,7 +87,10 @@ class _SettingsPageState extends State<SettingsPage> {
               // ========== 外观设置 ==========
               _buildSectionHeader('外观', colorScheme),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: SizedBox(
                   width: double.infinity,
                   child: SegmentedButton<String>(
@@ -158,7 +146,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         height: 24,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Icon(Icons.delete_outline_rounded, color: colorScheme.error),
+                    : Icon(
+                        Icons.delete_outline_rounded,
+                        color: colorScheme.error,
+                      ),
                 onTap: _isClearing ? null : _showClearCacheDialog,
               ),
 
@@ -197,12 +188,18 @@ class _SettingsPageState extends State<SettingsPage> {
                     const SizedBox(height: 8),
                     Text(
                       '© 2024 Bilibili Music Player',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Made with ♥ using Flutter',
-                      style: TextStyle(color: Colors.grey.shade700, fontSize: 11),
+                      style: TextStyle(
+                        color: Colors.grey.shade700,
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
@@ -276,7 +273,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final options = [
       ('低 (64K)', '节省流量'),
       ('中 (132K)', '平衡音质与流量'),
-      ('高 (192K Hi-Res)', '最佳音质'),
+      ('高 (192K)', '最佳音质'),
     ];
 
     showModalBottomSheet<void>(
@@ -365,13 +362,19 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('缓存已清除'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('缓存已清除', style: TextStyle(color: Colors.white)),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('清除失败: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('清除失败: $e', style: const TextStyle(color: Colors.white)),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -398,27 +401,24 @@ class _SettingsPageState extends State<SettingsPage> {
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(height: 16),
-              
+
               // App Name
               const Text(
                 'Bilibili Music Player',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              
+
               const SizedBox(height: 8),
-              
+
               // Version
               Text(
                 'v0.2.0',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Description
               const Text(
                 '一个基于 Flutter 的第三方 Bilibili 音乐播放器。\n仅供学习交流使用。',
