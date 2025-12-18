@@ -96,8 +96,8 @@ class _SearchPageState extends State<SearchPage> {
         decoration: InputDecoration(
           filled: true,
           // 使用主题定义的颜色，无需在此处手动判断
-          // fillColor: ... 
-          hintText: '搜索 Bilibili 视频...',
+          // fillColor: ...
+          hintText: '搜索 Bilibili 音乐视频',
           hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
           prefixIcon: Padding(
             padding: const EdgeInsets.only(left: 8, right: 4),
@@ -198,7 +198,10 @@ class _SearchPageState extends State<SearchPage> {
             if (provider.history.isNotEmpty)
               TextButton(
                 onPressed: provider.clearHistory,
-                child: Text('清空', style: TextStyle(color: Colors.grey.shade500)),
+                child: Text(
+                  '清空',
+                  style: TextStyle(color: Colors.grey.shade500),
+                ),
               ),
           ],
         ),

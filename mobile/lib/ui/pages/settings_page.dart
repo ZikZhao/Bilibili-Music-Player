@@ -159,7 +159,7 @@ class _SettingsPageState extends State<SettingsPage> {
               _buildSectionHeader('关于', colorScheme),
               _buildListTile(
                 title: '版本',
-                subtitle: 'Bilibili Music Player v0.2.0',
+                subtitle: 'Bilibili Music Player v0.1.0',
                 icon: Icons.info_outline_rounded,
                 onTap: _showAboutDialog,
               ),
@@ -187,15 +187,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '© 2024 Bilibili Music Player',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Made with ♥ using Flutter',
+                      'Made with ♥ by Zik Zhao',
                       style: TextStyle(
                         color: Colors.grey.shade700,
                         fontSize: 11,
@@ -416,7 +408,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
               // Version
               Text(
-                'v0.2.0',
+                'v0.1.0',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
               ),
 

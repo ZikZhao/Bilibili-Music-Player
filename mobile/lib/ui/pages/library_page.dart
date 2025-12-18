@@ -377,7 +377,7 @@ class _LibraryPageState extends State<LibraryPage> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade300,
+              color: colorScheme.onSurface,
             ),
           ),
 
