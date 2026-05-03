@@ -69,7 +69,7 @@ class PlayerProvider extends ChangeNotifier {
           androidNotificationChannelId: 'com.bilibili.music.channel.release.v2',
           androidNotificationChannelName: 'Bilibili Music Player',
           androidNotificationChannelDescription: 'Music playback controls',
-          androidStopForegroundOnPause: false,
+          androidStopForegroundOnPause: true,
           androidNotificationIcon: 'mipmap/launcher_icon',
           androidShowNotificationBadge: true,
           // 优化: 限制封面图大小，避免 IPC 传输过大导致崩溃或更新延迟
