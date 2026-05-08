@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "bilibili-music-player-windows (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "bilibili-music-player-windows (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

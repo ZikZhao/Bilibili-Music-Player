@@ -1,0 +1,14 @@
+# Build artifacts
+bin/
+obj/
+
+# Visual Studio user files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# MSIX / NuGet artifacts
+*.nupkg
+AppPackages/
