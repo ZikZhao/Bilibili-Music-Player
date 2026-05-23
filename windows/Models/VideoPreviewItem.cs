@@ -4,6 +4,7 @@ namespace bilibili_music_player_windows.Models
 {
     public sealed class VideoPreviewItem
     {
+        public string Bvid { get; init; } = string.Empty;
         public string Title { get; init; } = string.Empty;
         public string Author { get; init; } = string.Empty;
         public string Duration { get; init; } = string.Empty;

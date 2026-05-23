@@ -1,12 +1,21 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Text.Json;
+using System.Threading.Tasks;
 using bilibili_music_player_windows.Models;
+using bilibili_music_player_windows.Api;
+using Windows.Storage;
 
 namespace bilibili_music_player_windows.ViewModels
 {
     public sealed class MainViewModel
     {
         public static MainViewModel Instance { get; } = new MainViewModel();
+
+        private const int MaxHistoryItems = 10;
+        private const string SearchHistoryKey = "search_history";
+
+        private readonly BilibiliClient _client = new();
 
         public ObservableCollection<TrackItem> Favorites { get; } = new();
         public ObservableCollection<VideoPreviewItem> SearchVideos { get; } = new();
@@ -16,6 +25,7 @@ namespace bilibili_music_player_windows.ViewModels
         private MainViewModel()
         {
             Seed();
+            LoadSearchHistory();
         }
 
         private void Seed()
@@ -42,43 +52,97 @@ namespace bilibili_music_player_windows.ViewModels
                 Duration = "04:10",
             });
 
-            SearchVideos.Add(new VideoPreviewItem
-            {
-                Title = "星降る海 (Live Version)",
-                Author = "夏レモン",
-                Duration = "04:38",
-                Views = "23.8万观看",
-                CoverUri = new Uri("https://picsum.photos/seed/bili1/480/270"),
-                PreviewUri = new Uri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"),
-            });
-            SearchVideos.Add(new VideoPreviewItem
-            {
-                Title = "願い～あの頃のキミへ～",
-                Author = "Kumorine",
-                Duration = "05:41",
-                Views = "12.4万观看",
-                CoverUri = new Uri("https://picsum.photos/seed/bili2/480/270"),
-                PreviewUri = new Uri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"),
-            });
-            SearchVideos.Add(new VideoPreviewItem
-            {
-                Title = "光るなら (OP Edit)",
-                Author = "JLRS-jayfm",
-                Duration = "04:10",
-                Views = "8.1万观看",
-                CoverUri = new Uri("https://picsum.photos/seed/bili3/480/270"),
-                PreviewUri = new Uri("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"),
-            });
-
-            SearchHistory.Add("星降之海");
-            SearchHistory.Add("若能绽放光芒");
-            SearchHistory.Add("refrain");
-            SearchHistory.Add("secrets");
-
             HotKeywords.Add("祈愿 致那个时候的你");
             HotKeywords.Add("星降る海");
             HotKeywords.Add("光るなら");
             HotKeywords.Add("Re:frain");
+        }
+
+        public async Task SearchAsync(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                return;
+            }
+
+            var trimmed = keyword.Trim();
+
+            await AddToHistoryAsync(trimmed);
+
+            var result = await _client.SearchVideosAsync(trimmed);
+
+            SearchVideos.Clear();
+            foreach (var item in result.Videos)
+            {
+                SearchVideos.Add(item);
+            }
+        }
+
+        public async Task ClearHistoryAsync()
+        {
+            SearchHistory.Clear();
+            await SaveHistoryAsync();
+        }
+
+        public Task<Uri> FetchPreviewUriAsync(string bvid)
+        {
+            return _client.FetchPreviewUriAsync(bvid);
+        }
+
+        private void LoadSearchHistory()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue(SearchHistoryKey, out var value) && value is string json && !string.IsNullOrWhiteSpace(json))
+                {
+                    var items = JsonSerializer.Deserialize<string[]>(json);
+                    if (items != null)
+                    {
+                        SearchHistory.Clear();
+                        foreach (var item in items)
+                        {
+                            SearchHistory.Add(item);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore history load failures.
+            }
+        }
+
+        private Task SaveHistoryAsync()
+        {
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                settings.Values[SearchHistoryKey] = JsonSerializer.Serialize(SearchHistory);
+            }
+            catch
+            {
+                // Ignore history save failures.
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private Task AddToHistoryAsync(string keyword)
+        {
+            if (SearchHistory.Contains(keyword))
+            {
+                SearchHistory.Remove(keyword);
+            }
+
+            SearchHistory.Insert(0, keyword);
+
+            while (SearchHistory.Count > MaxHistoryItems)
+            {
+                SearchHistory.RemoveAt(SearchHistory.Count - 1);
+            }
+
+            return SaveHistoryAsync();
         }
     }
 }

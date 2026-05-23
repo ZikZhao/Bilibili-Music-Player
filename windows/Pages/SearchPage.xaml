@@ -19,7 +19,7 @@
             </StackPanel>
 
             <Border Background="{StaticResource Slate100}" CornerRadius="12" Padding="12,8">
-                <TextBox PlaceholderText="搜索 Bilibili 音乐视频" BorderThickness="0" Background="Transparent" Foreground="{StaticResource Slate800}" PlaceholderForeground="{StaticResource Slate400}" />
+                <TextBox x:Name="SearchBox" PlaceholderText="搜索 Bilibili 音乐视频" BorderThickness="0" Background="Transparent" Foreground="{StaticResource Slate800}" PlaceholderForeground="{StaticResource Slate400}" KeyDown="OnSearchKeyDown" />
             </Border>
 
             <StackPanel Spacing="12">
@@ -32,7 +32,7 @@
                         <SymbolIcon Symbol="Find" Foreground="{StaticResource Slate600}" />
                         <TextBlock Text="搜索历史" Foreground="{StaticResource Slate600}" FontWeight="SemiBold" />
                     </StackPanel>
-                    <Button Grid.Column="1" Content="清空" Foreground="{StaticResource Slate400}" Background="Transparent" BorderThickness="0" IsEnabled="False" />
+                    <Button x:Name="ClearHistoryButton" Grid.Column="1" Content="清空" Foreground="{StaticResource Slate400}" Background="Transparent" BorderThickness="0" IsEnabled="False" Click="OnClearHistoryClick" />
                 </Grid>
 
                 <ScrollViewer HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" Padding="0">
@@ -42,9 +42,11 @@
                         </controls:ItemsRepeater.Layout>
                         <controls:ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="x:String">
-                                <Border Background="{StaticResource Slate100}" CornerRadius="8" Padding="16,8" Margin="0">
-                                    <TextBlock Text="{x:Bind}" Foreground="{StaticResource Slate600}" />
-                                </Border>
+                                <Button Padding="0" Background="Transparent" BorderThickness="0" Click="OnKeywordClick">
+                                    <Border Background="{StaticResource Slate100}" CornerRadius="8" Padding="16,8" Margin="0">
+                                        <TextBlock Text="{x:Bind}" Foreground="{StaticResource Slate600}" />
+                                    </Border>
+                                </Button>
                             </DataTemplate>
                         </controls:ItemsRepeater.ItemTemplate>
                     </controls:ItemsRepeater>
@@ -64,9 +66,11 @@
                         </controls:ItemsRepeater.Layout>
                         <controls:ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="x:String">
-                                <Border Background="{StaticResource Slate100}" CornerRadius="8" Padding="16,8" Margin="0">
-                                    <TextBlock Text="{x:Bind}" Foreground="{StaticResource Slate600}" />
-                                </Border>
+                                <Button Padding="0" Background="Transparent" BorderThickness="0" Click="OnKeywordClick">
+                                    <Border Background="{StaticResource Slate100}" CornerRadius="8" Padding="16,8" Margin="0">
+                                        <TextBlock Text="{x:Bind}" Foreground="{StaticResource Slate600}" />
+                                    </Border>
+                                </Button>
                             </DataTemplate>
                         </controls:ItemsRepeater.ItemTemplate>
                     </controls:ItemsRepeater>
