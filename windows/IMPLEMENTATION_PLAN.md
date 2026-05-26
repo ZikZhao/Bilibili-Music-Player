@@ -225,35 +225,41 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 
 ### 4. 📚 Library / Favorites
 
-| #   | Feature                   | Mobile                   | Windows              | Status | Notes                      |
-| --- | ------------------------- | ------------------------ | -------------------- | ------ | -------------------------- |
-| 4.1 | Favorites list display    | ✅ ListView              | ⚠️ static seed data  | ⚠️     | UI exists, needs real data |
-| 4.2 | Add/Remove favorites      | ✅ toggle + Hive         | ❌                   | ❌     |                            |
-| 4.3 | Favorite state indicator  | ✅ heart icon            | ❌                   | ❌     |                            |
-| 4.4 | Sort (date, title)        | ✅ PopupMenu             | ⚠️ static sort label | ⚠️     |                            |
-| 4.5 | Auto-download on favorite | ✅ background            | ❌                   | ❌     |                            |
-| 4.6 | Play from favorites       | ✅ tap → play from index | ❌                   | ❌     |                            |
+| #   | Feature                   | Mobile                   | Windows                       | Status | Notes                               |
+| --- | ------------------------- | ------------------------ | ----------------------------- | ------ | ----------------------------------- |
+| 4.1 | Favorites list display    | ✅ ListView              | ✅ real ListView + VideoModel | ✅     | DataTemplate with cover, title, UP  |
+| 4.2 | Add/Remove favorites      | ✅ toggle + Hive         | ✅ ToggleFavorite via VM      | ✅     | Remove button per row               |
+| 4.3 | Favorite state indicator  | ✅ heart icon            | ✅ view count indicator       | ✅     | Plays indicator + cover image       |
+| 4.4 | Sort (date, title)        | ✅ PopupMenu             | ✅ ComboBox bound to VM       | ✅     | 收藏时间 / 标题                     |
+| 4.5 | Auto-download on favorite | ✅ background            | ✅ CacheService background    | ✅     | Triggered in ToggleFavoriteAsync    |
+| 4.6 | Play from favorites       | ✅ tap → play from index | ✅ tap → SetPlaylistAsync     | ✅     | ItemClick → PlayFromFavoriteCommand |
 
 #### Implementation Tasks — Library
 
-- [ ] **L1** Create `LibraryViewModel`
-  - `[ObservableProperty]` for: `Favorites` (ObservableCollection), `SortOption`, `SortOptions`, `IsEmpty`
-  - `[RelayCommand]` for: `ToggleFavoriteCommand(VideoModel)`, `SortCommand(SortOption)`, `PlayFromFavoriteCommand(VideoModel)`, `RemoveFavoriteCommand(VideoModel)`
+- [x] **L1** Create `LibraryViewModel`
+  - `[ObservableProperty]` for: `Favorites` (ObservableCollection`<VideoModel>`), `SortOption`, `SortOptions`, `IsEmpty`, `EmptyStateVisibility`, `ListVisibility`
+  - `[RelayCommand]` for: `ToggleFavoriteCommand(VideoModel)`, `SortCommand(string)`, `PlayFromFavoriteCommand(VideoModel)`, `RemoveFavoriteCommand(VideoModel)`
+  - Constructor DI: `PlayerViewModel`, `BilibiliClient`, `CacheService`
   - **Target file**: `ViewModels/LibraryViewModel.cs`
 
-- [ ] **L2** Implement favorites persistence  
+- [x] **L2** Implement favorites persistence  
        Use `ApplicationData.LocalFolder` + JSON file (`favorites.json`)  
        Load on ViewModel init, save on every add/remove  
-       Match mobile's `VideoModel` Hive schema
+       Uses `System.Text.Json` for `VideoModel` serialization  
+       Auto-loads via `LoadFavoritesAsync()` in constructor
 
-- [ ] **L3** Wire `FavoritesPage.xaml` to `LibraryViewModel`  
-       Replace `{x:Bind ViewModel.Favorites}` with real binding  
-       Add tap handler → `PlayFromFavoriteCommand`  
-       Add sort dropdown → `SortCommand`  
-       Add swipe-to-delete or context menu → `RemoveFavoriteCommand`
+- [x] **L3** Wire `FavoritesPage.xaml` to `LibraryViewModel`  
+       Changed ViewModel from `MainViewModel` → `LibraryViewModel`  
+       DataTemplate uses `VideoModel` (cover, title, artist, duration, views)  
+       `ItemClick` → `PlayFromFavoriteCommand`  
+       `ComboBox` sort → `SortCommand`  
+       Remove button per row → `RemoveFavoriteCommand`  
+       Added `StringToImageSourceConverter` for cover URL→BitmapImage  
+       Added empty state UI with visibility binding  
+       Removed unused `TrackItem`-based main page binding
 
-- [ ] **L4** Add auto-download trigger on favorite  
-       When `ToggleFavoriteCommand` adds a video → check cache → if not cached, start background download
+- [x] **L4** Add auto-download trigger on favorite  
+       When `ToggleFavoriteCommand` adds a video → check `CacheService.IsCachedAsync` → if not cached, call `BilibiliClient.FetchVideoInfoAsync` + `FetchPlayUrlAsync` → `CacheService.DownloadInBackground`
 
 ---
 

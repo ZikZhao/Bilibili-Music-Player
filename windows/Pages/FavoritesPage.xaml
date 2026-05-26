@@ -6,8 +6,13 @@
     xmlns:models="using:bilibili_music_player_windows.Models"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:converters="using:bilibili_music_player_windows.Converters"
     mc:Ignorable="d"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
+
+    <Page.Resources>
+        <converters:StringToImageSourceConverter x:Key="StringToImageSourceConverter" />
+    </Page.Resources>
 
     <Grid Margin="32,32,32,24">
         <Grid.RowDefinitions>
@@ -16,6 +21,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- 标题栏 + 排序 -->
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -25,49 +31,128 @@
                 <Rectangle Width="4" Height="24" Fill="{StaticResource Rose400}" VerticalAlignment="Center" RadiusX="2" RadiusY="2" />
                 <TextBlock Text="我的收藏" FontSize="28" FontWeight="Bold" Foreground="{StaticResource Slate800}" />
             </StackPanel>
-            <TextBlock Grid.Column="1" Text="= 排序" FontSize="14" Foreground="{StaticResource Slate500}" VerticalAlignment="Bottom" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                <TextBlock Text="排序：" FontSize="14" Foreground="{StaticResource Slate500}" VerticalAlignment="Center" />
+                <ComboBox
+                    AutomationProperties.AutomationId="SortComboBox"
+                    ItemsSource="{x:Bind ViewModel.SortOptions, Mode=OneWay}"
+                    SelectedItem="{x:Bind ViewModel.SortOption, Mode=TwoWay}"
+                    SelectionChanged="OnSortSelectionChanged"
+                    MinWidth="100"
+                    FontSize="14" />
+            </StackPanel>
         </Grid>
 
+        <!-- 表头 -->
         <Border Margin="0,24,0,0" BorderBrush="{StaticResource Slate200}" BorderThickness="0,0,0,1" Padding="16,8" Grid.Row="1">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="48" />
-                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="120" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="200" />
                     <ColumnDefinition Width="100" />
                     <ColumnDefinition Width="48" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="#" Foreground="{StaticResource Slate500}" HorizontalAlignment="Center" />
-                <TextBlock Grid.Column="2" Text="标题" Foreground="{StaticResource Slate500}" />
-                <TextBlock Grid.Column="3" Text="UP主" Foreground="{StaticResource Slate500}" />
-                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4">
+                <TextBlock Grid.Column="1" Text="标题" Foreground="{StaticResource Slate500}" />
+                <TextBlock Grid.Column="2" Text="UP主" Foreground="{StaticResource Slate500}" />
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4">
                     <SymbolIcon Symbol="Clock" Foreground="{StaticResource Slate500}" />
                     <TextBlock Text="时长" Foreground="{StaticResource Slate500}" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <ListView Grid.Row="2" Margin="0,8,0,0" BorderThickness="0" SelectionMode="None" ItemsSource="{x:Bind ViewModel.Favorites, Mode=OneWay}">
+        <!-- 空状态 -->
+        <StackPanel
+            Grid.Row="2"
+            Visibility="{x:Bind ViewModel.EmptyStateVisibility, Mode=OneWay}"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="8">
+            <SymbolIcon Symbol="Library" Foreground="{StaticResource Slate300}" Width="48" Height="48" />
+            <TextBlock Text="收藏列表为空" Foreground="{StaticResource Slate400}" FontSize="16" HorizontalAlignment="Center" />
+            <TextBlock Text="在搜索结果中右键点击视频即可收藏" Foreground="{StaticResource Slate300}" FontSize="12" HorizontalAlignment="Center" />
+        </StackPanel>
+
+        <!-- 收藏列表 -->
+        <ListView
+            Grid.Row="2"
+            Visibility="{x:Bind ViewModel.ListVisibility, Mode=OneWay}"
+            Margin="0,8,0,0"
+            BorderThickness="0"
+            SelectionMode="None"
+            ItemsSource="{x:Bind ViewModel.Favorites, Mode=OneWay}"
+            IsItemClickEnabled="True"
+            ItemClick="OnFavoriteItemClick">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="AutomationProperties.AutomationId" Value="FavoriteListItem" />
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
-                <DataTemplate x:DataType="models:TrackItem">
+                <DataTemplate x:DataType="models:VideoModel">
                     <Grid Padding="16,12">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="48" />
-                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="120" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="200" />
                             <ColumnDefinition Width="100" />
                             <ColumnDefinition Width="48" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{x:Bind Index, Mode=OneWay}" Foreground="{StaticResource Rose400}" HorizontalAlignment="Center" FontWeight="SemiBold" />
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
-                            <Border Width="96" Height="56" Background="{StaticResource Slate200}" CornerRadius="6" />
-                            <TextBlock Text="{x:Bind Title, Mode=OneWay}" Foreground="{StaticResource Slate800}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+
+                        <!-- 封面图 -->
+                        <Border Width="104" Height="60" CornerRadius="6" Background="{StaticResource Slate200}">
+                            <Image Source="{x:Bind Cover, Converter={StaticResource StringToImageSourceConverter}, Mode=OneWay}" Stretch="UniformToFill" />
+                        </Border>
+
+                        <!-- 标题 -->
+                        <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center">
+                            <TextBlock
+                                Text="{x:Bind Title, Mode=OneWay}"
+                                Foreground="{StaticResource Slate800}"
+                                FontWeight="SemiBold"
+                                TextTrimming="CharacterEllipsis"
+                                MaxLines="2" />
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                <SymbolIcon Symbol="Like" Foreground="{StaticResource Slate300}" Width="12" Height="12" />
+                                <TextBlock Text="{x:Bind Views, Mode=OneWay}" Foreground="{StaticResource Slate400}" FontSize="11" />
+                            </StackPanel>
                         </StackPanel>
-                        <TextBlock Grid.Column="3" Text="{x:Bind Artist, Mode=OneWay}" Foreground="{StaticResource Slate500}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="4" Text="{x:Bind Duration, Mode=OneWay}" Foreground="{StaticResource Slate500}" FontFamily="Consolas" VerticalAlignment="Center" />
-                        <SymbolIcon Grid.Column="5" Symbol="More" Foreground="{StaticResource Slate400}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+
+                        <!-- UP主 -->
+                        <TextBlock
+                            Grid.Column="2"
+                            Text="{x:Bind Artist, Mode=OneWay}"
+                            Foreground="{StaticResource Slate500}"
+                            TextTrimming="CharacterEllipsis"
+                            VerticalAlignment="Center" />
+
+                        <!-- 时长 -->
+                        <TextBlock
+                            Grid.Column="3"
+                            Text="{x:Bind Duration, Mode=OneWay}"
+                            Foreground="{StaticResource Slate500}"
+                            FontFamily="Consolas"
+                            VerticalAlignment="Center" />
+
+                        <!-- 更多按钮（右键菜单触发器） -->
+                        <Button
+                            Grid.Column="4"
+                            AutomationProperties.AutomationId="FavoriteMoreButton"
+                            Width="32"
+                            Height="32"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="0"
+                            Click="OnRemoveFavoriteClick"
+                            Tag="{x:Bind Bvid, Mode=OneWay}"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Center">
+                            <SymbolIcon Symbol="Cancel" Foreground="{StaticResource Slate300}" />
+                        </Button>
                     </Grid>
                 </DataTemplate>
             </ListView.ItemTemplate>
