@@ -11,7 +11,7 @@ using bilibili_music_player_windows.Models;
 
 namespace bilibili_music_player_windows.Api
 {
-    public sealed class BilibiliClient
+    public sealed class BilibiliClient : IDisposable
     {
         private const string BaseUrl = "https://api.bilibili.com";
         private const string WebBaseUrl = "https://www.bilibili.com/";
@@ -21,6 +21,23 @@ namespace bilibili_music_player_windows.Api
         private readonly WbiSigner _wbiSigner = new();
         private readonly SemaphoreSlim _initLock = new(1, 1);
         private bool _initialized;
+
+        /// <summary>
+        /// Applies the standard Bilibili HTTP headers to an <see cref="HttpClient"/>.
+        /// </summary>
+        public static void ConfigureDefaultHeaders(HttpClient client)
+        {
+            ArgumentNullException.ThrowIfNull(client);
+
+            client.DefaultRequestHeaders.TryAddWithoutValidation(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Referer", "https://www.bilibili.com/");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Origin", "https://www.bilibili.com");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
+            client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        }
 
         public BilibiliClient()
         {
@@ -36,14 +53,7 @@ namespace bilibili_music_player_windows.Api
                 Timeout = TimeSpan.FromSeconds(15),
             };
 
-            _client.DefaultRequestHeaders.TryAddWithoutValidation(
-                "User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-            _client.DefaultRequestHeaders.TryAddWithoutValidation("Referer", "https://www.bilibili.com/");
-            _client.DefaultRequestHeaders.TryAddWithoutValidation("Origin", "https://www.bilibili.com");
-            _client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
-            _client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+            ConfigureDefaultHeaders(_client);
         }
 
         public async Task<SearchResult> SearchVideosAsync(string keyword, int page = 1, int pageSize = 20)
@@ -409,6 +419,12 @@ namespace bilibili_music_player_windows.Api
             }
 
             return null;
+        }
+
+        public void Dispose()
+        {
+            _initLock.Dispose();
+            _client.Dispose();
         }
     }
 }

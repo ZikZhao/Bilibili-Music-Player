@@ -156,6 +156,8 @@ namespace bilibili_music_player_windows.Api
             {
                 Headers = { Range = new RangeHeaderValue(position, null) },
             };
+            request.Headers.AcceptEncoding.Clear();
+            request.Headers.AcceptEncoding.ParseAdd("identity");
 
             var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
                 .ConfigureAwait(false);

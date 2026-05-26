@@ -391,31 +391,37 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 
 ### 9. 🧹 Code Quality (from Code Review)
 
-- [ ] **Q1** Replace all `async void` event handlers with `[RelayCommand]` bindings  
+- [x] **Q1** Replace all `async void` event handlers with `[RelayCommand]` bindings  
        SearchPage: `OnSearchKeyDown`, `OnKeywordClick`, `OnClearHistoryClick`, `OnVideoClick`  
-       Use `Command` + `CommandParameter` in XAML instead
+       Use `Command` + `CommandParameter` in XAML instead  
+       ✅ Done: `OnSearchKeyDown`/`OnKeywordClick` → synchronous delegates that call `SearchCommand.Execute()`; `OnClearHistoryClick` → replaced with `Command="{x:Bind ViewModel.ClearHistoryCommand}"` in XAML; `OnVideoClick` kept as event handler (dialog coordination per MVVM).
 
 - [x] **Q2** Fix `HttpRangeStream.Read()` — remove `GetAwaiter().GetResult()`  
        ✅ Done in P0.6
 
-- [ ] **Q3** Add `NavigationCacheMode="Disabled"` to SearchPage (heavy resources)
+- [x] **Q3** Add `NavigationCacheMode="Disabled"` to SearchPage (heavy resources)  
+       ✅ Done.
 
-- [ ] **Q4** Remove hardcoded seed data from `MainViewModel.Seed()` — load from persistence
+- [x] **Q4** Remove hardcoded seed data from `MainViewModel.Seed()` — load from persistence  
+       ✅ Done: `Seed()` method removed, constructor no longer calls it.
 
-- [ ] **Q5** Consolidate duplicate HTTP header setup  
+- [x] **Q5** Consolidate duplicate HTTP header setup  
        `BilibiliClient.cs` and `SearchPage.xaml.cs` both set User-Agent/Referer headers  
        Move to a shared `HttpClientFactory` or `BilibiliClient` static constructor  
-       ⚠️ Partially addressed in P0.3: shared `HttpClient` registered in DI. `PreviewHttpClient` in `SearchPage.xaml.cs` still needs removal (see Q7).
+       ✅ Done: Added `BilibiliClient.ConfigureDefaultHeaders(HttpClient)` static method; `App.xaml.cs` and `BilibiliClient` constructor now use it.
 
-- [ ] **Q6** Add `using` statements to all disposable references  
-       Verify `JsonDocument`, `HttpResponseMessage`, `Stream` all properly disposed
+- [x] **Q6** Add `using` statements to all disposable references  
+       Verify `JsonDocument`, `HttpResponseMessage`, `Stream` all properly disposed  
+       ✅ Done: `BilibiliClient` now implements `IDisposable` (disposes `_initLock` and `_client`). `JsonDocument`/`HttpResponseMessage` already used with `using` statements.
 
-- [ ] **Q7** Remove `PreviewHttpClient` static field — use singleton from DI  
-       ⚠️ P0.3 registered a shared `HttpClient` in DI; `SearchPage.xaml.cs` still creates its own `PreviewHttpClient`.
+- [x] **Q7** Remove `PreviewHttpClient` static field — use singleton from DI  
+       ⚠️ P0.3 registered a shared `HttpClient` in DI; `SearchPage.xaml.cs` still creates its own `PreviewHttpClient`.  
+       ✅ Done: `PreviewHttpClient` removed; `SearchPage` now injects DI `HttpClient`; `HttpRangeStream` sets `Accept-Encoding: identity` per-request.
 
-- [ ] **Q8** Add `[RelayCommand]` to `MainViewModel.SearchAsync` and `ClearHistoryAsync`  
+- [x] **Q8** Add `[RelayCommand]` to `MainViewModel.SearchAsync` and `ClearHistoryAsync`  
        ⚠️ **Deferred from P0.4**: `[RelayCommand]` makes the annotated method private (the source generator creates a public `IRelayCommand` property instead). `SearchPage.xaml.cs` currently calls `ViewModel.SearchAsync(keyword)` and `ViewModel.ClearHistoryAsync()` directly. These call-sites must be updated to use `ViewModel.SearchCommand.Execute(keyword)` and `ViewModel.ClearHistoryCommand.Execute(null)` — coordinate with Q1 (replace `async void` handlers with Command bindings).  
-       **Target file**: `ViewModels/MainViewModel.cs`
+       **Target file**: `ViewModels/MainViewModel.cs`  
+       ✅ Done: Both methods now use `[RelayCommand]`; call-sites updated to use `SearchCommand.Execute()` / `ClearHistoryCommand.Execute()`.
 
 ---
 

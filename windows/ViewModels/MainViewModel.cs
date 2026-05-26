@@ -34,44 +34,11 @@ namespace bilibili_music_player_windows.ViewModels
         public MainViewModel(BilibiliClient client)
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
-            Seed();
             LoadSearchHistory();
         }
 
-        private void Seed()
-        {
-            Favorites.Add(new TrackItem
-            {
-                Index = 1,
-                Title = "超高清4k音质无损【官方MV】[超时空辉夜姬] 星降る海",
-                Artist = "夏レモン",
-                Duration = "04:13",
-            });
-            Favorites.Add(new TrackItem
-            {
-                Index = 2,
-                Title = "“能遇上这首歌，算你有本事……” | 《願い～あの頃のキミへ～》",
-                Artist = "Kumorine",
-                Duration = "05:41",
-            });
-            Favorites.Add(new TrackItem
-            {
-                Index = 3,
-                Title = "若能绽放光芒 | 《四月是你的谎言》OP《光るなら》",
-                Artist = "JLRS-jayfm",
-                Duration = "04:10",
-            });
-
-            HotKeywords.Add("祈愿 致那个时候的你");
-            HotKeywords.Add("星降る海");
-            HotKeywords.Add("光るなら");
-            HotKeywords.Add("Re:frain");
-        }
-
-        /// <summary>
-        /// Executes a search for the given keyword and populates <see cref="SearchVideos"/>.
-        /// </summary>
-        public async Task SearchAsync(string keyword)
+        [RelayCommand]
+        private async Task SearchAsync(string keyword)
         {
             if (string.IsNullOrWhiteSpace(keyword))
             {
@@ -94,7 +61,8 @@ namespace bilibili_music_player_windows.ViewModels
         /// <summary>
         /// Clears the search history and persists the empty state.
         /// </summary>
-        public async Task ClearHistoryAsync()
+        [RelayCommand]
+        private async Task ClearHistoryAsync()
         {
             SearchHistory.Clear();
             await SaveHistoryAsync();

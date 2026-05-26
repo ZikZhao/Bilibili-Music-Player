@@ -60,15 +60,7 @@ namespace bilibili_music_player_windows
                     Timeout = TimeSpan.FromSeconds(30),
                 };
 
-                client.DefaultRequestHeaders.TryAddWithoutValidation(
-                    "User-Agent",
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Referer", "https://www.bilibili.com/");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Origin", "https://www.bilibili.com");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json, text/plain, */*");
-                client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
-
+                BilibiliClient.ConfigureDefaultHeaders(client);
                 return client;
             });
 

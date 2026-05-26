@@ -8,7 +8,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    NavigationCacheMode="Enabled">
+    NavigationCacheMode="Disabled">
 
     <Grid>
         <ScrollViewer>
@@ -32,7 +32,7 @@
                         <SymbolIcon Symbol="Find" Foreground="{StaticResource Slate600}" />
                         <TextBlock Text="搜索历史" Foreground="{StaticResource Slate600}" FontWeight="SemiBold" />
                     </StackPanel>
-                    <Button x:Name="ClearHistoryButton" Grid.Column="1" Content="清空" Foreground="{StaticResource Slate400}" Background="Transparent" BorderThickness="0" IsEnabled="False" Click="OnClearHistoryClick" />
+                    <Button x:Name="ClearHistoryButton" Grid.Column="1" Content="清空" Foreground="{StaticResource Slate400}" Background="Transparent" BorderThickness="0" IsEnabled="False" Command="{x:Bind ViewModel.ClearHistoryCommand}" />
                 </Grid>
 
                 <ScrollViewer HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" Padding="0">
