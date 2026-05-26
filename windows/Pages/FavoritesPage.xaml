@@ -48,7 +48,7 @@
             </Grid>
         </Border>
 
-        <ListView Grid.Row="2" Margin="0,8,0,0" BorderThickness="0" SelectionMode="None" ItemsSource="{x:Bind ViewModel.Favorites}">
+        <ListView Grid.Row="2" Margin="0,8,0,0" BorderThickness="0" SelectionMode="None" ItemsSource="{x:Bind ViewModel.Favorites, Mode=OneWay}">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:TrackItem">
                     <Grid Padding="16,12">
@@ -60,13 +60,13 @@
                             <ColumnDefinition Width="100" />
                             <ColumnDefinition Width="48" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{x:Bind Index}" Foreground="{StaticResource Rose400}" HorizontalAlignment="Center" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="0" Text="{x:Bind Index, Mode=OneWay}" Foreground="{StaticResource Rose400}" HorizontalAlignment="Center" FontWeight="SemiBold" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16">
                             <Border Width="96" Height="56" Background="{StaticResource Slate200}" CornerRadius="6" />
-                            <TextBlock Text="{x:Bind Title}" Foreground="{StaticResource Slate800}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind Title, Mode=OneWay}" Foreground="{StaticResource Slate800}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                         </StackPanel>
-                        <TextBlock Grid.Column="3" Text="{x:Bind Artist}" Foreground="{StaticResource Slate500}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="4" Text="{x:Bind Duration}" Foreground="{StaticResource Slate500}" FontFamily="Consolas" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="3" Text="{x:Bind Artist, Mode=OneWay}" Foreground="{StaticResource Slate500}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="4" Text="{x:Bind Duration, Mode=OneWay}" Foreground="{StaticResource Slate500}" FontFamily="Consolas" VerticalAlignment="Center" />
                         <SymbolIcon Grid.Column="5" Symbol="More" Foreground="{StaticResource Slate400}" VerticalAlignment="Center" HorizontalAlignment="Center" />
                     </Grid>
                 </DataTemplate>

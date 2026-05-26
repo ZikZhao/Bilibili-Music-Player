@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using bilibili_music_player_windows.Pages;
+using bilibili_music_player_windows.ViewModels;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -13,8 +14,11 @@ namespace bilibili_music_player_windows
     /// </summary>
     public sealed partial class MainWindow : Window
     {
-        public MainWindow()
+        private readonly MainViewModel _mainViewModel;
+
+        public MainWindow(MainViewModel mainViewModel)
         {
+            _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
             InitializeComponent();
             NavList.SelectedIndex = 1;
             NavigateTo("favorites");

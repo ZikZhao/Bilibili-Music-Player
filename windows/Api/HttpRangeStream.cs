@@ -66,9 +66,7 @@ namespace bilibili_music_player_windows.Api
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            return ReadAsync(buffer, offset, count, CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
+            throw new NotSupportedException("Use ReadAsync");
         }
 
         public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)

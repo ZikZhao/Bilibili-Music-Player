@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.Media.Core;
 using Windows.System;
+using bilibili_music_player_windows;
 using bilibili_music_player_windows.Api;
 using bilibili_music_player_windows.ViewModels;
 using bilibili_music_player_windows.Models;
@@ -16,7 +17,7 @@ namespace bilibili_music_player_windows.Pages
 {
     public sealed partial class SearchPage : Page
     {
-        public MainViewModel ViewModel { get; } = MainViewModel.Instance;
+        public MainViewModel ViewModel { get; } = App.Current.GetService<MainViewModel>();
 
         private static readonly HttpClient PreviewHttpClient = CreatePreviewHttpClient();
         private HttpRangeStream? _previewStream;

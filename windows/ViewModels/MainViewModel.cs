@@ -1,29 +1,39 @@
+#pragma warning disable MVVMTK0045
+
 using System;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Threading.Tasks;
 using bilibili_music_player_windows.Models;
 using bilibili_music_player_windows.Api;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Windows.Storage;
 
 namespace bilibili_music_player_windows.ViewModels
 {
-    public sealed class MainViewModel
+    public partial class MainViewModel : ObservableObject
     {
-        public static MainViewModel Instance { get; } = new MainViewModel();
-
         private const int MaxHistoryItems = 10;
         private const string SearchHistoryKey = "search_history";
 
-        private readonly BilibiliClient _client = new();
+        private readonly BilibiliClient _client;
 
-        public ObservableCollection<TrackItem> Favorites { get; } = new();
-        public ObservableCollection<VideoPreviewItem> SearchVideos { get; } = new();
-        public ObservableCollection<string> SearchHistory { get; } = new();
-        public ObservableCollection<string> HotKeywords { get; } = new();
+        [ObservableProperty]
+        private ObservableCollection<TrackItem> _favorites = new();
 
-        private MainViewModel()
+        [ObservableProperty]
+        private ObservableCollection<VideoPreviewItem> _searchVideos = new();
+
+        [ObservableProperty]
+        private ObservableCollection<string> _searchHistory = new();
+
+        [ObservableProperty]
+        private ObservableCollection<string> _hotKeywords = new();
+
+        public MainViewModel(BilibiliClient client)
         {
+            _client = client ?? throw new ArgumentNullException(nameof(client));
             Seed();
             LoadSearchHistory();
         }
@@ -58,6 +68,9 @@ namespace bilibili_music_player_windows.ViewModels
             HotKeywords.Add("Re:frain");
         }
 
+        /// <summary>
+        /// Executes a search for the given keyword and populates <see cref="SearchVideos"/>.
+        /// </summary>
         public async Task SearchAsync(string keyword)
         {
             if (string.IsNullOrWhiteSpace(keyword))
@@ -78,6 +91,9 @@ namespace bilibili_music_player_windows.ViewModels
             }
         }
 
+        /// <summary>
+        /// Clears the search history and persists the empty state.
+        /// </summary>
         public async Task ClearHistoryAsync()
         {
             SearchHistory.Clear();
