@@ -18,6 +18,7 @@ using Windows.ApplicationModel.Activation;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using bilibili_music_player_windows.Api;
+using bilibili_music_player_windows.Services;
 using bilibili_music_player_windows.ViewModels;
 
 // To learn more about WinUI, the WinUI project structure,
@@ -67,8 +68,13 @@ namespace bilibili_music_player_windows
             // API
             services.AddSingleton<BilibiliClient>();
 
+            // Services
+            services.AddSingleton<CacheService>();
+            services.AddSingleton<AudioPlayerService>();
+
             // ViewModels
             services.AddSingleton<MainViewModel>();
+            services.AddSingleton<PlayerViewModel>();
             services.AddTransient<SearchViewModel>();
             services.AddTransient<LibraryViewModel>();
             services.AddTransient<SettingsViewModel>();

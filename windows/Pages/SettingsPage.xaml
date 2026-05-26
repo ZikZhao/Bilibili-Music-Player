@@ -99,22 +99,26 @@
 
             <TextBlock Grid.Row="5" Text="数据与存储" Foreground="{StaticResource Rose400}" FontWeight="Bold" Margin="0,40,0,16" />
             <Border Grid.Row="6" Background="White" BorderBrush="{StaticResource Slate100}" BorderThickness="1" CornerRadius="16">
-                <Grid Padding="16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="32" />
-                        <ColumnDefinition Width="16" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Border Width="32" Height="32" Background="{StaticResource Slate100}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <SymbolIcon Symbol="Folder" Foreground="{StaticResource Slate600}" />
-                    </Border>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="清除缓存" Foreground="{StaticResource Slate800}" FontWeight="SemiBold" />
-                        <TextBlock Text="已使用: 42.9 MB" Foreground="{StaticResource Slate400}" FontSize="12" />
-                    </StackPanel>
-                    <SymbolIcon Grid.Column="3" Symbol="Delete" Foreground="{StaticResource Rose500}" VerticalAlignment="Center" />
-                </Grid>
+                <Button x:Name="ClearCacheButton" Command="{x:Bind ViewModel.ClearCacheCommand}"
+                        Background="Transparent" BorderThickness="0" Padding="0"
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Grid Padding="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="32" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="32" Height="32" Background="{StaticResource Slate100}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <SymbolIcon Symbol="Folder" Foreground="{StaticResource Slate600}" />
+                        </Border>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="清除缓存" Foreground="{StaticResource Slate800}" FontWeight="SemiBold" />
+                            <TextBlock Text="{x:Bind ViewModel.CacheSize, Mode=OneWay}" Foreground="{StaticResource Slate400}" FontSize="12" />
+                        </StackPanel>
+                        <SymbolIcon Grid.Column="3" Symbol="Delete" Foreground="{StaticResource Rose500}" VerticalAlignment="Center" />
+                    </Grid>
+                </Button>
             </Border>
         </Grid>
     </ScrollViewer>

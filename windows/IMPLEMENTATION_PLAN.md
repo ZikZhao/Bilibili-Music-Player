@@ -160,29 +160,31 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 
 #### Implementation Tasks — Audio Playback
 
-- [ ] **P1** Create `AudioPlayerService` wrapping WinUI `MediaPlayer`
+- [x] **P1** Create `AudioPlayerService` wrapping WinUI `MediaPlayer`
   - Single `MediaPlayer` instance (no adapters, per mobile rule)
-  - Methods: `PlayAsync(url, headers)`, `Pause()`, `Seek(TimeSpan)`, `Stop()`
+  - Methods: `PlayAsync(uri, headers)`, `Pause()`, `Seek(TimeSpan)`, `Stop()`
   - Properties: `Position`, `Duration`, `IsPlaying`, `BufferingProgress`, `Volume`
-  - Events → `INotifyPropertyChanged` for real-time binding
+  - Events → `INotifyPropertyChanged` for real-time binding (250ms `DispatcherTimer` polling)
   - **Target file**: `Services/AudioPlayerService.cs`
   - **Register** as singleton in DI
 
-- [ ] **P2** Create `PlayerViewModel`
+- [x] **P2** Create `PlayerViewModel`
   - `[ObservableProperty]` for: `CurrentTrack`, `IsPlaying`, `Position`, `Duration`, `Progress`, `BufferingProgress`, `Volume`, `CurrentIndex`, `QueueCount`, `PlayMode`, `IsFading`
-  - `[RelayCommand]` for: `PlayCommand`, `PauseCommand`, `TogglePlayCommand`, `SeekCommand`, `NextCommand`, `PreviousCommand`, `CyclePlayModeCommand`
-  - Listen to `MediaPlayer` events → update observable properties
+  - `[RelayCommand]` for: `Play`, `Pause`, `TogglePlay`, `Seek`, `Next`, `Previous`, `CyclePlayMode`
+  - Listen to `AudioPlayerService` events → update observable properties via `DispatcherQueue`
+  - Playlist management: `SetPlaylistAsync()`, `AddToPlaylist()`, `RemoveFromPlaylist()`, `ClearPlaylist()`
+  - PlayMode logic: Loop / Single / Shuffle
   - **Target file**: `ViewModels/PlayerViewModel.cs`
 
-- [ ] **P3** Implement `PlayerViewModel.PlayVideoAsync(VideoModel)`  
+- [x] **P3** Implement `PlayerViewModel.PlayVideoAsync(VideoModel)`  
        Flow matching mobile exactly:
   1. Set `_pendingBvid` race-condition lock
-  2. Check cache → if cached, use local file
+  2. Check cache → if cached, use local file path
   3. If not cached: `FetchVideoInfoAsync` → `FetchPlayUrlAsync(audioOnly: true)`
-  4. Trigger background download via `CacheService`
-  5. Cancel if `_pendingBvid` changed
-  6. `_mediaPlayer.Source = MediaSource.CreateFromUri(uri)` with headers
-  7. `_mediaPlayer.Play()`
+  4. Trigger background download via `CacheService` (fire-and-forget)
+  5. Cancel if `_pendingBvid` changed (multiple checkpoints)
+  6. `_audioPlayer.PlayAsync(uri)` — `MediaSource.CreateFromUri`
+  7. Set `IsPlaying = true`
 
 - [ ] **P4** Wire Play/Pause/Next/Previous in `MainWindow.xaml` now-playing bar  
        Replace mock buttons with `{x:Bind PlayerViewModel.TogglePlayCommand}` etc.  
@@ -268,7 +270,7 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 
 #### Implementation Tasks — Caching
 
-- [ ] **C1** Create `CacheService`
+- [x] **C1** Create `CacheService`
   - Cache directory: `ApplicationData.LocalFolder\audio_cache\`
   - `GetAudioPathAsync(bvid)` → `string?` (file path if cached)
   - `IsCachedAsync(bvid)` → `bool`
@@ -276,15 +278,15 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
   - `DownloadInBackground(url, bvid)` → fire-and-forget with progress events
   - `GetFormattedCacheSizeAsync()` → `string` (e.g., "42.9 MB")
   - `ClearCacheAsync()`
-  - Progress: `IObservable<DownloadProgress>` or event-based
+  - Progress: `EventHandler<DownloadProgress>` event-based
   - **Target file**: `Services/CacheService.cs`
   - **Register** as singleton in DI
 
-- [ ] **C2** Create `DownloadProgress` model  
+- [x] **C2** Create `DownloadProgress` model  
        Properties: `Bvid`, `ReceivedBytes`, `TotalBytes`, `Progress` (0.0-1.0), `IsComplete`, `Error`  
        **Target file**: `Models/DownloadProgress.cs`
 
-- [ ] **C3** Wire `CacheService` to `SettingsViewModel`
+- [x] **C3** Wire `CacheService` to `SettingsViewModel`
   - `ClearCacheCommand` → calls `CacheService.ClearCacheAsync()`
   - `CacheSize` property → calls `CacheService.GetFormattedCacheSizeAsync()` on load
 

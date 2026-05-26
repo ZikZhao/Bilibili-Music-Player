@@ -15,7 +15,10 @@
     "[dart]": {
       "editor.formatOnSave": true,
       "editor.formatOnType": true,
-      "editor.rulers": [80, 120],
+      "editor.rulers": [
+        80,
+        120
+      ],
       "editor.selectionHighlight": false,
       "editor.suggestSelection": "first",
       "editor.tabCompletion": "onlySnippets",
@@ -34,6 +37,9 @@
     "search.exclude": {
       "**/build": true,
       "**/.dart_tool": true
+    },
+    "chat.tools.terminal.autoApprove": {
+      "dotnet build": true
     }
   },
   "tasks": {
@@ -58,7 +64,9 @@
         },
         "group": "build",
         "problemMatcher": [],
-        "dependsOn": ["flutter: pub get"]
+        "dependsOn": [
+          "flutter: pub get"
+        ]
       },
       {
         "label": "flutter: clean & rebuild",
