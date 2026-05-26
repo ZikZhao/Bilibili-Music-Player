@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
@@ -8,7 +7,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.Media.Core;
 using Windows.System;
-using bilibili_music_player_windows;
 using bilibili_music_player_windows.Api;
 using bilibili_music_player_windows.ViewModels;
 using bilibili_music_player_windows.Models;
@@ -17,13 +15,15 @@ namespace bilibili_music_player_windows.Pages
 {
     public sealed partial class SearchPage : Page
     {
-        public MainViewModel ViewModel { get; } = App.Current.GetService<MainViewModel>();
+        public SearchViewModel ViewModel { get; }
 
         private readonly HttpClient _httpClient;
         private HttpRangeStream? _previewStream;
 
         public SearchPage()
         {
+            ViewModel = App.Current.GetService<SearchViewModel>();
+            DataContext = ViewModel;
             _httpClient = App.Current.GetService<HttpClient>();
             InitializeComponent();
             Loaded += OnLoaded;
@@ -34,11 +34,38 @@ namespace bilibili_music_player_windows.Pages
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             PreviewDialog.XamlRoot = XamlRoot;
+            MainScrollViewer.ViewChanged += OnScrollViewChanged;
+        }
+
+        /// <summary>
+        /// 滚动检测：当靠近底部 200px 时触发加载更多（S4）。
+        /// </summary>
+        private void OnScrollViewChanged(object? sender, ScrollViewerViewChangedEventArgs e)
+        {
+            if (e.IsIntermediate || sender is not ScrollViewer scrollViewer)
+            {
+                return;
+            }
+
+            var scrollableHeight = scrollViewer.ScrollableHeight;
+            if (scrollableHeight <= 0)
+            {
+                return;
+            }
+
+            var threshold = 200.0;
+            if (scrollViewer.VerticalOffset >= scrollableHeight - threshold)
+            {
+                if (ViewModel.HasMore && !ViewModel.IsSearching)
+                {
+                    ViewModel.LoadMoreCommand.Execute(null);
+                }
+            }
         }
 
         private void UpdateHistoryState()
         {
-            if (ClearHistoryButton == null)
+            if (ClearHistoryButton is null)
             {
                 return;
             }
@@ -100,6 +127,17 @@ namespace bilibili_music_player_windows.Pages
             ExecuteSearch(keyword);
         }
 
+        /// <summary>
+        /// 点击搜索建议项（S3）。
+        /// </summary>
+        private void OnSuggestionClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is SuggestionModel suggestion && !string.IsNullOrWhiteSpace(suggestion.Value))
+            {
+                SearchBox.Text = suggestion.Value;
+                ExecuteSearch(suggestion.Value);
+            }
+        }
 
         private async void OnVideoClick(object sender, ItemClickEventArgs e)
         {

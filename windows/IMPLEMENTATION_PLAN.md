@@ -62,15 +62,15 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 
 ### 1. 🌐 API Layer
 
-| #   | Feature                                  | Mobile                                  | Windows                              | Status | Notes                                                          |
-| --- | ---------------------------------------- | --------------------------------------- | ------------------------------------ | ------ | -------------------------------------------------------------- |
-| 1.1 | WBI Signer                               | ✅ `WbiSigner`                          | ✅ `WbiSigner`                       | ✅     | Identical algorithm, already migrated                          |
-| 1.2 | BilibiliClient init (cookies + WBI keys) | ✅ `_ensureInitialized()`               | ✅ `EnsureInitializedAsync()`        | ✅     | Same flow: visit bilibili.com → nav API → extract keys         |
-| 1.3 | Search API (`searchVideos`)              | ✅ with pagination + risk detection     | ✅ risk detection (412/v_voucher)    | ✅     | A1 done: 412 retry + v_voucher check                     |
-| 1.4 | Search Suggestions (`fetchSuggestions`)  | ✅ `s.search.bilibili.com/main/suggest` | ✅ `FetchSuggestionsAsync()`         | ✅     | A2 done: new endpoint + SuggestionModel                    |
-| 1.5 | Video Info (`fetchVideoInfo`)            | ✅ `/x/web-interface/view`              | ✅ `FetchVideoInfoAsync()`            | ✅     | A3/A4 done: full VideoDetailInfo model (owner, stats, desc) |
-| 1.6 | Play URL (`fetchPlayUrl`)                | ✅ DASH audio + MP4 fallback            | ✅ DASH audio + MP4 fallback         | ✅     | A5/A6 done: fnval=16 DASH + MP4 fallback                  |
-| 1.7 | HTTP Range Stream                        | N/A (Dio handles)                       | ✅ `HttpRangeStream`                 | ⚠️     | **Needs fix**: sync-over-async deadlock (see P0.6)             |
+| #   | Feature                                  | Mobile                                  | Windows                           | Status | Notes                                                       |
+| --- | ---------------------------------------- | --------------------------------------- | --------------------------------- | ------ | ----------------------------------------------------------- |
+| 1.1 | WBI Signer                               | ✅ `WbiSigner`                          | ✅ `WbiSigner`                    | ✅     | Identical algorithm, already migrated                       |
+| 1.2 | BilibiliClient init (cookies + WBI keys) | ✅ `_ensureInitialized()`               | ✅ `EnsureInitializedAsync()`     | ✅     | Same flow: visit bilibili.com → nav API → extract keys      |
+| 1.3 | Search API (`searchVideos`)              | ✅ with pagination + risk detection     | ✅ risk detection (412/v_voucher) | ✅     | A1 done: 412 retry + v_voucher check                        |
+| 1.4 | Search Suggestions (`fetchSuggestions`)  | ✅ `s.search.bilibili.com/main/suggest` | ✅ `FetchSuggestionsAsync()`      | ✅     | A2 done: new endpoint + SuggestionModel                     |
+| 1.5 | Video Info (`fetchVideoInfo`)            | ✅ `/x/web-interface/view`              | ✅ `FetchVideoInfoAsync()`        | ✅     | A3/A4 done: full VideoDetailInfo model (owner, stats, desc) |
+| 1.6 | Play URL (`fetchPlayUrl`)                | ✅ DASH audio + MP4 fallback            | ✅ DASH audio + MP4 fallback      | ✅     | A5/A6 done: fnval=16 DASH + MP4 fallback                    |
+| 1.7 | HTTP Range Stream                        | N/A (Dio handles)                       | ✅ `HttpRangeStream`              | ⚠️     | **Needs fix**: sync-over-async deadlock (see P0.6)          |
 
 #### Implementation Tasks — API Layer
 
@@ -115,31 +115,31 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 
 #### Implementation Tasks — Search
 
-- [ ] **S1** Move search logic from code-behind → `SearchViewModel`
+- [x] **S1** Move search logic from code-behind → `SearchViewModel`
   - `[ObservableProperty]` for: `SearchText`, `Suggestions`, `Results`, `History`, `HotKeywords`, `IsSearching`, `ErrorMessage`, `HasMore`, `CurrentPage`, `SearchState`
   - `[RelayCommand]` for: `SearchCommand`, `LoadMoreCommand`, `ClearHistoryCommand`, `RefreshCommand`
   - **Target files**: `ViewModels/SearchViewModel.cs`, `Pages/SearchPage.xaml` + `.xaml.cs`
 
-- [ ] **S2** Implement 300ms debounce on input → fetch suggestions  
-       Use `CancellationTokenSource` pattern (cancel previous on new input)  
-       **Target**: `SearchViewModel.OnSearchTextChanged()` partial method
+- [x] **S2** Implement 300ms debounce on input → fetch suggestions
+      Use `CancellationTokenSource` pattern (cancel previous on new input)
+      **Target**: `SearchViewModel.OnSearchTextChanged()` partial method
 
-- [ ] **S3** Add suggestions ListView overlay in `SearchPage.xaml`
+- [x] **S3** Add suggestions ListView overlay in `SearchPage.xaml`
   - Show when `SearchState == ShowingSuggestions`
   - Each item: tappable → sets text + triggers search
   - Dismiss on focus lost / Enter / Escape
 
-- [ ] **S4** Add pagination (Load More)
+- [x] **S4** Add pagination (Load More)
   - Detect scroll near bottom of GridView (`ScrollViewer.ViewChanged` event)
   - Call `LoadMoreCommand` when within 200px of end
   - Append results to `ObservableCollection`
 
-- [ ] **S5** Wire `SearchHistory` to auto-save on search + load on startup  
-       Already partially implemented in `MainViewModel` — move to `SearchViewModel` and persist via `ApplicationData.LocalSettings`
+- [x] **S5** Wire `SearchHistory` to auto-save on search + load on startup
+      Already partially implemented in `MainViewModel` — move to `SearchViewModel` and persist via `ApplicationData.LocalSettings`
 
-- [ ] **S6** Add `x:Bind, Mode=OneWay` to all search UI bindings
+- [x] **S6** Add `x:Bind, Mode=OneWay` to all search UI bindings
 
-- [ ] **S7** Add error state UI (TextBlock with error icon when `ErrorMessage != null`)
+- [x] **S7** Add error state UI (TextBlock with error icon when `ErrorMessage != null`)
 
 ---
 

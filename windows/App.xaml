@@ -10,6 +10,7 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="Rose200" Color="#FFFECDD3" />
             <SolidColorBrush x:Key="Rose400" Color="#FFFB7185" />
             <SolidColorBrush x:Key="Rose100" Color="#FFFFE4E6" />
             <SolidColorBrush x:Key="Rose500" Color="#FFF43F5E" />
@@ -21,6 +22,7 @@
             <SolidColorBrush x:Key="Slate500" Color="#FF64748B" />
             <SolidColorBrush x:Key="Slate600" Color="#FF475569" />
             <SolidColorBrush x:Key="Slate800" Color="#FF1E293B" />
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>
