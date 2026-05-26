@@ -35,22 +35,9 @@ namespace bilibili_music_player_windows.Pages
                     : Visibility.Visible;
         }
 
-        // ── x:Bind 辅助方法 ──
-
-        /// <summary>格式化 TimeSpan 为 mm:ss 或 h:mm:ss。</summary>
-        public static string FormatTimeSpan(TimeSpan ts)
-        {
-            if (ts <= TimeSpan.Zero) return "--:--";
-            return ts.Hours > 0
-                ? $"{ts.Hours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
-                : $"{ts.Minutes:D2}:{ts.Seconds:D2}";
-        }
-
-        public static Visibility BoolToVisibility(bool value) =>
-            value ? Visibility.Visible : Visibility.Collapsed;
-
-        public static Visibility InvertBoolToVisibility(bool value) =>
-            value ? Visibility.Collapsed : Visibility.Visible;
+        /// <summary>音量百分比文本。</summary>
+        public static string VolumePercent(double volume) =>
+            $"{(int)(Math.Clamp(volume, 0, 1) * 100)}%";
 
         /// <summary>
         /// P8: 根据 PlayMode 枚举值返回对应图标可见性。
@@ -60,9 +47,5 @@ namespace bilibili_music_player_windows.Pages
         {
             return (int)mode == modeValue ? Visibility.Visible : Visibility.Collapsed;
         }
-
-        /// <summary>音量百分比文本。</summary>
-        public static string VolumePercent(double volume) =>
-            $"{(int)(Math.Clamp(volume, 0, 1) * 100)}%";
     }
 }

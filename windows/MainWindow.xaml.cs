@@ -61,21 +61,5 @@ namespace bilibili_music_player_windows
             NavigateTo("nowplaying");
         }
 
-        // ── x:Bind 辅助方法 ──
-
-        /// <summary>格式化 TimeSpan 为 mm:ss 或 h:mm:ss。</summary>
-        public static string FormatTimeSpan(TimeSpan ts)
-        {
-            if (ts <= TimeSpan.Zero) return "--:--";
-            return ts.Hours > 0
-                ? $"{ts.Hours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
-                : $"{ts.Minutes:D2}:{ts.Seconds:D2}";
-        }
-
-        public static Visibility BoolToVisibility(bool value) =>
-            value ? Visibility.Visible : Visibility.Collapsed;
-
-        public static Visibility InvertBoolToVisibility(bool value) =>
-            value ? Visibility.Collapsed : Visibility.Visible;
     }
 }

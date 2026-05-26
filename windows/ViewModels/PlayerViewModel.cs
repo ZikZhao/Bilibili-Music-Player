@@ -122,11 +122,11 @@ namespace bilibili_music_player_windows.ViewModels
                 {
                     _audioPlayer.SetVolume(0);
                     _audioPlayer.Resume();
-                    _audioPlayer.FadeIn(_volume);
+                    _audioPlayer.FadeIn(Volume);
                 }
                 else
                 {
-                    _audioPlayer.SetVolume(_volume);
+                    _audioPlayer.SetVolume(Volume);
                     _audioPlayer.Resume();
                 }
             }
@@ -193,11 +193,11 @@ namespace bilibili_music_player_windows.ViewModels
                 {
                     _audioPlayer.SetVolume(0);
                     _audioPlayer.Resume();
-                    _audioPlayer.FadeIn(_volume);
+                    _audioPlayer.FadeIn(Volume);
                 }
                 else
                 {
-                    _audioPlayer.SetVolume(_volume);
+                    _audioPlayer.SetVolume(Volume);
                     _audioPlayer.Resume();
                 }
             }
@@ -485,6 +485,7 @@ namespace bilibili_music_player_windows.ViewModels
         /// <summary>
         /// 清空播放队列。
         /// </summary>
+        [RelayCommand]
         public void ClearPlaylist()
         {
             Playlist.Clear();

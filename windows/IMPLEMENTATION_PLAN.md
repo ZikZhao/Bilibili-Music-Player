@@ -186,19 +186,19 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
   6. `_audioPlayer.PlayAsync(uri)` — `MediaSource.CreateFromUri`
   7. Set `IsPlaying = true`
 
-- [ ] **P4** Wire Play/Pause/Next/Previous in `MainWindow.xaml` now-playing bar  
-       Replace mock buttons with `{x:Bind PlayerViewModel.TogglePlayCommand}` etc.  
-       Bind `Position`, `Duration`, `Progress` to progress bar  
-       Bind `CurrentTrack.Title`, `CurrentTrack.Artist` to labels
+- [x] **P4** Wire Play/Pause/Next/Previous in `MainWindow.xaml` now-playing bar  
+       ✅ Replace mock buttons with `{x:Bind PlayerViewModel.TogglePlayCommand}` etc.  
+       ✅ Bind `Position`, `Duration`, `Progress` to progress bar  
+       ✅ Bind `CurrentTrack.Title`, `CurrentTrack.Artist` to labels
 
-- [ ] **P5** Implement volume fade-in/out
-  - Fade-in: 0→100 over 800ms, linear
-  - Fade-out: 100→0 over 800ms, parabolic ($t^2$)
-  - Use `DispatcherTimer` at 50ms intervals (16 steps)
-  - During fade: set `IsFading = true` to prevent UI flicker
+- [x] **P5** Implement volume fade-in/out
+  - ✅ Fade-in: 0→100 over 800ms, linear
+  - ✅ Fade-out: 100→0 over 800ms, parabolic ($t^2$)
+  - ✅ Use `DispatcherTimer` at 50ms intervals (16 steps)
+  - ✅ During fade: set `IsFading = true` to prevent UI flicker
 
-- [ ] **P6** Create `AudioPlayerPage` (full-screen player)  
-       Layout matching mobile:
+- [x] **P6** Create `AudioPlayerPage` (full-screen player)  
+       ✅ Layout matching mobile:
   - Cover image (from VideoModel)
   - Track title (marquee if long) + artist
   - Progress slider (`Slider` bound to `Position/Duration`)
@@ -207,16 +207,16 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
   - Volume slider
   - **Target file**: `Pages/AudioPlayerPage.xaml` + `.xaml.cs`
 
-- [ ] **P7** Implement Playlist management
-  - `ObservableCollection<VideoModel> Playlist` in `PlayerViewModel`
-  - `AddToPlaylistCommand`, `RemoveFromPlaylistCommand`, `ClearPlaylistCommand`
-  - `SetPlaylistCommand(List<VideoModel>, startIndex)`
-  - Playlist sheet UI in `AudioPlayerPage`
+- [x] **P7** Implement Playlist management
+  - ✅ `ObservableCollection<VideoModel> Playlist` in `PlayerViewModel`
+  - ✅ `AddToPlaylistCommand`, `RemoveFromPlaylistCommand`, `ClearPlaylistCommand`
+  - ✅ `SetPlaylistCommand(List<VideoModel>, startIndex)`
+  - ✅ Playlist sheet UI in `AudioPlayerPage`
 
-- [ ] **P8** Implement PlayMode logic (Loop / Single / Shuffle)
-  - `PlayMode` enum: `Loop`, `Single`, `Shuffle`
-  - `CyclePlayModeCommand`: Loop→Single→Shuffle→Loop
-  - `OnMediaEnded`:
+- [x] **P8** Implement PlayMode logic (Loop / Single / Shuffle)
+  - ✅ `PlayMode` enum: `Loop`, `Single`, `Shuffle`
+  - ✅ `CyclePlayModeCommand`: Loop→Single→Shuffle→Loop
+  - ✅ `OnMediaEnded`:
     - Loop: next track or wrap to first
     - Single: replay same track
     - Shuffle: random track (not same as current)

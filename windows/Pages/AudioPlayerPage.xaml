@@ -3,8 +3,7 @@
     x:Class="bilibili_music_player_windows.Pages.AudioPlayerPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:bilibili_music_player_windows"
-    xmlns:models="using:bilibili_music_player_windows.Models"
+    xmlns:local="using:bilibili_music_player_windows.Pages"    xmlns:helpers="using:bilibili_music_player_windows"    xmlns:models="using:bilibili_music_player_windows.Models"
     xmlns:converters="using:bilibili_music_player_windows.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -62,11 +61,11 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
-                                   Text="{x:Bind local:AudioPlayerPage.FormatTimeSpan(ViewModel.Position), Mode=OneWay}"
+                                   Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(ViewModel.Position), Mode=OneWay}"
                                    Foreground="{StaticResource Slate400}"
                                    FontFamily="Consolas" FontSize="12" />
                         <TextBlock Grid.Column="2"
-                                   Text="{x:Bind local:AudioPlayerPage.FormatTimeSpan(ViewModel.Duration), Mode=OneWay}"
+                                   Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(ViewModel.Duration), Mode=OneWay}"
                                    Foreground="{StaticResource Slate400}"
                                    FontFamily="Consolas" FontSize="12"
                                    HorizontalAlignment="Right" />
@@ -104,9 +103,9 @@
                                 AutomationProperties.AutomationId="PlayerPagePlayPauseButton">
                             <Grid>
                                 <SymbolIcon Symbol="Play" Foreground="White"
-                                            Visibility="{x:Bind local:AudioPlayerPage.InvertBoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
+                                            Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
                                 <SymbolIcon Symbol="Pause" Foreground="White"
-                                            Visibility="{x:Bind local:AudioPlayerPage.BoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
+                                            Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
                             </Grid>
                         </Button>
 
