@@ -76,6 +76,10 @@ namespace bilibili_music_player_windows.ViewModels
         [ObservableProperty]
         private bool _isFading;
 
+        /// <summary>是否启用淡入/淡出。</summary>
+        [ObservableProperty]
+        private bool _enableFade = true;
+
         /// <summary>播放队列。</summary>
         public ObservableCollection<VideoModel> Playlist { get; } = new();
 
@@ -114,18 +118,43 @@ namespace bilibili_music_player_windows.ViewModels
 
             if (!IsPlaying)
             {
-                // 直接调用 MediaPlayer.Play()
-                // PlayAsync 仅在加载新资源时调用
+                if (EnableFade)
+                {
+                    _audioPlayer.SetVolume(0);
+                    _audioPlayer.Resume();
+                    _audioPlayer.FadeIn(_volume);
+                }
+                else
+                {
+                    _audioPlayer.SetVolume(_volume);
+                    _audioPlayer.Resume();
+                }
             }
         }
 
         /// <summary>
-        /// 暂停播放。
+        /// 暂停播放（带淡出）。
         /// </summary>
         [RelayCommand]
         private void Pause()
         {
-            _audioPlayer.Pause();
+            if (EnableFade && IsPlaying)
+            {
+                IsFading = true;
+                _audioPlayer.FadeOut();
+                // 淡出完成后在 FadeCompleted 事件中恢复
+                void onFadeDone(object? s, EventArgs e)
+                {
+                    _audioPlayer.FadeCompleted -= onFadeDone;
+                    IsFading = false;
+                    _audioPlayer.Pause();
+                }
+                _audioPlayer.FadeCompleted += onFadeDone;
+            }
+            else
+            {
+                _audioPlayer.Pause();
+            }
         }
 
         /// <summary>
@@ -134,14 +163,43 @@ namespace bilibili_music_player_windows.ViewModels
         [RelayCommand]
         private void TogglePlay()
         {
+            if (CurrentTrack is null)
+            {
+                return;
+            }
+
             if (IsPlaying)
             {
-                _audioPlayer.Pause();
+                if (EnableFade)
+                {
+                    IsFading = true;
+                    _audioPlayer.FadeOut();
+                    void onFadeDone(object? s, EventArgs e)
+                    {
+                        _audioPlayer.FadeCompleted -= onFadeDone;
+                        IsFading = false;
+                        _audioPlayer.Pause();
+                    }
+                    _audioPlayer.FadeCompleted += onFadeDone;
+                }
+                else
+                {
+                    _audioPlayer.Pause();
+                }
             }
-            else if (CurrentTrack is not null)
+            else
             {
-                // 如果已有曲目，恢复播放
-                // 实际 resume 逻辑由 MediaPlayer 内部处理
+                if (EnableFade)
+                {
+                    _audioPlayer.SetVolume(0);
+                    _audioPlayer.Resume();
+                    _audioPlayer.FadeIn(_volume);
+                }
+                else
+                {
+                    _audioPlayer.SetVolume(_volume);
+                    _audioPlayer.Resume();
+                }
             }
         }
 
@@ -602,6 +660,19 @@ namespace bilibili_music_player_windows.ViewModels
             {
                 // Fallback: 直接执行
                 action();
+            }
+        }
+
+        // ── [ObservableProperty] partial methods ──
+
+        /// <summary>
+        /// 音量变化时同步到 AudioPlayerService。
+        /// </summary>
+        partial void OnVolumeChanged(double value)
+        {
+            if (!IsFading)
+            {
+                _audioPlayer.SetVolume(value);
             }
         }
     }

@@ -20,8 +20,22 @@ namespace bilibili_music_player_windows.Services
     {
         private readonly MediaPlayer _mediaPlayer;
         private readonly DispatcherTimer _positionTimer;
+        private readonly DispatcherTimer _fadeTimer;
 
         private bool _isDisposed;
+
+        // ── 淡入/淡出状态 ──
+        private double _fadeStartVolume;
+        private double _fadeTargetVolume;
+        private int _fadeStep;
+        private const int FadeTotalSteps = 16;    // 800ms ÷ 50ms
+        private static readonly TimeSpan FadeInterval = TimeSpan.FromMilliseconds(50);
+
+        /// <summary>淡入/淡出进行中。</summary>
+        public bool IsFading { get; private set; }
+
+        /// <summary>淡入/淡出完成事件（ViewModel 可订阅）。</summary>
+        public event EventHandler? FadeCompleted;
 
         /// <summary>当前播放位置（只读，通过 <see cref="PositionChanged"/> 订阅实时更新）。</summary>
         public TimeSpan Position => _mediaPlayer.PlaybackSession.Position;
@@ -89,6 +103,13 @@ namespace bilibili_music_player_windows.Services
                 Interval = TimeSpan.FromMilliseconds(250),
             };
             _positionTimer.Tick += OnPositionTimerTick;
+
+            // ── 淡入/淡出定时器 ──
+            _fadeTimer = new DispatcherTimer
+            {
+                Interval = FadeInterval,
+            };
+            _fadeTimer.Tick += OnFadeTimerTick;
         }
 
         // ── Public API ──
@@ -121,6 +142,16 @@ namespace bilibili_music_player_windows.Services
             ThrowIfDisposed();
             _mediaPlayer.Pause();
             StopPositionTimer();
+        }
+
+        /// <summary>
+        /// 恢复播放（MediaPlayer.Resume 会保持当前 Source）。
+        /// </summary>
+        public void Resume()
+        {
+            ThrowIfDisposed();
+            _mediaPlayer.Play();
+            StartPositionTimer();
         }
 
         /// <summary>
@@ -159,6 +190,82 @@ namespace bilibili_music_player_windows.Services
         public void SetVolume(double volume)
         {
             Volume = volume;
+        }
+
+        // ── P5: 淡入 / 淡出 ──
+
+        /// <summary>
+        /// 线性淡入：从 0 到 <paramref name="targetVolume"/>，历时 800ms。
+        /// </summary>
+        public void FadeIn(double targetVolume = 1.0)
+        {
+            ThrowIfDisposed();
+            if (IsFading) return;
+
+            IsFading = true;
+            _fadeStep = 0;
+            _fadeStartVolume = 0;
+            _fadeTargetVolume = Math.Clamp(targetVolume, 0.0, 1.0);
+
+            _mediaPlayer.Volume = 0;
+            _fadeTimer.Start();
+        }
+
+        /// <summary>
+        /// 抛物线淡出：从当前音量到 0，历时 800ms（曲线：t²）。
+        /// </summary>
+        public void FadeOut()
+        {
+            ThrowIfDisposed();
+            if (IsFading) return;
+
+            IsFading = true;
+            _fadeStep = 0;
+            _fadeStartVolume = _mediaPlayer.Volume;
+            _fadeTargetVolume = 0;
+
+            _fadeTimer.Start();
+        }
+
+        /// <summary>
+        /// 立即停止淡入/淡出。
+        /// </summary>
+        public void CancelFade()
+        {
+            if (_fadeTimer.IsEnabled)
+            {
+                _fadeTimer.Stop();
+            }
+
+            IsFading = false;
+        }
+
+        private void OnFadeTimerTick(object? sender, object e)
+        {
+            _fadeStep++;
+
+            double newVolume;
+            if (_fadeTargetVolume > _fadeStartVolume)
+            {
+                // 淡入：线性 (step / total)
+                newVolume = _fadeStartVolume + (_fadeTargetVolume - _fadeStartVolume) * (_fadeStep / (double)FadeTotalSteps);
+            }
+            else
+            {
+                // 淡出：抛物线 t²
+                var t = _fadeStep / (double)FadeTotalSteps;
+                newVolume = _fadeStartVolume * (1.0 - t * t);
+            }
+
+            _mediaPlayer.Volume = Math.Clamp(newVolume, 0.0, 1.0);
+
+            if (_fadeStep >= FadeTotalSteps)
+            {
+                _fadeTimer.Stop();
+                _mediaPlayer.Volume = _fadeTargetVolume;
+                IsFading = false;
+                FadeCompleted?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         // ── Timer ──
