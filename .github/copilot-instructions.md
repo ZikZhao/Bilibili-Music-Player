@@ -27,12 +27,10 @@ You are a **Senior Flutter Developer** specializing in:
 ## 🚫 Critical Anti-Patterns (STRICTLY FORBIDDEN)
 
 1.  **NO POLLING (轮询)**:
-
     - ❌ **NEVER** use `Timer.periodic` to update UI (e.g., progress bars, buffering).
     - ✅ **ALWAYS** use `StreamBuilder`, `ValueListenableBuilder`, or listen to `media_kit`'s `player.stream.*`.
 
 2.  **NO Unnecessary Adapters**:
-
     - ❌ Do not create wrapper classes (e.g., `MediaPlayerAdapter`) around `media_kit` unless strictly necessary for testing.
     - ✅ Use `media_kit`'s `Player` directly within the `BilibiliAudioHandler`.
 
@@ -111,3 +109,48 @@ mobile/
 1.  **Initialization**: Ensure `MediaKit.ensureInitialized()` is called in `main()`.
 2.  **Video Controller**: Use `VideoController(player, configuration: ...)` for video rendering.
 3.  **Buffering**: `media_kit` handles buffering internally. Trust `player.stream.buffer`.
+
+---
+
+## 🖥️ Windows (WinUI 3) Build & Run
+
+The WinUI 3 project lives in `./windows/` and is configured for **unpackaged CLI execution** (no MSIX identity required).
+
+### Required .csproj Settings (Do NOT Revert)
+
+| Setting                      | Value     |
+| ---------------------------- | --------- |
+| `WindowsPackageType`         | `None`    |
+| `WindowsAppSDKSelfContained` | `true`    |
+| `EnableMsixTooling`          | `false`   |
+| `Platforms`                  | `x64`     |
+| `RuntimeIdentifiers`         | `win-x64` |
+
+### Build
+
+```powershell
+cd windows
+dotnet build bilibili-music-player-windows.csproj -r win-x64
+```
+
+- **MUST** target the `.csproj` directly — the `.slnx` file does **not** support the `-r` RID flag.
+- Output: `bin\Debug\net8.0-windows10.0.19041.0\win-x64\bilibili-music-player-windows.exe`
+
+### Run
+
+```powershell
+Start-Process -FilePath "windows\bin\Debug\net8.0-windows10.0.19041.0\win-x64\bilibili-music-player-windows.exe" -PassThru
+```
+
+- **DO NOT** use `dotnet run` — it invokes MSIX-packaged paths and silently fails.
+- The window title is `BiliMusic Desktop`. Verify it spawned with a non-zero `MainWindowHandle`.
+
+### Crash Diagnostics
+
+If the process exits immediately with no visible window:
+
+```powershell
+Get-WinEvent -LogName Application -MaxEvents 10 | Where-Object {
+    $_.ProviderName -match "Application Error" -or $_.ProviderName -match ".NET Runtime"
+} | Format-List TimeCreated, Message
+```
