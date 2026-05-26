@@ -66,35 +66,35 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 | --- | ---------------------------------------- | --------------------------------------- | ------------------------------------ | ------ | -------------------------------------------------------------- |
 | 1.1 | WBI Signer                               | ✅ `WbiSigner`                          | ✅ `WbiSigner`                       | ✅     | Identical algorithm, already migrated                          |
 | 1.2 | BilibiliClient init (cookies + WBI keys) | ✅ `_ensureInitialized()`               | ✅ `EnsureInitializedAsync()`        | ✅     | Same flow: visit bilibili.com → nav API → extract keys         |
-| 1.3 | Search API (`searchVideos`)              | ✅ with pagination + risk detection     | ⚠️ no risk detection (412/v_voucher) | ⚠️     | **Missing**: 412 retry, v_voucher risk check                   |
-| 1.4 | Search Suggestions (`fetchSuggestions`)  | ✅ `s.search.bilibili.com/main/suggest` | ❌                                   | ❌     | **Missing entirely**                                           |
-| 1.5 | Video Info (`fetchVideoInfo`)            | ✅ `/x/web-interface/view`              | ✅ `FetchVideoCidAsync()`            | ⚠️     | **Missing**: full `VideoDetailInfo` model (owner, stats, desc) |
-| 1.6 | Play URL (`fetchPlayUrl`)                | ✅ DASH audio + MP4 fallback            | ✅ `FetchPlayUrlAsync()`             | ⚠️     | **Missing**: DASH audio-only mode (`fnval=16`), MP4 fallback   |
+| 1.3 | Search API (`searchVideos`)              | ✅ with pagination + risk detection     | ✅ risk detection (412/v_voucher)    | ✅     | A1 done: 412 retry + v_voucher check                     |
+| 1.4 | Search Suggestions (`fetchSuggestions`)  | ✅ `s.search.bilibili.com/main/suggest` | ✅ `FetchSuggestionsAsync()`         | ✅     | A2 done: new endpoint + SuggestionModel                    |
+| 1.5 | Video Info (`fetchVideoInfo`)            | ✅ `/x/web-interface/view`              | ✅ `FetchVideoInfoAsync()`            | ✅     | A3/A4 done: full VideoDetailInfo model (owner, stats, desc) |
+| 1.6 | Play URL (`fetchPlayUrl`)                | ✅ DASH audio + MP4 fallback            | ✅ DASH audio + MP4 fallback         | ✅     | A5/A6 done: fnval=16 DASH + MP4 fallback                  |
 | 1.7 | HTTP Range Stream                        | N/A (Dio handles)                       | ✅ `HttpRangeStream`                 | ⚠️     | **Needs fix**: sync-over-async deadlock (see P0.6)             |
 
 #### Implementation Tasks — API Layer
 
-- [ ] **A1** Add risk detection to `SearchVideosAsync`  
+- [x] **A1** Add risk detection to `SearchVideosAsync`  
        Catch 412 → retry; detect `v_voucher` in response → throw with risk message  
        **Target file**: `Api/BilibiliClient.cs`
 
-- [ ] **A2** Add `FetchSuggestionsAsync(string keyword)`  
+- [x] **A2** Add `FetchSuggestionsAsync(string keyword)`  
        Endpoint: `https://s.search.bilibili.com/main/suggest?term=...&...`  
        Returns `List<SuggestionModel>`  
        **Target file**: `Api/BilibiliClient.cs`  
        **New model**: `Models/SuggestionModel.cs`
 
-- [ ] **A3** Add full `VideoDetailInfo` model + parsing  
+- [x] **A3** Add full `VideoDetailInfo` model + parsing  
        Fields: `Bvid`, `Title`, `Desc`, `Cover`, `Aid`, `Cid`, `Pubdate`, `Duration`, `OwnerInfo`, `VideoStat`  
        **New models**: `Models/VideoDetailInfo.cs`, `Models/OwnerInfo.cs`, `Models/VideoStat.cs`
 
-- [ ] **A4** Expand `FetchVideoCidAsync` → `FetchVideoInfoAsync` returning `VideoDetailInfo`
+- [x] **A4** Expand `FetchVideoCidAsync` → `FetchVideoInfoAsync` returning `VideoDetailInfo`
 
-- [ ] **A5** Add DASH audio-only mode to `FetchPlayUrlAsync`  
+- [x] **A5** Add DASH audio-only mode to `FetchPlayUrlAsync`  
        When `audioOnly=true`: use `fnval=16`, parse DASH response → extract audio stream with highest bandwidth  
        **New model**: `Models/PlayUrlInfo.cs`
 
-- [ ] **A6** Add DASH→MP4 fallback in `FetchPlayUrlAsync`  
+- [x] **A6** Add DASH→MP4 fallback in `FetchPlayUrlAsync`  
        If no DASH audio found, retry with `fnval=1` (MP4 format)
 
 ---
