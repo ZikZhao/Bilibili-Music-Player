@@ -28,6 +28,11 @@ namespace bilibili_music_player_windows.Services
         /// </summary>
         public event EventHandler<DownloadProgress>? ProgressChanged;
 
+        // ── 常量 ──
+        private const string CacheExtension = ".mp4";
+        private const string LegacyExtension = ".m4s";
+        private const string TempExtension = ".tmp";
+
         /// <summary>
         /// Tracks in-progress downloads to prevent duplicate concurrent downloads of the same BVID.
         /// </summary>
@@ -72,6 +77,7 @@ namespace bilibili_music_player_windows.Services
 
         /// <summary>
         /// Returns the path to the cached audio file for the given BVID, or <c>null</c> if not cached.
+        /// Prefers .mp4 extension; auto-migrates legacy .m4s files by renaming them.
         /// </summary>
         public async Task<string?> GetAudioPathAsync(string bvid)
         {
@@ -82,12 +88,34 @@ namespace bilibili_music_player_windows.Services
             }
 
             var sanitized = SanitizeBvid(bvid);
-            var file = await _cacheFolder.TryGetItemAsync($"{sanitized}.m4s");
 
+            // 优先查找 .mp4
+            var file = await _cacheFolder.TryGetItemAsync($"{sanitized}{CacheExtension}");
             if (file is not null)
             {
-                System.Diagnostics.Debug.WriteLine($"[CacheService] Cache hit: {bvid}");
+                System.Diagnostics.Debug.WriteLine($"[CacheService] Cache hit (.mp4): {bvid}");
                 return file.Path;
+            }
+
+            // 回退查找旧 .m4s 并自动迁移
+            var legacyFile = await _cacheFolder.TryGetItemAsync($"{sanitized}{LegacyExtension}");
+            if (legacyFile is not null)
+            {
+                try
+                {
+                    var newPath = Path.Combine(_cacheFolder.Path, $"{sanitized}{CacheExtension}");
+                    if (!File.Exists(newPath))
+                    {
+                        File.Move(legacyFile.Path, newPath);
+                        System.Diagnostics.Debug.WriteLine($"[CacheService] Migrated .m4s → .mp4: {bvid}");
+                    }
+                    return newPath;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[CacheService] Migration failed for {bvid}: {ex.Message}");
+                    return legacyFile.Path; // 回退使用旧路径
+                }
             }
 
             return null;
@@ -117,7 +145,7 @@ namespace bilibili_music_player_windows.Services
 
         /// <summary>
         /// Downloads an audio file from <paramref name="url"/> and caches it under <paramref name="bvid"/>.
-        /// Uses atomic rename (.tmp → .m4s) to prevent reading incomplete files.
+        /// Uses atomic rename (.tmp → .mp4) to prevent reading incomplete files.
         /// Returns the local file path on success, or <c>null</c> on failure.
         /// </summary>
         /// <param name="url">The audio stream URL (from Bilibili PlayUrl API).</param>
@@ -164,8 +192,8 @@ namespace bilibili_music_player_windows.Services
                     return existingPath;
                 }
 
-                var filePath = Path.Combine(_cacheFolder.Path, $"{sanitized}.m4s");
-                var tempPath = filePath + ".tmp";
+                var filePath = Path.Combine(_cacheFolder.Path, $"{sanitized}{CacheExtension}");
+                var tempPath = filePath + TempExtension;
 
                 System.Diagnostics.Debug.WriteLine($"[CacheService] Starting download: {bvid}");
 
@@ -180,33 +208,36 @@ namespace bilibili_music_player_windows.Services
 
                 // ── Stream to temp file ──
                 await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                await using var fileStream = new FileStream(
-                    tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
-                    bufferSize: 81920, useAsync: true);
-
-                var buffer = new byte[81920];
-                int bytesRead;
-                while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
                 {
-                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-                    receivedBytes += bytesRead;
+                    await using var fileStream = new FileStream(
+                        tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
+                        bufferSize: 81920, useAsync: true);
 
-                    RaiseProgress(new DownloadProgress(bvid, receivedBytes, totalBytes));
-
-                    // Log every 10%
-                    if (totalBytes > 0)
+                    var buffer = new byte[81920];
+                    int bytesRead;
+                    while ((bytesRead = await contentStream.ReadAsync(buffer, cancellationToken)) > 0)
                     {
-                        var percent = (int)(receivedBytes * 100 / totalBytes);
-                        var tens = percent / 10;
-                        if (tens > lastLoggedPercent)
+                        await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+                        receivedBytes += bytesRead;
+
+                        RaiseProgress(new DownloadProgress(bvid, receivedBytes, totalBytes));
+
+                        // Log every 10%
+                        if (totalBytes > 0)
                         {
-                            lastLoggedPercent = tens;
-                            System.Diagnostics.Debug.WriteLine($"[CacheService] Download progress: {percent}%");
+                            var percent = (int)(receivedBytes * 100 / totalBytes);
+                            var tens = percent / 10;
+                            if (tens > lastLoggedPercent)
+                            {
+                                lastLoggedPercent = tens;
+                                System.Diagnostics.Debug.WriteLine($"[CacheService] Download progress: {percent}%");
+                            }
                         }
                     }
-                }
 
-                await fileStream.FlushAsync(cancellationToken);
+                    await fileStream.FlushAsync(cancellationToken);
+                }
+                // fileStream 已释放，可以安全执行 Move
 
                 // ── Atomic rename: .tmp → .m4s ──
                 if (File.Exists(filePath))

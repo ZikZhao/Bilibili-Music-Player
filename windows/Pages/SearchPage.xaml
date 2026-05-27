@@ -80,7 +80,7 @@
                             </controls:ItemsRepeater.Layout>
                             <controls:ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="x:String">
-                                    <Button Padding="0" Background="Transparent" BorderThickness="0" Click="OnKeywordClick">
+                                    <Button Padding="0" Background="Transparent" BorderThickness="0" Click="OnKeywordClick" Tag="{x:Bind Mode=OneWay}">
                                         <Border Background="{ThemeResource Slate100}" CornerRadius="8" Padding="16,8" Margin="0">
                                             <TextBlock Text="{x:Bind Mode=OneWay}" Foreground="{ThemeResource Slate600}" />
                                         </Border>
@@ -105,7 +105,7 @@
                             </controls:ItemsRepeater.Layout>
                             <controls:ItemsRepeater.ItemTemplate>
                                 <DataTemplate x:DataType="x:String">
-                                    <Button Padding="0" Background="Transparent" BorderThickness="0" Click="OnKeywordClick">
+                                    <Button Padding="0" Background="Transparent" BorderThickness="0" Click="OnKeywordClick" Tag="{x:Bind Mode=OneWay}">
                                         <Border Background="{ThemeResource Slate100}" CornerRadius="8" Padding="16,8" Margin="0">
                                             <TextBlock Text="{x:Bind Mode=OneWay}" Foreground="{ThemeResource Slate600}" />
                                         </Border>

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -15,6 +15,9 @@ namespace bilibili_music_player_windows.Api
             40, 61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62,
             11, 36, 20, 34, 44, 52,
         ];
+
+        // 小写 Hex 字符查找表，供 string.Create 直接使用
+        private static ReadOnlySpan<byte> HexLower => "0123456789abcdef"u8;
 
         private string? _imgKey;
         private string? _subKey;
@@ -33,47 +36,61 @@ namespace bilibili_music_player_windows.Api
             }
 
             var mixinKey = GetMixinKey(_imgKey + _subKey);
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
 
-            var signed = new Dictionary<string, string>(parameters)
-            {
-                ["wts"] = timestamp,
-            };
+            // ── 构建排序键值对：使用数组 + Array.Sort 替代 SortedDictionary（红黑树堆分配） ──
+            var count = parameters.Count + 1; // +1 for wts
+            var keys = new string[count];
+            var values = new string[count];
 
-            var filtered = new SortedDictionary<string, string>(StringComparer.Ordinal);
-            foreach (var entry in signed)
+            var i = 0;
+            foreach (var entry in parameters)
             {
-                filtered[entry.Key] = FilterValue(entry.Value);
+                keys[i] = entry.Key;
+                values[i] = FilterValue(entry.Value);
+                i++;
             }
+            keys[i] = "wts";
+            values[i] = timestamp;
 
+            Array.Sort(keys, values, StringComparer.Ordinal);
+
+            // ── 流式拼接查询字符串 ──
             var queryBuilder = new StringBuilder();
-            foreach (var entry in filtered)
+            for (var j = 0; j < keys.Length; j++)
             {
-                if (queryBuilder.Length > 0)
+                if (j > 0)
                 {
                     queryBuilder.Append('&');
                 }
 
-                queryBuilder.Append(Uri.EscapeDataString(entry.Key));
+                queryBuilder.Append(Uri.EscapeDataString(keys[j]));
                 queryBuilder.Append('=');
-                queryBuilder.Append(Uri.EscapeDataString(entry.Value));
+                queryBuilder.Append(Uri.EscapeDataString(values[j]));
             }
 
             var hash = ComputeMd5(queryBuilder + mixinKey);
-            filtered["w_rid"] = hash;
 
-            return filtered;
+            // 返回可变字典以附加 w_rid
+            var result = new Dictionary<string, string>(count + 1);
+            for (var j = 0; j < keys.Length; j++)
+            {
+                result[keys[j]] = values[j];
+            }
+            result["w_rid"] = hash;
+
+            return result;
         }
 
         private static string GetMixinKey(string source)
         {
-            var buffer = new StringBuilder();
+            Span<char> buffer = stackalloc char[32];
             for (var i = 0; i < 32; i++)
             {
-                buffer.Append(source[MixinKeyEncTab[i]]);
+                buffer[i] = source[MixinKeyEncTab[i]];
             }
 
-            return buffer.ToString();
+            return new string(buffer);
         }
 
         private static string FilterValue(string value)
@@ -83,15 +100,22 @@ namespace bilibili_music_player_windows.Api
                 return string.Empty;
             }
 
-            var builder = new StringBuilder();
-            foreach (var ch in value)
+            var span = value.AsSpan();
+            var illegalIndex = span.IndexOfAny(stackalloc char[] { '!', '\'', '(', ')', '*' });
+            if (illegalIndex < 0)
             {
-                if (ch is '!' or '\'' or '(' or ')' or '*')
-                {
-                    continue;
-                }
+                return value;
+            }
 
-                builder.Append(ch);
+            var builder = new StringBuilder(value.Length);
+            builder.Append(span[..illegalIndex]);
+            for (var i = illegalIndex; i < span.Length; i++)
+            {
+                var ch = span[i];
+                if (ch is not ('!' or '\'' or '(' or ')' or '*'))
+                {
+                    builder.Append(ch);
+                }
             }
 
             return builder.ToString();
@@ -101,13 +125,18 @@ namespace bilibili_music_player_windows.Api
         {
             var bytes = Encoding.UTF8.GetBytes(input);
             var hash = MD5.HashData(bytes);
-            var builder = new StringBuilder(hash.Length * 2);
-            foreach (var b in hash)
-            {
-                builder.Append(b.ToString("x2", CultureInfo.InvariantCulture));
-            }
 
-            return builder.ToString();
+            // string.Create + 自定义小写 Hex 映射，避免 ToHexString→ToLowerInvariant 双重分配
+            return string.Create(hash.Length * 2, hash, (span, data) =>
+            {
+                var hex = HexLower;
+                for (var i = 0; i < data.Length; i++)
+                {
+                    var b = data[i];
+                    span[i * 2] = (char)hex[b >> 4];
+                    span[i * 2 + 1] = (char)hex[b & 0xF];
+                }
+            });
         }
     }
 }

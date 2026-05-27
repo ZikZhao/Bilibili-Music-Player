@@ -2,42 +2,47 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Media.Core;
 using Windows.Media.Playback;
-using Microsoft.UI.Xaml;
 
 namespace bilibili_music_player_windows.Services
 {
     /// <summary>
     /// 音频播放引擎，封装 WinUI <see cref="Windows.Media.Playback.MediaPlayer"/>。
-    /// 单例注册到 DI，作为 <c>PlayerViewModel</c> 的唯一音频源。
     ///
-    /// ▸ 遵循移动端 "no adapters" 原则：直接使用 MediaPlayer。
-    /// ▸ 通过 <see cref="INotifyPropertyChanged"/> 暴露实时属性，供 ViewModel 和 XAML 绑定。
+    /// ▸ 淡入/淡出通过 TaskCompletionSource 暴露为可等待操作，消除事件闭包泄漏。
+    /// ▸ 音量曲线使用纯函数计算（基于 elapsed/total），不依赖可变步长状态。
+    /// ▸ IsFading 使用 Volatile 语义确保多核可见性。
+    /// ▸ SetVolume 已移除——直接使用 Volume 属性。
     /// </summary>
     public sealed class AudioPlayerService : INotifyPropertyChanged, IDisposable
     {
         private readonly MediaPlayer _mediaPlayer;
-        private readonly DispatcherTimer _positionTimer;
-        private readonly DispatcherTimer _fadeTimer;
+
+        // ── PeriodicTimer 异步循环 ──
+        private readonly CancellationTokenSource _serviceCts = new();
+        private PeriodicTimer? _positionTimer;
+        private PeriodicTimer? _fadeTimer;
+        private Task? _positionLoopTask;
+        private Task? _fadeLoopTask;
+
+        // ── 淡入/淡出 TCS（取代事件订阅，消除闭包泄漏） ──
+        private TaskCompletionSource? _fadeTcs;
+        private readonly object _fadeLock = new();
+
+        // ── 常量 ──
+        private const int FadeDurationMs = 800;
+        private static readonly TimeSpan FadeInterval = TimeSpan.FromMilliseconds(50);
 
         private bool _isDisposed;
 
-        // ── 淡入/淡出状态 ──
-        private double _fadeStartVolume;
-        private double _fadeTargetVolume;
-        private int _fadeStep;
-        private const int FadeTotalSteps = 16;    // 800ms ÷ 50ms
-        private static readonly TimeSpan FadeInterval = TimeSpan.FromMilliseconds(50);
+        /// <summary>淡入/淡出进行中（Volatile 语义确保多核可见性）。</summary>
+        public bool IsFading => Volatile.Read(ref _isFadingField);
+        private bool _isFadingField;
 
-        /// <summary>淡入/淡出进行中。</summary>
-        public bool IsFading { get; private set; }
-
-        /// <summary>淡入/淡出完成事件（ViewModel 可订阅）。</summary>
-        public event EventHandler? FadeCompleted;
-
-        /// <summary>当前播放位置（只读，通过 <see cref="PositionChanged"/> 订阅实时更新）。</summary>
+        /// <summary>当前播放位置。</summary>
         public TimeSpan Position => _mediaPlayer.PlaybackSession.Position;
 
         /// <summary>媒体时长（0 表示未加载或直播）。</summary>
@@ -49,7 +54,7 @@ namespace bilibili_music_player_windows.Services
         /// <summary>缓冲进度（0.0~1.0）。</summary>
         public double BufferingProgress => _mediaPlayer.PlaybackSession.BufferingProgress;
 
-        /// <summary>音量（0.0~1.0）。</summary>
+        /// <summary>音量（0.0~1.0）。直接设置即可，无需 SetVolume 包装。</summary>
         public double Volume
         {
             get => _mediaPlayer.Volume;
@@ -64,24 +69,13 @@ namespace bilibili_music_player_windows.Services
             }
         }
 
-        // ── Events (ViewModel 通过它们监听播放器状态) ──
+        // ── Events ──
 
-        /// <summary>播放/暂停状态变化。</summary>
         public event EventHandler<bool>? IsPlayingChanged;
-
-        /// <summary>位置实时更新（约 250ms 间隔）。</summary>
         public event EventHandler<TimeSpan>? PositionChanged;
-
-        /// <summary>时长确定后触发。</summary>
         public event EventHandler<TimeSpan>? DurationChanged;
-
-        /// <summary>缓冲进度更新。</summary>
         public event EventHandler<double>? BufferingProgressChanged;
-
-        /// <summary>当前媒体播放完毕（自然结束）。</summary>
         public event EventHandler? MediaEnded;
-
-        /// <summary>播放出错。</summary>
         public event EventHandler<string>? MediaFailed;
 
         // ── Constructor ──
@@ -90,207 +84,246 @@ namespace bilibili_music_player_windows.Services
         {
             _mediaPlayer = new MediaPlayer();
 
-            // ── 订阅 PlaybackSession 事件 ──
             _mediaPlayer.PlaybackSession.PlaybackStateChanged += OnPlaybackStateChanged;
             _mediaPlayer.PlaybackSession.NaturalDurationChanged += OnNaturalDurationChanged;
             _mediaPlayer.PlaybackSession.BufferingProgressChanged += OnBufferingProgressChanged;
             _mediaPlayer.MediaEnded += OnMediaEnded;
             _mediaPlayer.MediaFailed += OnMediaFailed;
-
-            // ── 定时器轮询 Position（避免 PositionChanged 高频触发压垮 UI 线程） ──
-            _positionTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(250),
-            };
-            _positionTimer.Tick += OnPositionTimerTick;
-
-            // ── 淡入/淡出定时器 ──
-            _fadeTimer = new DispatcherTimer
-            {
-                Interval = FadeInterval,
-            };
-            _fadeTimer.Tick += OnFadeTimerTick;
         }
 
         // ── Public API ──
 
-        /// <summary>
-        /// 播放指定 URI 的音频。Bilibili CDN URL 已包含签名认证，无需额外请求头。
-        /// 如需自定义 HTTP 头（如防盗链），可通过 <paramref name="headers"/> 传入，
-        /// 但当前实现使用 <see cref="MediaSource.CreateFromUri(Uri)"/> 直连。
-        /// </summary>
-        public async Task PlayAsync(Uri uri, IReadOnlyDictionary<string, string>? headers = null)
+        public Task PlayAsync(Uri uri, IReadOnlyDictionary<string, string>? headers = null)
         {
             ThrowIfDisposed();
-
-            // 未来增强：如需自定义请求头，可改用 HttpClient 下载流后通过
-            // MediaSource.CreateFromStream(IRandomAccessStream) 创建源。
-            // 当前 Bilibili CDN URL 无需自定义头即可播放。
+            System.Diagnostics.Debug.WriteLine($"[AudioPlayer] PlayAsync uri={uri}");
             _mediaPlayer.Source = MediaSource.CreateFromUri(uri);
-
+            System.Diagnostics.Debug.WriteLine($"[AudioPlayer] Source set, calling Play()");
             _mediaPlayer.Play();
-            StartPositionTimer();
-
-            await Task.CompletedTask;
+            StartPositionLoop();
+            return Task.CompletedTask;
         }
 
-        /// <summary>
-        /// 暂停播放。
-        /// </summary>
         public void Pause()
         {
             ThrowIfDisposed();
             _mediaPlayer.Pause();
-            StopPositionTimer();
+            StopPositionLoop();
         }
 
-        /// <summary>
-        /// 恢复播放（MediaPlayer.Resume 会保持当前 Source）。
-        /// </summary>
         public void Resume()
         {
             ThrowIfDisposed();
             _mediaPlayer.Play();
-            StartPositionTimer();
+            StartPositionLoop();
         }
 
-        /// <summary>
-        /// 跳转到指定位置。
-        /// </summary>
         public void Seek(TimeSpan position)
         {
             ThrowIfDisposed();
-
-            if (Duration == TimeSpan.Zero)
-            {
-                return;
-            }
-
-            var clamped = new TimeSpan(
-                Math.Clamp(position.Ticks, 0, Duration.Ticks));
+            if (Duration == TimeSpan.Zero) return;
+            var clamped = new TimeSpan(Math.Clamp(position.Ticks, 0, Duration.Ticks));
             _mediaPlayer.PlaybackSession.Position = clamped;
         }
 
-        /// <summary>
-        /// 停止播放并释放媒体源。
-        /// </summary>
         public void Stop()
         {
             ThrowIfDisposed();
             _mediaPlayer.Source = null;
-            StopPositionTimer();
-
+            StopPositionLoop();
             OnPropertyChanged(nameof(Position));
             OnPropertyChanged(nameof(Duration));
         }
 
-        /// <summary>
-        /// 设置音量（0.0~1.0）。
-        /// </summary>
-        public void SetVolume(double volume)
-        {
-            Volume = volume;
-        }
-
-        // ── P5: 淡入 / 淡出 ──
+        // ── 淡入 / 淡出（异步可等待，取代 FadeCompleted 事件 + 闭包） ──
 
         /// <summary>
         /// 线性淡入：从 0 到 <paramref name="targetVolume"/>，历时 800ms。
+        /// 返回的 Task 在淡入完成后完成。
         /// </summary>
-        public void FadeIn(double targetVolume = 1.0)
+        public Task FadeInAsync(double targetVolume = 1.0)
         {
             ThrowIfDisposed();
-            if (IsFading) return;
+            if (IsFading) return Task.CompletedTask;
 
-            IsFading = true;
-            _fadeStep = 0;
-            _fadeStartVolume = 0;
-            _fadeTargetVolume = Math.Clamp(targetVolume, 0.0, 1.0);
+            var tcs = CreateFadeTcs();
 
+            Volatile.Write(ref _isFadingField, true);
             _mediaPlayer.Volume = 0;
-            _fadeTimer.Start();
+
+            var endVolume = Math.Clamp(targetVolume, 0.0, 1.0);
+            StartFadeLoop(startVolume: 0.0, endVolume, tcs);
+
+            return tcs.Task;
         }
 
         /// <summary>
         /// 抛物线淡出：从当前音量到 0，历时 800ms（曲线：t²）。
+        /// 返回的 Task 在淡出完成后完成。
         /// </summary>
-        public void FadeOut()
+        public Task FadeOutAsync()
         {
             ThrowIfDisposed();
-            if (IsFading) return;
+            if (IsFading) return Task.CompletedTask;
 
-            IsFading = true;
-            _fadeStep = 0;
-            _fadeStartVolume = _mediaPlayer.Volume;
-            _fadeTargetVolume = 0;
+            var tcs = CreateFadeTcs();
 
-            _fadeTimer.Start();
+            Volatile.Write(ref _isFadingField, true);
+
+            var startVolume = _mediaPlayer.Volume;
+            StartFadeLoop(startVolume, endVolume: 0.0, tcs);
+
+            return tcs.Task;
+        }
+
+        /// <summary>立即停止淡入/淡出，TCS 转入 Canceled 状态。</summary>
+        public void CancelFade()
+        {
+            TaskCompletionSource? tcs;
+            lock (_fadeLock)
+            {
+                tcs = _fadeTcs;
+                _fadeTcs = null;
+            }
+
+            StopFadeLoop();
+            Volatile.Write(ref _isFadingField, false);
+            tcs?.TrySetCanceled();
+        }
+
+        private TaskCompletionSource CreateFadeTcs()
+        {
+            var tcs = new TaskCompletionSource();
+
+            lock (_fadeLock)
+            {
+                _fadeTcs?.TrySetCanceled();
+                _fadeTcs = tcs;
+            }
+
+            // service 整体取消时自动取消本次 fade
+            _ = _serviceCts.Token.Register(() => tcs.TrySetCanceled(), useSynchronizationContext: false);
+
+            return tcs;
+        }
+
+        // ── Position 异步循环 ──
+
+        private void StartPositionLoop()
+        {
+            if (_positionLoopTask is not null && !_positionLoopTask.IsCompleted)
+            {
+                return;
+            }
+
+            _positionTimer?.Dispose();
+            _positionTimer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
+            _positionLoopTask = RunPositionLoopAsync(_serviceCts.Token);
+        }
+
+        private void StopPositionLoop()
+        {
+            _positionTimer?.Dispose();
+            _positionTimer = null;
+        }
+
+        private async Task RunPositionLoopAsync(CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    var timer = _positionTimer;
+                    if (timer is null || !await timer.WaitForNextTickAsync(ct))
+                    {
+                        break;
+                    }
+
+                    var pos = _mediaPlayer.PlaybackSession.Position;
+                    OnPropertyChanged(nameof(Position));
+                    PositionChanged?.Invoke(this, pos);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+            }
+        }
+
+        // ── Fade 异步循环（纯曲线计算，无可变步长状态） ──
+
+        private void StartFadeLoop(double startVolume, double endVolume, TaskCompletionSource tcs)
+        {
+            _fadeTimer?.Dispose();
+            _fadeTimer = new PeriodicTimer(FadeInterval);
+            var startTime = Environment.TickCount64;
+            _fadeLoopTask = RunFadeLoopAsync(startVolume, endVolume, startTime, tcs, _serviceCts.Token);
+        }
+
+        private void StopFadeLoop()
+        {
+            _fadeTimer?.Dispose();
+            _fadeTimer = null;
         }
 
         /// <summary>
-        /// 立即停止淡入/淡出。
+        /// 纯曲线淡入/淡出。音量仅由 <c>elapsed / totalDuration</c> 比例计算，
+        /// 不依赖可变 <c>_fadeStep</c> 字段，避免系统调度抖动导致的音量卡顿。
         /// </summary>
-        public void CancelFade()
+        private async Task RunFadeLoopAsync(
+            double startVolume, double endVolume, long startTime,
+            TaskCompletionSource tcs, CancellationToken ct)
         {
-            if (_fadeTimer.IsEnabled)
+            try
             {
-                _fadeTimer.Stop();
+                while (!ct.IsCancellationRequested)
+                {
+                    var timer = _fadeTimer;
+                    if (timer is null || !await timer.WaitForNextTickAsync(ct))
+                    {
+                        break;
+                    }
+
+                    var elapsed = Environment.TickCount64 - startTime;
+                    var t = Math.Min(elapsed / (double)FadeDurationMs, 1.0);
+
+                    var newVolume = endVolume > startVolume
+                        ? startVolume + (endVolume - startVolume) * t           // 淡入：线性
+                        : startVolume * (1.0 - t * t);                         // 淡出：抛物线 t²
+
+                    _mediaPlayer.Volume = Math.Clamp(newVolume, 0.0, 1.0);
+
+                    if (t >= 1.0)
+                    {
+                        _mediaPlayer.Volume = endVolume;
+                        CompleteFade(tcs);
+                        return;
+                    }
+                }
             }
-
-            IsFading = false;
-        }
-
-        private void OnFadeTimerTick(object? sender, object e)
-        {
-            _fadeStep++;
-
-            double newVolume;
-            if (_fadeTargetVolume > _fadeStartVolume)
+            catch (OperationCanceledException)
             {
-                // 淡入：线性 (step / total)
-                newVolume = _fadeStartVolume + (_fadeTargetVolume - _fadeStartVolume) * (_fadeStep / (double)FadeTotalSteps);
+                // TCS 已在 CancelFade 中处理
             }
-            else
+            finally
             {
-                // 淡出：抛物线 t²
-                var t = _fadeStep / (double)FadeTotalSteps;
-                newVolume = _fadeStartVolume * (1.0 - t * t);
-            }
-
-            _mediaPlayer.Volume = Math.Clamp(newVolume, 0.0, 1.0);
-
-            if (_fadeStep >= FadeTotalSteps)
-            {
-                _fadeTimer.Stop();
-                _mediaPlayer.Volume = _fadeTargetVolume;
-                IsFading = false;
-                FadeCompleted?.Invoke(this, EventArgs.Empty);
-            }
-        }
-
-        // ── Timer ──
-
-        private void StartPositionTimer()
-        {
-            if (!_positionTimer.IsEnabled)
-            {
-                _positionTimer.Start();
+                _fadeTimer?.Dispose();
+                _fadeTimer = null;
             }
         }
 
-        private void StopPositionTimer()
+        private void CompleteFade(TaskCompletionSource tcs)
         {
-            if (_positionTimer.IsEnabled)
+            lock (_fadeLock)
             {
-                _positionTimer.Stop();
+                if (_fadeTcs == tcs)
+                {
+                    _fadeTcs = null;
+                }
             }
-        }
 
-        private void OnPositionTimerTick(object? sender, object e)
-        {
-            var pos = _mediaPlayer.PlaybackSession.Position;
-            OnPropertyChanged(nameof(Position));
-            PositionChanged?.Invoke(this, pos);
+            Volatile.Write(ref _isFadingField, false);
+            tcs.TrySetResult();
         }
 
         // ── Event Handlers ──
@@ -298,15 +331,10 @@ namespace bilibili_music_player_windows.Services
         private void OnPlaybackStateChanged(MediaPlaybackSession sender, object args)
         {
             var isPlaying = sender.PlaybackState == MediaPlaybackState.Playing;
+            System.Diagnostics.Debug.WriteLine($"[AudioPlayer] PlaybackStateChanged state={sender.PlaybackState} pos={sender.Position} dur={sender.NaturalDuration}");
 
-            if (isPlaying)
-            {
-                StartPositionTimer();
-            }
-            else
-            {
-                StopPositionTimer();
-            }
+            if (isPlaying) StartPositionLoop();
+            else StopPositionLoop();
 
             OnPropertyChanged(nameof(IsPlaying));
             IsPlayingChanged?.Invoke(this, isPlaying);
@@ -315,6 +343,7 @@ namespace bilibili_music_player_windows.Services
         private void OnNaturalDurationChanged(MediaPlaybackSession sender, object args)
         {
             var duration = sender.NaturalDuration;
+            System.Diagnostics.Debug.WriteLine($"[AudioPlayer] NaturalDurationChanged duration={duration}");
             OnPropertyChanged(nameof(Duration));
             DurationChanged?.Invoke(this, duration);
         }
@@ -328,13 +357,15 @@ namespace bilibili_music_player_windows.Services
 
         private void OnMediaEnded(MediaPlayer sender, object args)
         {
-            StopPositionTimer();
+            System.Diagnostics.Debug.WriteLine($"[AudioPlayer] MediaEnded");
+            StopPositionLoop();
             MediaEnded?.Invoke(this, EventArgs.Empty);
         }
 
         private void OnMediaFailed(MediaPlayer sender, MediaPlayerFailedEventArgs args)
         {
-            StopPositionTimer();
+            System.Diagnostics.Debug.WriteLine($"[AudioPlayer] MediaFailed error={args.Error} errorMessage={args.ErrorMessage} extendedError={args.ExtendedErrorCode}");
+            StopPositionLoop();
             MediaFailed?.Invoke(this, args.ErrorMessage);
         }
 
@@ -351,15 +382,15 @@ namespace bilibili_music_player_windows.Services
 
         public void Dispose()
         {
-            if (_isDisposed)
-            {
-                return;
-            }
-
+            if (_isDisposed) return;
             _isDisposed = true;
 
-            _positionTimer.Stop();
-            _positionTimer.Tick -= OnPositionTimerTick;
+            CancelFade();
+            _serviceCts.Cancel();
+            _serviceCts.Dispose();
+
+            _positionTimer?.Dispose();
+            _fadeTimer?.Dispose();
 
             _mediaPlayer.PlaybackSession.PlaybackStateChanged -= OnPlaybackStateChanged;
             _mediaPlayer.PlaybackSession.NaturalDurationChanged -= OnNaturalDurationChanged;
@@ -373,10 +404,7 @@ namespace bilibili_music_player_windows.Services
 
         private void ThrowIfDisposed()
         {
-            if (_isDisposed)
-            {
-                throw new ObjectDisposedException(nameof(AudioPlayerService));
-            }
+            if (_isDisposed) throw new ObjectDisposedException(nameof(AudioPlayerService));
         }
     }
 }

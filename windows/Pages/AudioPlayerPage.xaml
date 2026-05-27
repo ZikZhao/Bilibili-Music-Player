@@ -50,8 +50,11 @@
 
                 <!-- 进度条 -->
                 <StackPanel Spacing="8" HorizontalAlignment="Stretch">
-                    <Slider Value="{x:Bind ViewModel.Progress, Mode=TwoWay}"
+                    <Slider Value="{x:Bind ViewModel.Progress, Mode=OneWay}"
                             Minimum="0" Maximum="1" StepFrequency="0.001"
+                            x:Name="PlayerPageProgressSlider"
+                            ManipulationStarted="OnProgressSliderManipulationStarted"
+                            ManipulationCompleted="OnProgressSliderManipulationCompleted"
                             AutomationProperties.AutomationId="PlayerPageProgressSlider" />
                     <Grid>
                         <Grid.ColumnDefinitions>

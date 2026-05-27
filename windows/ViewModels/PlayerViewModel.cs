@@ -26,9 +26,10 @@ namespace bilibili_music_player_windows.ViewModels
         private readonly AudioPlayerService _audioPlayer;
         private readonly BilibiliClient _bilibiliClient;
         private readonly CacheService _cacheService;
+        private readonly SynchronizationContext _syncContext;
 
-        /// <summary>防止并发加载的 race-condition 锁。</summary>
-        private string? _pendingBvid;
+        /// <summary>用于取消进行中的播放请求的 CancellationTokenSource。</summary>
+        private CancellationTokenSource? _playCts;
 
         // ── 可观察属性 ──
 
@@ -80,6 +81,9 @@ namespace bilibili_music_player_windows.ViewModels
         [ObservableProperty]
         private bool _enableFade = true;
 
+        /// <summary>用户正在拖拽进度条时设为 true，阻止 PositionChanged 覆盖 Progress。</summary>
+        public bool IsUserSeeking { get; set; }
+
         /// <summary>播放队列。</summary>
         public ObservableCollection<VideoModel> Playlist { get; } = new();
 
@@ -93,6 +97,11 @@ namespace bilibili_music_player_windows.ViewModels
             _audioPlayer = audioPlayer ?? throw new ArgumentNullException(nameof(audioPlayer));
             _bilibiliClient = bilibiliClient ?? throw new ArgumentNullException(nameof(bilibiliClient));
             _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
+
+            // 在 DI 容器的 UI 线程上捕获 SynchronizationContext，
+            // 用于后续事件处理中的线程封送（避免使用 Window.Current.DispatcherQueue）。
+            _syncContext = SynchronizationContext.Current
+                ?? new SynchronizationContext();
 
             // ── 订阅 AudioPlayerService 事件 ──
             _audioPlayer.IsPlayingChanged += OnIsPlayingChanged;
@@ -120,36 +129,30 @@ namespace bilibili_music_player_windows.ViewModels
             {
                 if (EnableFade)
                 {
-                    _audioPlayer.SetVolume(0);
+                    _audioPlayer.Volume = 0;
                     _audioPlayer.Resume();
-                    _audioPlayer.FadeIn(Volume);
+                    _ = _audioPlayer.FadeInAsync(Volume);
                 }
                 else
                 {
-                    _audioPlayer.SetVolume(Volume);
+                    _audioPlayer.Volume = Volume;
                     _audioPlayer.Resume();
                 }
             }
         }
 
         /// <summary>
-        /// 暂停播放（带淡出）。
+        /// 暂停播放（带淡出）。异步等待淡出完成，无事件闭包泄漏。
         /// </summary>
         [RelayCommand]
-        private void Pause()
+        private async Task PauseAsync()
         {
             if (EnableFade && IsPlaying)
             {
                 IsFading = true;
-                _audioPlayer.FadeOut();
-                // 淡出完成后在 FadeCompleted 事件中恢复
-                void onFadeDone(object? s, EventArgs e)
-                {
-                    _audioPlayer.FadeCompleted -= onFadeDone;
-                    IsFading = false;
-                    _audioPlayer.Pause();
-                }
-                _audioPlayer.FadeCompleted += onFadeDone;
+                await _audioPlayer.FadeOutAsync();
+                IsFading = false;
+                _audioPlayer.Pause();
             }
             else
             {
@@ -158,10 +161,10 @@ namespace bilibili_music_player_windows.ViewModels
         }
 
         /// <summary>
-        /// 切换播放/暂停。
+        /// 切换播放/暂停。异步等待淡出完成，无事件闭包泄漏。
         /// </summary>
         [RelayCommand]
-        private void TogglePlay()
+        private async Task TogglePlayAsync()
         {
             if (CurrentTrack is null)
             {
@@ -173,14 +176,9 @@ namespace bilibili_music_player_windows.ViewModels
                 if (EnableFade)
                 {
                     IsFading = true;
-                    _audioPlayer.FadeOut();
-                    void onFadeDone(object? s, EventArgs e)
-                    {
-                        _audioPlayer.FadeCompleted -= onFadeDone;
-                        IsFading = false;
-                        _audioPlayer.Pause();
-                    }
-                    _audioPlayer.FadeCompleted += onFadeDone;
+                    await _audioPlayer.FadeOutAsync();
+                    IsFading = false;
+                    _audioPlayer.Pause();
                 }
                 else
                 {
@@ -191,13 +189,13 @@ namespace bilibili_music_player_windows.ViewModels
             {
                 if (EnableFade)
                 {
-                    _audioPlayer.SetVolume(0);
+                    _audioPlayer.Volume = 0;
                     _audioPlayer.Resume();
-                    _audioPlayer.FadeIn(Volume);
+                    _ = _audioPlayer.FadeInAsync(Volume);
                 }
                 else
                 {
-                    _audioPlayer.SetVolume(Volume);
+                    _audioPlayer.Volume = Volume;
                     _audioPlayer.Resume();
                 }
             }
@@ -292,11 +290,11 @@ namespace bilibili_music_player_windows.ViewModels
         /// 播放指定视频（核心方法，流程与移动端一致）。
         ///
         /// 流程：
-        /// 1. 设置 _pendingBvid race-condition 锁
+        /// 1. 取消前一次请求（CancellationTokenSource）
         /// 2. 检查缓存 → 如果已缓存，使用本地文件
         /// 3. 未缓存：FetchVideoInfoAsync → FetchPlayUrlAsync(audioOnly: true)
         /// 4. 触发后台下载（CacheService）
-        /// 5. 如果 _pendingBvid 已变化，取消加载
+        /// 5. 每步检查 CancellationToken，被取消则静默退出
         /// 6. 设置 MediaPlayer.Source
         /// 7. 播放
         /// </summary>
@@ -304,9 +302,13 @@ namespace bilibili_music_player_windows.ViewModels
         {
             ArgumentNullException.ThrowIfNull(video);
 
-            // 1. 设置 race-condition 锁
+            // 1. 取消上一次播放请求，创建新的 CancellationTokenSource
+            _playCts?.Cancel();
+            _playCts?.Dispose();
+            _playCts = new CancellationTokenSource();
+            var ct = _playCts.Token;
+
             var bvid = video.Bvid;
-            _pendingBvid = bvid;
 
             // 更新 CurrentTrack 立即反映 UI
             CurrentTrack = video;
@@ -315,9 +317,10 @@ namespace bilibili_music_player_windows.ViewModels
             {
                 // 2. 检查缓存
                 var cachedPath = await _cacheService.GetAudioPathAsync(bvid);
+                System.Diagnostics.Debug.WriteLine($"[PlayerVM] PlayVideoAsync bvid={bvid} cachedPath={cachedPath ?? "(null)"}");
 
-                // 5. 取消检查
-                if (_pendingBvid != bvid)
+                // 3. 如果已被取消，静默退出
+                if (ct.IsCancellationRequested)
                 {
                     return;
                 }
@@ -331,21 +334,28 @@ namespace bilibili_music_player_windows.ViewModels
                 }
                 else
                 {
-                    // 3. 未缓存：获取播放地址
+                    // 4. 未缓存：获取播放地址（传递 CancellationToken）
                     VideoDetailInfo detailInfo;
                     try
                     {
-                        detailInfo = await _bilibiliClient.FetchVideoInfoAsync(bvid);
+                        detailInfo = await _bilibiliClient.FetchVideoInfoAsync(bvid, ct);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
+                    catch (BilibiliApiException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine(
                             $"[PlayerVM] FetchVideoInfoAsync failed for {bvid}: {ex.Message}");
-                        throw;
+                        throw new BilibiliApiException($"获取视频信息失败：{ex.Message}", ex);
                     }
 
-                    // 5. 取消检查
-                    if (_pendingBvid != bvid)
+                    if (ct.IsCancellationRequested)
                     {
                         return;
                     }
@@ -353,16 +363,40 @@ namespace bilibili_music_player_windows.ViewModels
                     PlayUrlInfo playUrlInfo;
                     try
                     {
-                        playUrlInfo = await _bilibiliClient.FetchPlayUrlAsync(bvid, detailInfo.Cid, audioOnly: true);
+                        playUrlInfo = await _bilibiliClient.FetchPlayUrlAsync(bvid, detailInfo.Cid, audioOnly: true, ct);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
+                    catch (BilibiliApiException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine(
                             $"[PlayerVM] FetchPlayUrlAsync failed for {bvid}: {ex.Message}");
-                        throw;
+                        throw new BilibiliApiException($"获取播放地址失败：{ex.Message}", ex);
                     }
 
-                    playUrl = playUrlInfo.Url;
+                    if (ct.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    // 下载音频文件并等待完成，确保后续始终从本地缓存播放。
+                    // Bilibili CDN 要求特定 HTTP 头（Referer / User-Agent），
+                    // MediaPlayer 直接创建 MediaSource 时不携带这些头，因此必须先下载到本地。
+                    var networkUrl = playUrlInfo.Url;
+                    var downloadedPath = await _cacheService.DownloadAudioAsync(networkUrl, bvid, ct);
+
+                    if (downloadedPath is null)
+                    {
+                        throw new BilibiliApiException("下载音频文件失败，请检查网络连接后重试。");
+                    }
+
+                    playUrl = downloadedPath;
 
                     // 更新 CurrentTrack 的 Cid 和时长信息
                     if (CurrentTrack?.Bvid == bvid)
@@ -382,18 +416,13 @@ namespace bilibili_music_player_windows.ViewModels
                         };
                     }
 
-                    // 5. 取消检查
-                    if (_pendingBvid != bvid)
+                    if (ct.IsCancellationRequested)
                     {
                         return;
                     }
-
-                    // 4. 触发后台下载（不等待）
-                    _ = DownloadInBackgroundAsync(playUrl, bvid);
                 }
 
-                // 5. 最终取消检查
-                if (_pendingBvid != bvid)
+                if (ct.IsCancellationRequested)
                 {
                     return;
                 }
@@ -401,25 +430,29 @@ namespace bilibili_music_player_windows.ViewModels
                 // 6. 设置播放源
                 if (!Uri.TryCreate(playUrl, UriKind.Absolute, out var uri))
                 {
-                    throw new InvalidOperationException($"无效的播放地址: {playUrl}");
+                    throw new BilibiliApiException($"无效的播放地址: {playUrl}");
                 }
 
+                System.Diagnostics.Debug.WriteLine($"[PlayerVM] Playing uri={uri}");
                 await _audioPlayer.PlayAsync(uri);
 
                 // 7. 播放（PlayAsync 内部已调用 Play）
                 IsPlaying = true;
+                System.Diagnostics.Debug.WriteLine($"[PlayerVM] PlayAsync completed, IsPlaying={IsPlaying}");
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
+                // 被取消的请求——静默退出，不视为错误
+                System.Diagnostics.Debug.WriteLine(
+                    $"[PlayerVM] PlayVideoAsync cancelled for {bvid}");
+            }
+            catch (BilibiliApiException ex)
+            {
+                // 业务异常（API 错误、无效地址等）——记录日志，不吞没
                 System.Diagnostics.Debug.WriteLine(
                     $"[PlayerVM] PlayVideoAsync failed for {bvid}: {ex.Message}");
 
-                if (_pendingBvid == bvid)
-                {
-                    // 只在未被取消时上报错误
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[PlayerVM] Playback error for {bvid}: {ex.Message}");
-                }
+                // 由于此方法从命令调用，不重新抛出；UI 层可通过其它方式展示错误
             }
         }
 
@@ -552,38 +585,20 @@ namespace bilibili_music_player_windows.ViewModels
             return next;
         }
 
-        private async Task DownloadInBackgroundAsync(string url, string bvid)
-        {
-            try
-            {
-                await _cacheService.DownloadAudioAsync(url, bvid);
-                System.Diagnostics.Debug.WriteLine(
-                    $"[PlayerVM] Background download complete: {bvid}");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[PlayerVM] Background download failed for {bvid}: {ex.Message}");
-            }
-        }
-
         // ── AudioPlayerService 事件处理 ──
 
         private void OnIsPlayingChanged(object? sender, bool isPlaying)
         {
-            _ = ExecuteOnUIThreadAsync(() =>
-            {
-                IsPlaying = isPlaying;
-            });
+            PostOnUIThread(() => IsPlaying = isPlaying);
         }
 
         private void OnPositionChanged(object? sender, TimeSpan position)
         {
-            _ = ExecuteOnUIThreadAsync(() =>
+            PostOnUIThread(() =>
             {
                 Position = position;
 
-                if (Duration > TimeSpan.Zero)
+                if (!IsUserSeeking && Duration > TimeSpan.Zero)
                 {
                     Progress = Math.Clamp(
                         (double)position.Ticks / Duration.Ticks, 0.0, 1.0);
@@ -593,7 +608,7 @@ namespace bilibili_music_player_windows.ViewModels
 
         private void OnDurationChanged(object? sender, TimeSpan duration)
         {
-            _ = ExecuteOnUIThreadAsync(() =>
+            PostOnUIThread(() =>
             {
                 Duration = duration;
 
@@ -607,61 +622,37 @@ namespace bilibili_music_player_windows.ViewModels
 
         private void OnBufferingProgressChanged(object? sender, double progress)
         {
-            _ = ExecuteOnUIThreadAsync(() =>
-            {
-                BufferingProgress = progress;
-            });
+            PostOnUIThread(() => BufferingProgress = progress);
         }
 
         private void OnMediaEnded(object? sender, EventArgs e)
         {
-            _ = ExecuteOnUIThreadAsync(async () =>
+            PostOnUIThread(() =>
             {
                 IsPlaying = false;
                 Position = TimeSpan.Zero;
                 Progress = 0;
-
-                // 根据播放模式决定下一首
-                if (Playlist.Count > 0 && CurrentIndex >= 0)
-                {
-                    await NextAsync();
-                }
             });
+
+            // 根据播放模式决定下一首
+            if (Playlist.Count > 0 && CurrentIndex >= 0)
+            {
+                _ = NextAsync();
+            }
         }
 
         private void OnMediaFailed(object? sender, string errorMessage)
         {
-            _ = ExecuteOnUIThreadAsync(() =>
-            {
-                IsPlaying = false;
-                System.Diagnostics.Debug.WriteLine(
-                    $"[PlayerVM] Playback failed: {errorMessage}");
-            });
+            PostOnUIThread(() => IsPlaying = false);
+            System.Diagnostics.Debug.WriteLine(
+                $"[PlayerVM] Playback failed: {errorMessage}");
         }
 
-        // ── UI 线程调度辅助 ──
+        // ── UI 线程调度辅助（基于 SynchronizationContext，避免 Window.Current 空引用） ──
 
-        private static async Task ExecuteOnUIThreadAsync(Action action)
+        private void PostOnUIThread(Action action)
         {
-            // 通过 DispatcherQueue 调度到 UI 线程
-            var dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-            if (dispatcherQueue is not null && dispatcherQueue.HasThreadAccess)
-            {
-                action();
-                return;
-            }
-
-            // 如果当前不在 UI 线程，通过全局 DispatcherQueue 调度
-            // 注意：AudioPlayerService 的事件可能在非 UI 线程触发
-            try
-            {
-                await Microsoft.UI.Xaml.Window.Current.DispatcherQueue.EnqueueAsync(action);
-            }
-            catch
-            {
-                // Fallback: 直接执行
-                action();
-            }
+            _syncContext.Post(_ => action(), null);
         }
 
         // ── [ObservableProperty] partial methods ──
@@ -673,44 +664,8 @@ namespace bilibili_music_player_windows.ViewModels
         {
             if (!IsFading)
             {
-                _audioPlayer.SetVolume(value);
+                _audioPlayer.Volume = value;
             }
         }
-    }
-}
-
-/// <summary>
-/// DispatcherQueue 扩展方法。
-/// </summary>
-internal static class DispatcherQueueExtensions
-{
-    public static Task EnqueueAsync(
-        this Microsoft.UI.Dispatching.DispatcherQueue dispatcher,
-        Action action)
-    {
-        if (dispatcher is null)
-        {
-            throw new ArgumentNullException(nameof(dispatcher));
-        }
-
-        var tcs = new TaskCompletionSource<object?>();
-
-        if (!dispatcher.TryEnqueue(() =>
-            {
-                try
-                {
-                    action();
-                    tcs.SetResult(null);
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
-            }))
-        {
-            tcs.SetException(new InvalidOperationException("Failed to enqueue dispatcher task."));
-        }
-
-        return tcs.Task;
     }
 }

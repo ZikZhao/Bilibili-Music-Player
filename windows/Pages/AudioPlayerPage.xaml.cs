@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using System;
 using bilibili_music_player_windows.ViewModels;
 
@@ -46,6 +47,21 @@ namespace bilibili_music_player_windows.Pages
         public static Visibility PlayModeToVisibility(Models.PlayMode mode, int modeValue)
         {
             return (int)mode == modeValue ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void OnProgressSliderManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
+        {
+            ViewModel.IsUserSeeking = true;
+        }
+
+        private void OnProgressSliderManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
+        {
+            if (sender is Slider slider)
+            {
+                ViewModel.SeekCommand.Execute(slider.Value);
+            }
+
+            ViewModel.IsUserSeeking = false;
         }
     }
 }

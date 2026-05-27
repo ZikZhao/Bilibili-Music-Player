@@ -8,5 +8,10 @@ namespace bilibili_music_player_windows.Models
             : base(message)
         {
         }
+
+        public BilibiliApiException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
     }
 }

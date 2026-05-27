@@ -1,6 +1,7 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using System;
 using bilibili_music_player_windows.Pages;
@@ -107,6 +108,21 @@ namespace bilibili_music_player_windows
         private void OnNowPlayingClick(object sender, RoutedEventArgs e)
         {
             NavigateTo("nowplaying");
+        }
+
+        private void OnProgressSliderManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
+        {
+            _playerViewModel.IsUserSeeking = true;
+        }
+
+        private void OnProgressSliderManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
+        {
+            if (sender is Slider slider)
+            {
+                _playerViewModel.SeekCommand.Execute(slider.Value);
+            }
+
+            _playerViewModel.IsUserSeeking = false;
         }
     }
 }

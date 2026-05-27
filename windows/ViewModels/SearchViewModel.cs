@@ -53,6 +53,7 @@ namespace bilibili_music_player_windows.ViewModels
         private readonly BilibiliClient _client;
         private readonly PlayerViewModel _playerViewModel;
         private readonly LibraryViewModel _libraryViewModel;
+        private readonly SynchronizationContext _syncContext;
         private CancellationTokenSource? _debounceCts;
 
         private const int MaxHistoryItems = 10;
@@ -234,6 +235,7 @@ namespace bilibili_music_player_windows.ViewModels
             _client = client ?? throw new ArgumentNullException(nameof(client));
             _playerViewModel = playerViewModel ?? throw new ArgumentNullException(nameof(playerViewModel));
             _libraryViewModel = libraryViewModel ?? throw new ArgumentNullException(nameof(libraryViewModel));
+            _syncContext = SynchronizationContext.Current ?? new SynchronizationContext();
             LoadSearchHistory();
             InitializeHotKeywords();
         }
@@ -305,18 +307,18 @@ namespace bilibili_music_player_windows.ViewModels
             {
                 var suggestions = await _client.FetchSuggestionsAsync(keyword);
 
-                await Task.Run(() =>
+                _syncContext.Post(_ =>
                 {
                     Suggestions.Clear();
                     foreach (var s in suggestions)
                     {
                         Suggestions.Add(s);
                     }
-                });
 
-                SearchState = suggestions.Count > 0
-                    ? SearchState.ShowingSuggestions
-                    : SearchState.Idle;
+                    SearchState = suggestions.Count > 0
+                        ? SearchState.ShowingSuggestions
+                        : SearchState.Idle;
+                }, null);
             }
             catch
             {
@@ -519,6 +521,7 @@ namespace bilibili_music_player_windows.ViewModels
 
             CurrentPreviewItem = item;
             PreviewItemIndex = SearchVideos.IndexOf(item);
+            IsPreviewFavorited = _libraryViewModel.Favorites.Any(f => f.Bvid == item.Bvid);
             IsPreviewing = true;
         }
 

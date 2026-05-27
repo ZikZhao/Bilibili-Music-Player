@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -21,8 +22,12 @@ namespace bilibili_music_player_windows.Api
 
         private readonly HttpClient _client;
         private readonly WbiSigner _wbiSigner = new();
-        private readonly SemaphoreSlim _initLock = new(1, 1);
-        private bool _initialized;
+
+        /// <summary>
+        /// 使用 Lazy&lt;Task&gt; 保证初始化逻辑在极高并发下也绝对单例、无锁开销。
+        /// ExecutionAndPublication 确保工厂函数最多执行一次，后续调用复用同一 Task。
+        /// </summary>
+        private readonly Lazy<Task> _initLazy;
 
         /// <summary>
         /// Applies the standard Bilibili HTTP headers to an <see cref="HttpClient"/>.
@@ -56,11 +61,14 @@ namespace bilibili_music_player_windows.Api
             };
 
             ConfigureDefaultHeaders(_client);
+
+            // Lazy<Task> 捕获实例引用，工厂闭包可访问 _client 和 _wbiSigner
+            _initLazy = new Lazy<Task>(InitializeAsync, LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
-        public async Task<SearchResult> SearchVideosAsync(string keyword, int page = 1, int pageSize = 20)
+        public async Task<SearchResult> SearchVideosAsync(string keyword, int page = 1, int pageSize = 20, CancellationToken ct = default)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync(ct);
 
             if (string.IsNullOrWhiteSpace(keyword))
             {
@@ -81,76 +89,70 @@ namespace bilibili_music_player_windows.Api
             HttpResponseMessage response;
             try
             {
-                response = await _client.GetAsync(requestUri);
+                response = await _client.GetAsync(requestUri, ct);
             }
             catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
             {
                 // 412: Retry once after a brief delay
-                await Task.Delay(1000);
-                response = await _client.GetAsync(requestUri);
+                await Task.Delay(1000, ct);
+                response = await _client.GetAsync(requestUri, ct);
             }
 
             response.EnsureSuccessStatusCode();
 
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var root = document.RootElement;
+            // ── Source-gen 零拷贝反序列化 ──
+            using var searchStream = await response.Content.ReadAsStreamAsync(ct);
+            var searchResponse = await JsonSerializer.DeserializeAsync(
+                searchStream, BilibiliJsonContext.Default.SearchApiResponse, ct);
 
-            var code = ReadInt32(root, "code");
-            if (code != 0)
+            if (searchResponse is null || searchResponse.Code != 0)
             {
-                var message = ReadString(root, "message") ?? "搜索失败，请稍后再试。";
-                throw new BilibiliApiException(message);
+                var msg = searchResponse?.Message ?? "搜索失败，请稍后再试。";
+                throw new BilibiliApiException(msg);
             }
 
-            if (!root.TryGetProperty("data", out var dataElement))
+            var dataElement = searchResponse.Data;
+            if (dataElement is null)
             {
                 return new SearchResult(Array.Empty<VideoPreviewItem>(), page, pageSize, 0, 0);
             }
 
             // A1: Risk detection — check for v_voucher in response
-            if (dataElement.TryGetProperty("v_voucher", out _))
+            if (dataElement.V_voucher is not null)
             {
                 throw new BilibiliApiException("请求被风控系统拦截，请稍后再试。如持续出现此问题，请尝试重启应用。");
             }
 
-            if (!dataElement.TryGetProperty("result", out var resultElement) ||
-                resultElement.ValueKind != JsonValueKind.Array)
+            if (dataElement.Result is not { } resultList)
             {
                 return new SearchResult(Array.Empty<VideoPreviewItem>(), page, pageSize, 0, 0);
             }
 
-            var videos = new List<VideoPreviewItem>();
-            foreach (var item in resultElement.EnumerateArray())
+            var videos = new List<VideoPreviewItem>(resultList.Count);
+            foreach (var item in resultList)
             {
-                var bvid = ReadString(item, "bvid");
-                if (string.IsNullOrWhiteSpace(bvid))
+                if (string.IsNullOrWhiteSpace(item.Bvid))
                 {
                     continue;
                 }
 
-                var title = CleanTitle(ReadString(item, "title"));
-                var author = ReadString(item, "author") ?? "未知作者";
-                var duration = ReadString(item, "duration") ?? "00:00";
-                var views = ReadString(item, "play") ?? "0";
-                var coverUri = ResolveCoverUri(ReadString(item, "pic"));
-
                 videos.Add(new VideoPreviewItem
                 {
-                    Bvid = bvid,
-                    Title = title,
-                    Author = author,
-                    Duration = duration,
-                    Views = views,
-                    CoverUri = coverUri,
+                    Bvid = item.Bvid,
+                    Title = CleanTitle(item.Title),
+                    Author = item.Author ?? "未知作者",
+                    Duration = item.Duration ?? "00:00",
+                    Views = ExtractPlayCount(item.Play),
+                    CoverUri = ResolveCoverUri(item.Pic),
                 });
             }
 
-            var resultPage = ReadInt32(dataElement, "page") ?? page;
-            var resultPageSize = ReadInt32(dataElement, "pagesize") ?? pageSize;
-            var numResults = ReadInt32(dataElement, "numResults") ?? videos.Count;
-            var numPages = ReadInt32(dataElement, "numPages") ?? 1;
-
-            return new SearchResult(videos, resultPage, resultPageSize, numResults, numPages);
+            return new SearchResult(
+                videos,
+                dataElement.Page ?? page,
+                dataElement.Pagesize ?? pageSize,
+                dataElement.NumResults ?? videos.Count,
+                dataElement.NumPages ?? 1);
         }
 
         /// <summary>
@@ -158,7 +160,7 @@ namespace bilibili_music_player_windows.Api
         /// </summary>
         /// <param name="keyword">搜索关键词。</param>
         /// <returns>建议列表，最多 10 个。</returns>
-        public async Task<List<SuggestionModel>> FetchSuggestionsAsync(string keyword)
+        public async Task<List<SuggestionModel>> FetchSuggestionsAsync(string keyword, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(keyword))
             {
@@ -177,37 +179,39 @@ namespace bilibili_music_player_windows.Api
                     ["tag_num"] = "10",
                 });
 
-                using var response = await _client.GetAsync(requestUri);
+                using var response = await _client.GetAsync(requestUri, ct);
                 response.EnsureSuccessStatusCode();
 
-                var rawBody = await response.Content.ReadAsStringAsync();
+                // ── Source-gen 零拷贝反序列化 ──
+                using var suggestStream = await response.Content.ReadAsStreamAsync(ct);
+                var suggestResponse = await JsonSerializer.DeserializeAsync(
+                    suggestStream, BilibiliJsonContext.Default.SuggestApiResponse, ct);
 
-                // 响应可能是纯 JSON 字符串（带转义），先尝试解析外层
-                using var document = JsonDocument.Parse(rawBody);
-                var root = document.RootElement;
-
-                // 如果 code != 0，静默返回空
-                var code = ReadInt32(root, "code");
-                if (code != 0)
+                if (suggestResponse is null || suggestResponse.Code != 0)
                 {
                     return [];
                 }
 
-                if (!root.TryGetProperty("result", out var resultElement) ||
-                    !resultElement.TryGetProperty("tag", out var tagElement) ||
-                    tagElement.ValueKind != JsonValueKind.Array)
+                var tagList = suggestResponse.Result?.Tag;
+                if (tagList is null || tagList.Count == 0)
                 {
                     return [];
                 }
 
-                var suggestions = new List<SuggestionModel>(tagElement.GetArrayLength());
-                foreach (var item in tagElement.EnumerateArray())
+                var suggestions = new List<SuggestionModel>(tagList.Count);
+                foreach (var tag in tagList)
                 {
-                    var model = SuggestionModel.FromJsonElement(item);
-                    if (model is not null)
+                    if (string.IsNullOrWhiteSpace(tag.Value))
                     {
-                        suggestions.Add(model);
+                        continue;
                     }
+
+                    var name = CleanTitle(tag.Name);
+                    suggestions.Add(new SuggestionModel
+                    {
+                        Value = tag.Value,
+                        Name = string.IsNullOrWhiteSpace(name) ? tag.Value : name,
+                    });
                 }
 
                 return suggestions;
@@ -219,17 +223,17 @@ namespace bilibili_music_player_windows.Api
             }
         }
 
-        public async Task<Uri> FetchPreviewUriAsync(string bvid)
+        public async Task<Uri> FetchPreviewUriAsync(string bvid, CancellationToken ct = default)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync(ct);
 
             if (string.IsNullOrWhiteSpace(bvid))
             {
                 throw new BilibiliApiException("缺少视频标识。");
             }
 
-            var videoInfo = await FetchVideoInfoAsync(bvid);
-            var playUrlInfo = await FetchPlayUrlAsync(bvid, videoInfo.Cid, audioOnly: false);
+            var videoInfo = await FetchVideoInfoAsync(bvid, ct);
+            var playUrlInfo = await FetchPlayUrlAsync(bvid, videoInfo.Cid, audioOnly: false, ct);
 
             if (!Uri.TryCreate(playUrlInfo.Url, UriKind.Absolute, out var result))
             {
@@ -239,30 +243,17 @@ namespace bilibili_music_player_windows.Api
             return result;
         }
 
-        private async Task EnsureInitializedAsync()
+        private Task EnsureInitializedAsync(CancellationToken ct = default)
         {
-            if (_initialized)
-            {
-                return;
-            }
-
-            await _initLock.WaitAsync();
-            try
-            {
-                if (_initialized)
-                {
-                    return;
-                }
-
-                await InitializeAsync();
-                _initialized = true;
-            }
-            finally
-            {
-                _initLock.Release();
-            }
+            // Lazy<Task> 保证 InitializeAsync 最多执行一次，
+            // 后续调用直接返回同一 Task。WaitAsync 支持 CancellationToken。
+            return _initLazy.Value.WaitAsync(ct);
         }
 
+        /// <summary>
+        /// 初始化：获取 WBI 密钥。由 Lazy&lt;Task&gt; 包装，确保仅执行一次。
+        /// 捕获实例引用，可直接访问 _client 和 _wbiSigner。
+        /// </summary>
         private async Task InitializeAsync()
         {
             using var webResponse = await _client.GetAsync(WebBaseUri);
@@ -271,32 +262,25 @@ namespace bilibili_music_player_windows.Api
             using var response = await _client.GetAsync($"{BaseUrl}/x/web-interface/nav");
             response.EnsureSuccessStatusCode();
 
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var root = document.RootElement;
+            // ── Source-gen 零拷贝反序列化 ──
+            using var navStream = await response.Content.ReadAsStreamAsync();
+            var navResponse = await JsonSerializer.DeserializeAsync(
+                navStream, BilibiliJsonContext.Default.NavApiResponse);
 
-            var code = ReadInt32(root, "code");
-            if (code != 0 && code != -101)
+            if (navResponse is null || (navResponse.Code != 0 && navResponse.Code != -101))
             {
-                var message = ReadString(root, "message") ?? "初始化失败。";
-                throw new BilibiliApiException(message);
+                var msg = navResponse?.Message ?? "初始化失败。";
+                throw new BilibiliApiException(msg);
             }
 
-            if (!root.TryGetProperty("data", out var dataElement) ||
-                !dataElement.TryGetProperty("wbi_img", out var wbiElement))
+            var wbiImg = navResponse.Data?.WbiImg;
+            if (wbiImg is null || string.IsNullOrWhiteSpace(wbiImg.ImgUrl) || string.IsNullOrWhiteSpace(wbiImg.SubUrl))
             {
                 throw new BilibiliApiException("初始化失败：未获取到 WBI 密钥。");
             }
 
-            var imgUrl = ReadString(wbiElement, "img_url");
-            var subUrl = ReadString(wbiElement, "sub_url");
-
-            if (string.IsNullOrWhiteSpace(imgUrl) || string.IsNullOrWhiteSpace(subUrl))
-            {
-                throw new BilibiliApiException("初始化失败：WBI 密钥为空。");
-            }
-
-            var imgKey = ExtractWbiKey(imgUrl);
-            var subKey = ExtractWbiKey(subUrl);
+            var imgKey = ExtractWbiKey(wbiImg.ImgUrl);
+            var subKey = ExtractWbiKey(wbiImg.SubUrl);
 
             if (string.IsNullOrWhiteSpace(imgKey) || string.IsNullOrWhiteSpace(subKey))
             {
@@ -309,65 +293,91 @@ namespace bilibili_music_player_windows.Api
         /// <summary>
         /// 获取视频详情信息（A4），返回完整的 <see cref="VideoDetailInfo"/>（包含 cid、owner、stat 等）。
         /// </summary>
-        public async Task<VideoDetailInfo> FetchVideoInfoAsync(string bvid)
+        public async Task<VideoDetailInfo> FetchVideoInfoAsync(string bvid, CancellationToken ct = default)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync(ct);
 
             var requestUri = $"{BaseUrl}/x/web-interface/view?bvid={Uri.EscapeDataString(bvid)}";
 
-            using var response = await _client.GetAsync(requestUri);
+            using var response = await _client.GetAsync(requestUri, ct);
             response.EnsureSuccessStatusCode();
 
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var root = document.RootElement;
+            // ── Source-gen 零拷贝反序列化 ──
+            using var videoStream = await response.Content.ReadAsStreamAsync(ct);
+            var videoResponse = await JsonSerializer.DeserializeAsync(
+                videoStream, BilibiliJsonContext.Default.VideoDetailApiResponse, ct);
 
-            var code = ReadInt32(root, "code");
-            if (code != 0)
+            if (videoResponse is null || videoResponse.Code != 0)
             {
-                var message = ReadString(root, "message") ?? "获取视频信息失败。";
-                throw new BilibiliApiException(message);
+                var msg = videoResponse?.Message ?? "获取视频信息失败。";
+                throw new BilibiliApiException(msg);
             }
 
-            if (!root.TryGetProperty("data", out var dataElement))
+            var data = videoResponse.Data;
+            if (data is null)
             {
                 throw new BilibiliApiException("获取视频信息失败：响应缺少数据。");
             }
 
-            var info = VideoDetailInfo.FromJsonElement(dataElement);
+            var cid = data.Cid ?? 0;
 
-            if (info.Cid <= 0)
+            // Fallback: try pages array if cid is missing
+            if (cid <= 0 && data.Pages is { Count: > 0 })
             {
-                // Fallback: try pages array
-                if (dataElement.TryGetProperty("pages", out var pagesElement) &&
-                    pagesElement.ValueKind == JsonValueKind.Array &&
-                    pagesElement.GetArrayLength() > 0)
+                var firstPageCid = data.Pages[0].Cid ?? 0;
+                if (firstPageCid > 0)
                 {
-                    var firstPage = pagesElement[0];
-                    var pageCid = ReadInt64(firstPage, "cid");
-                    if (pageCid.HasValue && pageCid.Value > 0)
-                    {
-                        info = new VideoDetailInfo
-                        {
-                            Bvid = info.Bvid,
-                            Aid = info.Aid,
-                            Cid = pageCid.Value,
-                            Title = info.Title,
-                            Desc = info.Desc,
-                            Cover = info.Cover,
-                            Owner = info.Owner,
-                            Stat = info.Stat,
-                            Pubdate = info.Pubdate,
-                            Duration = info.Duration,
-                            Videos = info.Videos,
-                        };
-                        return info;
-                    }
+                    cid = firstPageCid;
                 }
+            }
 
+            if (cid <= 0)
+            {
                 throw new BilibiliApiException("获取视频信息失败：未找到有效的 cid。");
             }
 
-            return info;
+            var cover = data.Cover ?? string.Empty;
+            if (cover.StartsWith("//", StringComparison.Ordinal))
+            {
+                cover = $"https:{cover}";
+            }
+
+            var owner = data.Owner is not null
+                ? new OwnerInfo
+                {
+                    Mid = data.Owner.Mid ?? 0,
+                    Name = data.Owner.Name ?? string.Empty,
+                    Face = data.Owner.Face ?? string.Empty,
+                }
+                : new OwnerInfo();
+
+            var stat = data.Stat is not null
+                ? new VideoStat
+                {
+                    View = data.Stat.View ?? 0,
+                    Danmaku = data.Stat.Danmaku ?? 0,
+                    Reply = data.Stat.Reply ?? 0,
+                    Favorite = data.Stat.Favorite ?? 0,
+                    Coin = data.Stat.Coin ?? 0,
+                    Share = data.Stat.Share ?? 0,
+                    Like = data.Stat.Like ?? 0,
+                }
+                : new VideoStat();
+
+            return new VideoDetailInfo
+            {
+                Bvid = data.Bvid ?? string.Empty,
+                Aid = data.Aid ?? 0,
+                Cid = cid,
+                Title = data.Title ?? string.Empty,
+                Desc = data.Desc ?? string.Empty,
+                Cover = cover,
+                Owner = owner,
+                Stat = stat,
+                Pubdate = data.Pubdate ?? 0,
+                Duration = data.Duration ?? 0,
+                Videos = data.Videos ?? 1,
+            };
         }
 
         /// <summary>
@@ -379,23 +389,24 @@ namespace bilibili_music_player_windows.Api
         /// true: 使用 DASH 格式获取纯音频流（用于音乐播放器）。
         /// false: 使用 MP4 格式获取完整视频（用于视频播放器）。
         /// </param>
-        public async Task<PlayUrlInfo> FetchPlayUrlAsync(string bvid, long cid, bool audioOnly = true)
+        /// <param name="ct">取消令牌。</param>
+        public async Task<PlayUrlInfo> FetchPlayUrlAsync(string bvid, long cid, bool audioOnly = true, CancellationToken ct = default)
         {
-            await EnsureInitializedAsync();
+            await EnsureInitializedAsync(ct);
 
             if (!audioOnly)
             {
-                return await FetchPlayUrlMp4Async(bvid, cid);
+                return await FetchPlayUrlMp4Async(bvid, cid, ct);
             }
 
             // A5: DASH 音频模式
-            return await FetchPlayUrlDashAsync(bvid, cid);
+            return await FetchPlayUrlDashAsync(bvid, cid, ct);
         }
 
         /// <summary>
         /// DASH 音频模式（fnval=16），支持 A6 MP4 fallback。
         /// </summary>
-        private async Task<PlayUrlInfo> FetchPlayUrlDashAsync(string bvid, long cid)
+        private async Task<PlayUrlInfo> FetchPlayUrlDashAsync(string bvid, long cid, CancellationToken ct = default)
         {
             var signedParams = _wbiSigner.Sign(new Dictionary<string, string>
             {
@@ -412,79 +423,69 @@ namespace bilibili_music_player_windows.Api
             HttpResponseMessage response;
             try
             {
-                response = await _client.GetAsync(requestUri);
+                response = await _client.GetAsync(requestUri, ct);
             }
             catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
             {
                 // 412: Retry once
-                await Task.Delay(1000);
-                response = await _client.GetAsync(requestUri);
+                await Task.Delay(1000, ct);
+                response = await _client.GetAsync(requestUri, ct);
             }
 
             response.EnsureSuccessStatusCode();
 
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var root = document.RootElement;
+            // ── Source-gen 零拷贝反序列化 ──
+            using var dashStream = await response.Content.ReadAsStreamAsync(ct);
+            var dashResponse = await JsonSerializer.DeserializeAsync(
+                dashStream, BilibiliJsonContext.Default.DashPlayApiResponse, ct);
 
-            var code = ReadInt32(root, "code");
-            if (code != 0)
+            if (dashResponse is null || dashResponse.Code != 0)
             {
-                var message = ReadString(root, "message") ?? "获取播放地址失败。";
-                throw new BilibiliApiException(message);
+                var msg = dashResponse?.Message ?? "获取播放地址失败。";
+                throw new BilibiliApiException(msg);
             }
 
-            if (!root.TryGetProperty("data", out var dataElement))
+            var dashData = dashResponse.Data;
+            if (dashData is null)
             {
                 throw new BilibiliApiException("获取播放地址失败：响应缺少数据。");
             }
 
-            // A5: 从 DASH 格式获取音频流
-            if (dataElement.TryGetProperty("dash", out var dashElement))
+            // 从 DASH 格式获取音频流
+            var audioList = dashData.Dash?.Audio;
+            if (audioList is { Count: > 0 })
             {
-                if (dashElement.TryGetProperty("audio", out var audioArray) &&
-                    audioArray.ValueKind == JsonValueKind.Array &&
-                    audioArray.GetArrayLength() > 0)
+                // 按 bandwidth 排序，取最高质量
+                var bestAudio = audioList
+                    .OrderByDescending(a => a.Bandwidth ?? 0)
+                    .First();
+
+                var url = bestAudio.BaseUrl
+                          ?? bestAudio.BaseUrlFallback
+                          ?? string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(url))
                 {
-                    // 按 bandwidth 排序，取最高质量
-                    var bestAudio = audioArray.EnumerateArray()
-                        .OrderByDescending(a =>
-                        {
-                            var bw = ReadInt32(a, "bandwidth");
-                            return bw ?? 0;
-                        })
-                        .First();
-
-                    var url = ReadString(bestAudio, "baseUrl")
-                              ?? ReadString(bestAudio, "base_url")
-                              ?? string.Empty;
-
-                    if (!string.IsNullOrWhiteSpace(url))
+                    return new PlayUrlInfo
                     {
-                        var bandwidth = ReadInt32(bestAudio, "bandwidth") ?? 0;
-                        var codecId = ReadInt32(bestAudio, "codecid") ?? 0;
-                        var timeLength = ReadInt64(dataElement, "timelength") ?? 0;
-
-                        return new PlayUrlInfo
-                        {
-                            Url = url,
-                            Quality = bandwidth,
-                            Format = "m4s",
-                            Size = 0,
-                            Length = timeLength,
-                            IsAudioOnly = true,
-                        };
-                    }
+                        Url = url,
+                        Quality = bestAudio.Bandwidth ?? 0,
+                        Format = "m4s",
+                        Size = 0,
+                        Length = dashData.Timelength ?? 0,
+                        IsAudioOnly = true,
+                    };
                 }
             }
 
             // A6: DASH 无可用音频 → MP4 fallback
-            return await FetchPlayUrlMp4Async(bvid, cid);
+            return await FetchPlayUrlMp4Async(bvid, cid, ct);
         }
 
         /// <summary>
         /// MP4 格式播放地址（fnval=1），传统直链。
         /// </summary>
-        private async Task<PlayUrlInfo> FetchPlayUrlMp4Async(string bvid, long cid)
+        private async Task<PlayUrlInfo> FetchPlayUrlMp4Async(string bvid, long cid, CancellationToken ct = default)
         {
             var signedParams = _wbiSigner.Sign(new Dictionary<string, string>
             {
@@ -498,59 +499,63 @@ namespace bilibili_music_player_windows.Api
 
             var requestUri = BuildUri($"{BaseUrl}/x/player/wbi/playurl", signedParams);
 
-            using var response = await _client.GetAsync(requestUri);
+            using var response = await _client.GetAsync(requestUri, ct);
             response.EnsureSuccessStatusCode();
 
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-            var root = document.RootElement;
+            // ── Source-gen 零拷贝反序列化 ──
+            using var mp4Stream = await response.Content.ReadAsStreamAsync(ct);
+            var mp4Response = await JsonSerializer.DeserializeAsync(
+                mp4Stream, BilibiliJsonContext.Default.Mp4PlayApiResponse, ct);
 
-            var code = ReadInt32(root, "code");
-            if (code != 0)
+            if (mp4Response is null || mp4Response.Code != 0)
             {
-                var message = ReadString(root, "message") ?? "获取播放地址失败。";
-                throw new BilibiliApiException(message);
+                var msg = mp4Response?.Message ?? "获取播放地址失败。";
+                throw new BilibiliApiException(msg);
             }
 
-            if (!root.TryGetProperty("data", out var dataElement) ||
-                !dataElement.TryGetProperty("durl", out var durlElement) ||
-                durlElement.ValueKind != JsonValueKind.Array ||
-                durlElement.GetArrayLength() == 0)
+            var mp4Data = mp4Response.Data;
+            if (mp4Data?.Durl is not { Count: > 0 })
             {
                 throw new BilibiliApiException("获取播放地址失败：没有可用的视频流。");
             }
 
-            var firstUrl = durlElement[0];
-            var url = ReadString(firstUrl, "url");
-
-            if (string.IsNullOrWhiteSpace(url))
+            var firstUrl = mp4Data.Durl[0];
+            if (string.IsNullOrWhiteSpace(firstUrl.Url))
             {
                 throw new BilibiliApiException("获取播放地址失败：播放地址为空。");
             }
 
-            var size = ReadInt64(firstUrl, "size") ?? 0;
-            var length = ReadInt64(firstUrl, "length") ?? 0;
-            var quality = ReadInt32(dataElement, "quality") ?? 64;
-
             return new PlayUrlInfo
             {
-                Url = url,
-                Quality = quality,
+                Url = firstUrl.Url,
+                Quality = mp4Data.Quality ?? 64,
                 Format = "mp4",
-                Size = size,
-                Length = length,
+                Size = firstUrl.Size ?? 0,
+                Length = firstUrl.Length ?? 0,
                 IsAudioOnly = false,
             };
         }
 
         private static Uri BuildUri(string baseUrl, IReadOnlyDictionary<string, string> query)
         {
-            var parts = new List<string>(query.Count);
+            // 使用 UriBuilder + StringBuilder 替代 List<string> + string.Join，
+            // 减少中间数组分配
+            var ub = new UriBuilder(baseUrl);
+            var sb = new StringBuilder();
             foreach (var entry in query)
             {
-                parts.Add($"{Uri.EscapeDataString(entry.Key)}={Uri.EscapeDataString(entry.Value)}");
+                if (sb.Length > 0)
+                {
+                    sb.Append('&');
+                }
+
+                sb.Append(Uri.EscapeDataString(entry.Key));
+                sb.Append('=');
+                sb.Append(Uri.EscapeDataString(entry.Value));
             }
 
-            return new Uri($"{baseUrl}?{string.Join("&", parts)}");
+            ub.Query = sb.ToString();
+            return ub.Uri;
         }
 
         private static string ExtractWbiKey(string url)
@@ -595,68 +600,27 @@ namespace bilibili_music_player_windows.Api
             return new Uri("https://picsum.photos/seed/bili/480/270");
         }
 
-        private static string? ReadString(JsonElement element, string propertyName)
+        /// <summary>
+        /// 从 <see cref="JsonElement"/> 提取播放量字符串。
+        /// API 可能返回数字（12345）或已格式化的字符串（"1.2万"），统一兼容。
+        /// </summary>
+        private static string ExtractPlayCount(JsonElement? element)
         {
-            if (!element.TryGetProperty(propertyName, out var value))
+            if (element is not { } el)
             {
-                return null;
+                return "0";
             }
 
-            return value.ValueKind switch
+            return el.ValueKind switch
             {
-                JsonValueKind.String => value.GetString(),
-                JsonValueKind.Number => value.GetRawText(),
-                JsonValueKind.True => "true",
-                JsonValueKind.False => "false",
-                _ => value.GetRawText(),
+                JsonValueKind.String => el.GetString() ?? "0",
+                JsonValueKind.Number => el.GetInt64().ToString("N0"),
+                _ => "0",
             };
-        }
-
-        private static int? ReadInt32(JsonElement element, string propertyName)
-        {
-            if (!element.TryGetProperty(propertyName, out var value))
-            {
-                return null;
-            }
-
-            if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number))
-            {
-                return number;
-            }
-
-            if (value.ValueKind == JsonValueKind.String &&
-                int.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
-            {
-                return parsed;
-            }
-
-            return null;
-        }
-
-        private static long? ReadInt64(JsonElement element, string propertyName)
-        {
-            if (!element.TryGetProperty(propertyName, out var value))
-            {
-                return null;
-            }
-
-            if (value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var number))
-            {
-                return number;
-            }
-
-            if (value.ValueKind == JsonValueKind.String &&
-                long.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
-            {
-                return parsed;
-            }
-
-            return null;
         }
 
         public void Dispose()
         {
-            _initLock.Dispose();
             _client.Dispose();
         }
     }

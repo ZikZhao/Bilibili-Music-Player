@@ -164,7 +164,7 @@ namespace bilibili_music_player_windows.Pages
 
         private void OnKeywordClick(object sender, RoutedEventArgs e)
         {
-            if (sender is not FrameworkElement element || element.DataContext is not string keyword)
+            if (sender is not FrameworkElement element || element.Tag is not string keyword || string.IsNullOrWhiteSpace(keyword))
             {
                 return;
             }

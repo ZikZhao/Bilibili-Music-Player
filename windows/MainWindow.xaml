@@ -158,8 +158,11 @@
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        MinWidth="32" TextAlignment="Center" />
                             <Slider Width="240"
-                                    Value="{x:Bind PlayerViewModel.Progress, Mode=TwoWay}"
+                                    x:Name="ProgressSlider"
+                                    Value="{x:Bind PlayerViewModel.Progress, Mode=OneWay}"
                                     Minimum="0" Maximum="1" StepFrequency="0.001"
+                                    ManipulationStarted="OnProgressSliderManipulationStarted"
+                                    ManipulationCompleted="OnProgressSliderManipulationCompleted"
                                     AutomationProperties.AutomationId="ProgressSlider"
                                     Foreground="{ThemeResource Rose400}"
                                     Background="{ThemeResource Slate100}" />

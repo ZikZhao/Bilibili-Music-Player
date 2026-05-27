@@ -82,7 +82,7 @@ namespace bilibili_music_player_windows.ViewModels
 
         /// <summary>
         /// 切换收藏状态：如果已收藏则移除，否则添加。
-        /// 添加时自动触发后台下载（L4）。
+        /// 不触发下载——下载推迟到播放时由 PlayerViewModel 处理。
         /// </summary>
         [RelayCommand]
         private async Task ToggleFavoriteAsync(VideoModel? video)
@@ -102,12 +102,6 @@ namespace bilibili_music_player_windows.ViewModels
             {
                 Favorites.Add(video);
                 System.Diagnostics.Debug.WriteLine($"[LibraryVM] Added to favorites: {video.Title}");
-
-                // L4: 自动触发后台下载（如果未缓存）
-                if (!await _cacheService.IsCachedAsync(video.Bvid))
-                {
-                    await AutoDownloadAsync(video);
-                }
             }
 
             IsEmpty = Favorites.Count == 0;
@@ -235,29 +229,6 @@ namespace bilibili_music_player_windows.ViewModels
             }
         }
 
-        // ── L4: 自动下载 ──
-
-        /// <summary>
-        /// 当添加收藏时，在后台自动下载音频文件。
-        /// </summary>
-        private async Task AutoDownloadAsync(VideoModel video)
-        {
-            try
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[LibraryVM] Auto-download triggered for: {video.Bvid}");
-
-                var detailInfo = await _bilibiliClient.FetchVideoInfoAsync(video.Bvid);
-                var playUrlInfo = await _bilibiliClient.FetchPlayUrlAsync(
-                    video.Bvid, detailInfo.Cid, audioOnly: true);
-
-                _cacheService.DownloadInBackground(playUrlInfo.Url, video.Bvid);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    $"[LibraryVM] Auto-download failed for {video.Bvid}: {ex.Message}");
-            }
-        }
+        // ── L4: 自动下载已移除 —— 下载推迟到 PlayerViewModel.PlayVideoAsync 播放时执行 ──
     }
 }
