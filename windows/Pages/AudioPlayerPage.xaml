@@ -24,7 +24,7 @@
             <StackPanel HorizontalAlignment="Center" Margin="32" Spacing="32" MaxWidth="600">
 
                 <!-- 封面图 -->
-                <Border Width="320" Height="200" CornerRadius="16" Background="{StaticResource Slate200}"
+                <Border Width="320" Height="200" CornerRadius="16" Background="{ThemeResource Slate200}"
                         AutomationProperties.AutomationId="AudioPlayerCover"
                         HorizontalAlignment="Center">
                     <Border CornerRadius="16">
@@ -39,13 +39,12 @@
                 <!-- 标题 + 艺术家 -->
                 <StackPanel HorizontalAlignment="Center" Spacing="8" MaxWidth="500">
                     <TextBlock Text="{x:Bind ViewModel.CurrentTrack.Title, Mode=OneWay}"
-                               FontSize="24" FontWeight="SemiBold"
-                               Foreground="{StaticResource Slate800}"
+                               Style="{StaticResource TitleTextBlockStyle}"
+                               Foreground="{ThemeResource Slate800}"
                                TextTrimming="CharacterEllipsis"
                                HorizontalAlignment="Center" />
                     <TextBlock Text="{x:Bind ViewModel.CurrentTrack.Artist, Mode=OneWay}"
-                               FontSize="16"
-                               Foreground="{StaticResource Slate500}"
+                               Foreground="{ThemeResource Slate500}"
                                HorizontalAlignment="Center" />
                 </StackPanel>
 
@@ -62,12 +61,12 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
                                    Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(ViewModel.Position), Mode=OneWay}"
-                                   Foreground="{StaticResource Slate400}"
-                                   FontFamily="Consolas" FontSize="12" />
+                                   Foreground="{ThemeResource Slate400}"
+                                   FontFamily="Consolas" Style="{StaticResource CaptionTextBlockStyle}" />
                         <TextBlock Grid.Column="2"
                                    Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(ViewModel.Duration), Mode=OneWay}"
-                                   Foreground="{StaticResource Slate400}"
-                                   FontFamily="Consolas" FontSize="12"
+                                   Foreground="{ThemeResource Slate400}"
+                                   FontFamily="Consolas" Style="{StaticResource CaptionTextBlockStyle}"
                                    HorizontalAlignment="Right" />
                     </Grid>
                 </StackPanel>
@@ -81,11 +80,11 @@
                                 Command="{x:Bind ViewModel.CyclePlayModeCommand}"
                                 AutomationProperties.AutomationId="CyclePlayModeButton">
                             <Grid>
-                                <SymbolIcon Symbol="RepeatAll" Foreground="{StaticResource Rose400}"
+                                <SymbolIcon Symbol="RepeatAll" Foreground="{ThemeResource Rose400}"
                                             Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 0), Mode=OneWay}" />
-                                <SymbolIcon Symbol="RepeatOne" Foreground="{StaticResource Rose400}"
+                                <SymbolIcon Symbol="RepeatOne" Foreground="{ThemeResource Rose400}"
                                             Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 1), Mode=OneWay}" />
-                                <SymbolIcon Symbol="Shuffle" Foreground="{StaticResource Rose400}"
+                                <SymbolIcon Symbol="Shuffle" Foreground="{ThemeResource Rose400}"
                                             Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 2), Mode=OneWay}" />
                             </Grid>
                         </Button>
@@ -94,11 +93,11 @@
                         <Button Width="44" Height="44" Background="Transparent" BorderThickness="0"
                                 Command="{x:Bind ViewModel.PreviousCommand}"
                                 AutomationProperties.AutomationId="PlayerPagePreviousButton">
-                            <SymbolIcon Symbol="Previous" Foreground="{StaticResource Slate600}" />
+                            <SymbolIcon Symbol="Previous" Foreground="{ThemeResource Slate600}" />
                         </Button>
 
                         <!-- 播放/暂停 -->
-                        <Button Width="64" Height="64" Background="{StaticResource Rose400}" CornerRadius="32"
+                        <Button Width="64" Height="64" Background="{ThemeResource Rose400}" CornerRadius="32"
                                 Command="{x:Bind ViewModel.TogglePlayCommand}"
                                 AutomationProperties.AutomationId="PlayerPagePlayPauseButton">
                             <Grid>
@@ -113,14 +112,14 @@
                         <Button Width="44" Height="44" Background="Transparent" BorderThickness="0"
                                 Command="{x:Bind ViewModel.NextCommand}"
                                 AutomationProperties.AutomationId="PlayerPageNextButton">
-                            <SymbolIcon Symbol="Next" Foreground="{StaticResource Slate600}" />
+                            <SymbolIcon Symbol="Next" Foreground="{ThemeResource Slate600}" />
                         </Button>
 
                         <!-- P7: 播放列表按钮 -->
                         <Button Width="40" Height="40" Background="Transparent" BorderThickness="0"
                                 Click="OnTogglePlaylistClick"
                                 AutomationProperties.AutomationId="TogglePlaylistButton">
-                            <SymbolIcon Symbol="List" Foreground="{StaticResource Slate400}" />
+                            <SymbolIcon Symbol="List" Foreground="{ThemeResource Slate400}" />
                         </Button>
                     </StackPanel>
                 </StackPanel>
@@ -133,7 +132,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <SymbolIcon Grid.Column="0" Symbol="Volume" Foreground="{StaticResource Slate400}" />
+                        <SymbolIcon Grid.Column="0" Symbol="Volume" Foreground="{ThemeResource Slate400}" />
                         <Slider Grid.Column="1"
                                 Value="{x:Bind ViewModel.Volume, Mode=TwoWay}"
                                 Minimum="0" Maximum="1" StepFrequency="0.01"
@@ -141,7 +140,7 @@
                                 Margin="12,0" />
                         <TextBlock Grid.Column="2"
                                    Text="{x:Bind local:AudioPlayerPage.VolumePercent(ViewModel.Volume), Mode=OneWay}"
-                                   Foreground="{StaticResource Slate400}" FontSize="12"
+                                   Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}"
                                    MinWidth="32" TextAlignment="Right" />
                     </Grid>
                 </StackPanel>
@@ -149,10 +148,10 @@
                 <!-- P7: 播放列表面板 -->
                 <Border x:Name="PlaylistPanel"
                         Visibility="Collapsed"
-                        Background="{StaticResource Slate50}"
+                        Background="{ThemeResource Slate50}"
                         CornerRadius="12"
                         Padding="16"
-                        BorderBrush="{StaticResource Slate200}"
+                        BorderBrush="{ThemeResource Slate200}"
                         BorderThickness="1"
                         AutomationProperties.AutomationId="PlaylistPanel">
                     <StackPanel Spacing="8">
@@ -162,10 +161,10 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="播放队列" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Slate800}" />
+                                       Foreground="{ThemeResource Slate800}" />
                             <TextBlock Grid.Column="1"
                                        Text="{x:Bind ViewModel.QueueCount, Mode=OneWay}"
-                                       Foreground="{StaticResource Slate400}" FontSize="12"
+                                       Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}"
                                        VerticalAlignment="Center" />
                         </Grid>
 
@@ -182,23 +181,23 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
-                                            <Border Width="40" Height="28" CornerRadius="4" Background="{StaticResource Slate200}">
+                                            <Border Width="40" Height="28" CornerRadius="4" Background="{ThemeResource Slate200}">
                                                 <Image Source="{x:Bind Cover, Converter={StaticResource StringToImageSourceConverter}, Mode=OneWay}"
                                                        Stretch="UniformToFill" />
                                             </Border>
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Text="{x:Bind Title, Mode=OneWay}"
-                                                           Foreground="{StaticResource Slate800}"
+                                                           Foreground="{ThemeResource Slate800}"
                                                            FontSize="13" MaxWidth="300"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{x:Bind Artist, Mode=OneWay}"
-                                                           Foreground="{StaticResource Slate500}"
+                                                           Foreground="{ThemeResource Slate500}"
                                                            FontSize="11" />
                                             </StackPanel>
                                         </StackPanel>
                                         <TextBlock Grid.Column="1"
                                                    Text="{x:Bind Duration, Mode=OneWay}"
-                                                   Foreground="{StaticResource Slate400}"
+                                                   Foreground="{ThemeResource Slate400}"
                                                    FontFamily="Consolas" FontSize="11"
                                                    VerticalAlignment="Center" />
                                     </Grid>
@@ -210,8 +209,8 @@
                                 Command="{x:Bind ViewModel.ClearPlaylistCommand}"
                                 Background="Transparent"
                                 BorderThickness="1"
-                                BorderBrush="{StaticResource Rose400}"
-                                Foreground="{StaticResource Rose400}"
+                                BorderBrush="{ThemeResource Rose400}"
+                                Foreground="{ThemeResource Rose400}"
                                 CornerRadius="8"
                                 Padding="12,6"
                                 HorizontalAlignment="Center"

@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Border Background="{StaticResource Slate50}" CornerRadius="12" Padding="16,12">
+    <Border Background="{ThemeResource Slate50}" CornerRadius="12" Padding="16,12">
         <Grid ColumnSpacing="12" RowSpacing="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -20,41 +20,41 @@
 
             <!-- 播放 -->
             <StackPanel Spacing="2" HorizontalAlignment="Center">
-                <TextBlock Text="播放" Foreground="{StaticResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
+                <TextBlock Text="播放" Foreground="{ThemeResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
                 <TextBlock Text="{x:Bind ViewCount, Mode=OneWay}"
-                           Foreground="{StaticResource Slate800}" FontWeight="SemiBold" FontSize="12"
+                           Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" FontSize="12"
                            HorizontalAlignment="Center" />
             </StackPanel>
 
             <!-- 点赞 -->
             <StackPanel Grid.Column="1" Spacing="2" HorizontalAlignment="Center">
-                <TextBlock Text="点赞" Foreground="{StaticResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
+                <TextBlock Text="点赞" Foreground="{ThemeResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
                 <TextBlock Text="{x:Bind LikeCount, Mode=OneWay}"
-                           Foreground="{StaticResource Slate800}" FontWeight="SemiBold" FontSize="12"
+                           Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" FontSize="12"
                            HorizontalAlignment="Center" />
             </StackPanel>
 
             <!-- 收藏数 -->
             <StackPanel Grid.Column="2" Spacing="2" HorizontalAlignment="Center">
-                <TextBlock Text="收藏数" Foreground="{StaticResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
+                <TextBlock Text="收藏数" Foreground="{ThemeResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
                 <TextBlock Text="{x:Bind FavoriteCount, Mode=OneWay}"
-                           Foreground="{StaticResource Slate800}" FontWeight="SemiBold" FontSize="12"
+                           Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" FontSize="12"
                            HorizontalAlignment="Center" />
             </StackPanel>
 
             <!-- 硬币 -->
             <StackPanel Grid.Column="3" Spacing="2" HorizontalAlignment="Center">
-                <TextBlock Text="硬币" Foreground="{StaticResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
+                <TextBlock Text="硬币" Foreground="{ThemeResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
                 <TextBlock Text="{x:Bind CoinCount, Mode=OneWay}"
-                           Foreground="{StaticResource Slate800}" FontWeight="SemiBold" FontSize="12"
+                           Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" FontSize="12"
                            HorizontalAlignment="Center" />
             </StackPanel>
 
             <!-- 时长 -->
             <StackPanel Grid.Column="4" Spacing="2" HorizontalAlignment="Center">
-                <TextBlock Text="时长" Foreground="{StaticResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
+                <TextBlock Text="时长" Foreground="{ThemeResource Slate400}" FontSize="10" HorizontalAlignment="Center" />
                 <TextBlock Text="{x:Bind Duration, Mode=OneWay}"
-                           Foreground="{StaticResource Slate800}" FontWeight="SemiBold" FontSize="12"
+                           Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" FontSize="12"
                            HorizontalAlignment="Center" />
             </StackPanel>
         </Grid>

@@ -10,150 +10,177 @@
     mc:Ignorable="d"
     Title="BiliMusic Desktop">
 
-    <Grid Background="{StaticResource Slate50}">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="256" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-        <!-- ═══ Sidebar ═══ -->
-        <Grid Grid.Column="0" Background="{StaticResource Slate50}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="80" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+        <!-- ═══ Custom Title Bar (U5) ═══ -->
+        <Grid x:Name="AppTitleBar" Height="32" Background="Transparent">
+            <TextBlock x:Name="TitleBarText"
+                       Text="BiliMusic Desktop"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource Slate600}"
+                       VerticalAlignment="Center"
+                       Margin="48,0,0,0"
+                       AutomationProperties.AutomationId="TitleBarText" />
+        </Grid>
 
-            <Border BorderBrush="{StaticResource Slate200}" BorderThickness="0,0,1,0">
-                <Grid>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="32,0,0,0">
-                        <Border Width="32" Height="32" Background="{StaticResource Rose400}" CornerRadius="8">
+        <!-- ═══ NavigationView (U1) + Content + Now-Playing Bar ═══ -->
+        <NavigationView x:Name="NavView"
+                        Grid.Row="1"
+                        PaneDisplayMode="LeftCompact"
+                        OpenPaneLength="256"
+                        IsSettingsVisible="False"
+                        IsBackButtonVisible="Collapsed"
+                        IsTitleBarAutoPaddingEnabled="False"
+                        SelectionChanged="OnNavSelectionChanged"
+                        AutomationProperties.AutomationId="MainNavigationView">
+
+            <!-- Pane header: app logo -->
+            <NavigationView.PaneHeader>
+                <Grid Height="48" Margin="0,4,0,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Border Width="28" Height="28" Background="{ThemeResource Rose400}" CornerRadius="6">
                             <SymbolIcon Symbol="Like" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center" />
                         </Border>
-                        <TextBlock Text="BiliMusic" Margin="12,0,0,0" FontSize="20" FontWeight="Bold" Foreground="{StaticResource Slate800}" />
+                        <TextBlock Text="BiliMusic" Margin="8,0,0,0"
+                                   Style="{StaticResource SubtitleTextBlockStyle}"
+                                   Foreground="{ThemeResource Slate800}" />
                     </StackPanel>
                 </Grid>
-            </Border>
+            </NavigationView.PaneHeader>
 
-            <ListView x:Name="NavList" Grid.Row="1" Margin="16" BorderThickness="0" SelectionMode="Single" SelectionChanged="OnNavSelectionChanged">
-                <ListViewItem Tag="nowplaying" Margin="0,0,0,8" AutomationProperties.AutomationId="NavNowPlaying">
-                    <StackPanel Orientation="Horizontal" Padding="16,12">
-                        <SymbolIcon Symbol="Audio" Foreground="{StaticResource Rose400}" />
-                        <TextBlock Text="正在播放" Margin="12,0,0,0" Foreground="{StaticResource Rose400}" FontWeight="SemiBold" />
-                    </StackPanel>
-                </ListViewItem>
-                <ListViewItem Tag="search" Margin="0,0,0,8" AutomationProperties.AutomationId="NavSearch">
-                    <StackPanel Orientation="Horizontal" Padding="16,12">
-                        <SymbolIcon Symbol="Find" Foreground="{StaticResource Slate600}" />
-                        <TextBlock Text="搜索" Margin="12,0,0,0" Foreground="{StaticResource Slate600}" FontWeight="SemiBold" />
-                    </StackPanel>
-                </ListViewItem>
-                <ListViewItem Tag="favorites" Margin="0,0,0,8" AutomationProperties.AutomationId="NavFavorites">
-                    <StackPanel Orientation="Horizontal" Padding="16,12">
-                        <SymbolIcon Symbol="OutlineStar" Foreground="{StaticResource Slate600}" />
-                        <TextBlock Text="我的收藏" Margin="12,0,0,0" Foreground="{StaticResource Slate600}" FontWeight="SemiBold" />
-                    </StackPanel>
-                </ListViewItem>
-                <ListViewItem Tag="settings" AutomationProperties.AutomationId="NavSettings">
-                    <StackPanel Orientation="Horizontal" Padding="16,12">
-                        <SymbolIcon Symbol="Setting" Foreground="{StaticResource Slate600}" />
-                        <TextBlock Text="设置" Margin="12,0,0,0" Foreground="{StaticResource Slate600}" FontWeight="SemiBold" />
-                    </StackPanel>
-                </ListViewItem>
-            </ListView>
-        </Grid>
+            <!-- Main navigation items -->
+            <NavigationView.MenuItems>
+                <NavigationViewItem Tag="nowplaying" Content="正在播放"
+                                    AutomationProperties.AutomationId="NavNowPlaying">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Audio" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Tag="search" Content="搜索"
+                                    AutomationProperties.AutomationId="NavSearch">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Find" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Tag="favorites" Content="我的收藏"
+                                    AutomationProperties.AutomationId="NavFavorites">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="OutlineStar" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
 
-        <!-- ═══ Main Content + Now-Playing Bar ═══ -->
-        <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem Tag="settings" Content="设置"
+                                    AutomationProperties.AutomationId="NavSettings">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Setting" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
 
-            <Frame x:Name="ContentFrame" Grid.Row="0" Background="White" />
+            <!-- ═══ Content area: Frame + Now-Playing Bar ═══ -->
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <!-- ── Now-Playing Bar (P4) ── -->
-            <Grid Grid.Row="1" Background="White" BorderBrush="{StaticResource Slate200}" BorderThickness="0,1,0,0" Height="96" Padding="24,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                <Frame x:Name="ContentFrame" Grid.Row="0" />
 
-                <!-- 左侧：当前曲目信息（点击打开全屏播放器） -->
-                <Button Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center"
-                        Background="Transparent" BorderThickness="0" Padding="0"
-                        Click="OnNowPlayingClick"
-                        AutomationProperties.AutomationId="NowPlayingButton">
-                    <StackPanel Orientation="Horizontal" Spacing="16">
-                        <Border Width="64" Height="40" Background="{StaticResource Slate200}" CornerRadius="4" />
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{x:Bind PlayerViewModel.CurrentTrack.Title, Mode=OneWay}"
-                                       Foreground="{StaticResource Slate800}" FontWeight="Bold"
-                                       TextTrimming="CharacterEllipsis" MaxWidth="240" />
-                            <TextBlock Text="{x:Bind PlayerViewModel.CurrentTrack.Artist, Mode=OneWay}"
-                                       Foreground="{StaticResource Slate500}" FontSize="12"
-                                       TextTrimming="CharacterEllipsis" />
+                <!-- ── Now-Playing Bar (P4) ── -->
+                <Grid Grid.Row="1" BorderBrush="{ThemeResource Slate200}" BorderThickness="0,1,0,0"
+                      Height="96" Padding="24,0"
+                      AutomationProperties.AutomationId="NowPlayingBar">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 左侧：当前曲目信息（点击打开全屏播放器） -->
+                    <Button Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                            Background="Transparent" BorderThickness="0" Padding="0"
+                            Click="OnNowPlayingClick"
+                            AutomationProperties.AutomationId="NowPlayingButton">
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <Border Width="64" Height="40" Background="{ThemeResource Slate200}" CornerRadius="4" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind PlayerViewModel.CurrentTrack.Title, Mode=OneWay}"
+                                           Foreground="{ThemeResource Slate800}" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="240" />
+                                <TextBlock Text="{x:Bind PlayerViewModel.CurrentTrack.Artist, Mode=OneWay}"
+                                           Foreground="{ThemeResource Slate500}"
+                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- 中间：控制按钮 + 进度条 -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
+                            <!-- 上一首 -->
+                            <Button Width="32" Height="32" Background="Transparent" BorderThickness="0"
+                                    Command="{x:Bind PlayerViewModel.PreviousCommand}"
+                                    AutomationProperties.AutomationId="PreviousButton">
+                                <SymbolIcon Symbol="Back" Foreground="{ThemeResource Slate400}" />
+                            </Button>
+
+                            <!-- 播放/暂停 -->
+                            <Button Width="40" Height="40" Background="{ThemeResource Rose400}" CornerRadius="20"
+                                    Command="{x:Bind PlayerViewModel.TogglePlayCommand}"
+                                    AutomationProperties.AutomationId="PlayPauseButton">
+                                <Grid>
+                                    <SymbolIcon Symbol="Play" Foreground="White"
+                                                Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(PlayerViewModel.IsPlaying), Mode=OneWay}" />
+                                    <SymbolIcon Symbol="Pause" Foreground="White"
+                                                Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(PlayerViewModel.IsPlaying), Mode=OneWay}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- 下一首 -->
+                            <Button Width="32" Height="32" Background="Transparent" BorderThickness="0"
+                                    Command="{x:Bind PlayerViewModel.NextCommand}"
+                                    AutomationProperties.AutomationId="NextButton">
+                                <SymbolIcon Symbol="Forward" Foreground="{ThemeResource Slate400}" />
+                            </Button>
+                        </StackPanel>
+
+                        <!-- 进度条 -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                            <TextBlock Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(PlayerViewModel.Position), Mode=OneWay}"
+                                       Foreground="{ThemeResource Slate400}" FontFamily="Consolas"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       MinWidth="32" TextAlignment="Center" />
+                            <Slider Width="240"
+                                    Value="{x:Bind PlayerViewModel.Progress, Mode=TwoWay}"
+                                    Minimum="0" Maximum="1" StepFrequency="0.001"
+                                    AutomationProperties.AutomationId="ProgressSlider"
+                                    Foreground="{ThemeResource Rose400}"
+                                    Background="{ThemeResource Slate100}" />
+                            <TextBlock Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(PlayerViewModel.Duration), Mode=OneWay}"
+                                       Foreground="{ThemeResource Slate400}" FontFamily="Consolas"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       MinWidth="32" TextAlignment="Center" />
                         </StackPanel>
                     </StackPanel>
-                </Button>
 
-                <!-- 中间：控制按钮 + 进度条 -->
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16">
-                        <!-- 上一首 -->
-                        <Button Width="32" Height="32" Background="Transparent" BorderThickness="0"
-                                Command="{x:Bind PlayerViewModel.PreviousCommand}"
-                                AutomationProperties.AutomationId="PreviousButton">
-                            <SymbolIcon Symbol="Back" Foreground="{StaticResource Slate400}" />
-                        </Button>
-
-                        <!-- 播放/暂停 -->
-                        <Button Width="40" Height="40" Background="{StaticResource Rose400}" CornerRadius="20"
-                                Command="{x:Bind PlayerViewModel.TogglePlayCommand}"
-                                AutomationProperties.AutomationId="PlayPauseButton">
-                            <Grid>
-                                <SymbolIcon Symbol="Play" Foreground="White"
-                                            Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(PlayerViewModel.IsPlaying), Mode=OneWay}" />
-                                <SymbolIcon Symbol="Pause" Foreground="White"
-                                            Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(PlayerViewModel.IsPlaying), Mode=OneWay}" />
-                            </Grid>
-                        </Button>
-
-                        <!-- 下一首 -->
-                        <Button Width="32" Height="32" Background="Transparent" BorderThickness="0"
-                                Command="{x:Bind PlayerViewModel.NextCommand}"
-                                AutomationProperties.AutomationId="NextButton">
-                            <SymbolIcon Symbol="Forward" Foreground="{StaticResource Slate400}" />
-                        </Button>
+                    <!-- 右侧：音量控制 -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="12">
+                        <SymbolIcon Symbol="Volume" Foreground="{ThemeResource Slate400}" />
+                        <Slider Width="96" Minimum="0" Maximum="1" StepFrequency="0.01"
+                                Value="{x:Bind PlayerViewModel.Volume, Mode=TwoWay}"
+                                AutomationProperties.AutomationId="VolumeSlider"
+                                Foreground="{ThemeResource Rose400}"
+                                Background="{ThemeResource Slate100}" />
                     </StackPanel>
-
-                    <!-- 进度条 -->
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
-                        <TextBlock Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(PlayerViewModel.Position), Mode=OneWay}"
-                                   Foreground="{StaticResource Slate400}" FontFamily="Consolas" FontSize="10"
-                                   MinWidth="32" TextAlignment="Center" />
-                        <Slider Width="240"
-                                Value="{x:Bind PlayerViewModel.Progress, Mode=TwoWay}"
-                                Minimum="0" Maximum="1" StepFrequency="0.001"
-                                AutomationProperties.AutomationId="ProgressSlider"
-                                Foreground="{StaticResource Rose400}"
-                                Background="{StaticResource Slate100}" />
-                        <TextBlock Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(PlayerViewModel.Duration), Mode=OneWay}"
-                                   Foreground="{StaticResource Slate400}" FontFamily="Consolas" FontSize="10"
-                                   MinWidth="32" TextAlignment="Center" />
-                    </StackPanel>
-                </StackPanel>
-
-                <!-- 右侧：音量控制 -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="12">
-                    <SymbolIcon Symbol="Volume" Foreground="{StaticResource Slate400}" />
-                    <Slider Width="96" Minimum="0" Maximum="1" StepFrequency="0.01"
-                            Value="{x:Bind PlayerViewModel.Volume, Mode=TwoWay}"
-                            AutomationProperties.AutomationId="VolumeSlider"
-                            Foreground="{StaticResource Rose400}"
-                            Background="{StaticResource Slate100}" />
-                </StackPanel>
+                </Grid>
             </Grid>
-        </Grid>
+        </NavigationView>
     </Grid>
 </Window>

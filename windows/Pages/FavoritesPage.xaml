@@ -28,11 +28,11 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="12">
-                <Rectangle Width="4" Height="24" Fill="{StaticResource Rose400}" VerticalAlignment="Center" RadiusX="2" RadiusY="2" />
-                <TextBlock Text="我的收藏" FontSize="28" FontWeight="Bold" Foreground="{StaticResource Slate800}" />
+                <Rectangle Width="4" Height="24" Fill="{ThemeResource Rose400}" VerticalAlignment="Center" RadiusX="2" RadiusY="2" />
+                <TextBlock Text="我的收藏" Style="{StaticResource TitleTextBlockStyle}" Foreground="{ThemeResource Slate800}" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
-                <TextBlock Text="排序：" FontSize="14" Foreground="{StaticResource Slate500}" VerticalAlignment="Center" />
+                <TextBlock Text="排序：" Foreground="{ThemeResource Slate500}" VerticalAlignment="Center" />
                 <ComboBox
                     AutomationProperties.AutomationId="SortComboBox"
                     ItemsSource="{x:Bind ViewModel.SortOptions, Mode=OneWay}"
@@ -44,7 +44,7 @@
         </Grid>
 
         <!-- 表头 -->
-        <Border Margin="0,24,0,0" BorderBrush="{StaticResource Slate200}" BorderThickness="0,0,0,1" Padding="16,8" Grid.Row="1">
+        <Border Margin="0,24,0,0" BorderBrush="{ThemeResource Slate200}" BorderThickness="0,0,0,1" Padding="16,8" Grid.Row="1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="120" />
@@ -53,11 +53,11 @@
                     <ColumnDefinition Width="100" />
                     <ColumnDefinition Width="48" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="1" Text="标题" Foreground="{StaticResource Slate500}" />
-                <TextBlock Grid.Column="2" Text="UP主" Foreground="{StaticResource Slate500}" />
+                <TextBlock Grid.Column="1" Text="标题" Foreground="{ThemeResource Slate500}" />
+                <TextBlock Grid.Column="2" Text="UP主" Foreground="{ThemeResource Slate500}" />
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4">
-                    <SymbolIcon Symbol="Clock" Foreground="{StaticResource Slate500}" />
-                    <TextBlock Text="时长" Foreground="{StaticResource Slate500}" />
+                    <SymbolIcon Symbol="Clock" Foreground="{ThemeResource Slate500}" />
+                    <TextBlock Text="时长" Foreground="{ThemeResource Slate500}" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -69,9 +69,9 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             Spacing="8">
-            <SymbolIcon Symbol="Library" Foreground="{StaticResource Slate300}" Width="48" Height="48" />
-            <TextBlock Text="收藏列表为空" Foreground="{StaticResource Slate400}" FontSize="16" HorizontalAlignment="Center" />
-            <TextBlock Text="在搜索结果中右键点击视频即可收藏" Foreground="{StaticResource Slate300}" FontSize="12" HorizontalAlignment="Center" />
+            <SymbolIcon Symbol="Library" Foreground="{ThemeResource Slate300}" Width="48" Height="48" />
+            <TextBlock Text="收藏列表为空" Foreground="{ThemeResource Slate400}" FontSize="16" HorizontalAlignment="Center" />
+            <TextBlock Text="在搜索结果中右键点击视频即可收藏" Foreground="{ThemeResource Slate300}" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" />
         </StackPanel>
 
         <!-- 收藏列表 -->
@@ -104,7 +104,7 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- 封面图 -->
-                        <Border Width="104" Height="60" CornerRadius="6" Background="{StaticResource Slate200}">
+                        <Border Width="104" Height="60" CornerRadius="6" Background="{ThemeResource Slate200}">
                             <Image Source="{x:Bind Cover, Converter={StaticResource StringToImageSourceConverter}, Mode=OneWay}" Stretch="UniformToFill" />
                         </Border>
 
@@ -112,13 +112,13 @@
                         <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center">
                             <TextBlock
                                 Text="{x:Bind Title, Mode=OneWay}"
-                                Foreground="{StaticResource Slate800}"
+                                Foreground="{ThemeResource Slate800}"
                                 FontWeight="SemiBold"
                                 TextTrimming="CharacterEllipsis"
                                 MaxLines="2" />
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                                <SymbolIcon Symbol="Like" Foreground="{StaticResource Slate300}" Width="12" Height="12" />
-                                <TextBlock Text="{x:Bind Views, Mode=OneWay}" Foreground="{StaticResource Slate400}" FontSize="11" />
+                                <SymbolIcon Symbol="Like" Foreground="{ThemeResource Slate300}" Width="12" Height="12" />
+                                <TextBlock Text="{x:Bind Views, Mode=OneWay}" Foreground="{ThemeResource Slate400}" FontSize="11" />
                             </StackPanel>
                         </StackPanel>
 
@@ -126,7 +126,7 @@
                         <TextBlock
                             Grid.Column="2"
                             Text="{x:Bind Artist, Mode=OneWay}"
-                            Foreground="{StaticResource Slate500}"
+                            Foreground="{ThemeResource Slate500}"
                             TextTrimming="CharacterEllipsis"
                             VerticalAlignment="Center" />
 
@@ -134,7 +134,7 @@
                         <TextBlock
                             Grid.Column="3"
                             Text="{x:Bind Duration, Mode=OneWay}"
-                            Foreground="{StaticResource Slate500}"
+                            Foreground="{ThemeResource Slate500}"
                             FontFamily="Consolas"
                             VerticalAlignment="Center" />
 
@@ -151,7 +151,7 @@
                             Tag="{x:Bind Bvid, Mode=OneWay}"
                             VerticalAlignment="Center"
                             HorizontalAlignment="Center">
-                            <SymbolIcon Symbol="Cancel" Foreground="{StaticResource Slate300}" />
+                            <SymbolIcon Symbol="Cancel" Foreground="{ThemeResource Slate300}" />
                         </Button>
                     </Grid>
                 </DataTemplate>

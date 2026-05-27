@@ -10,19 +10,10 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
-            <SolidColorBrush x:Key="Rose200" Color="#FFFECDD3" />
-            <SolidColorBrush x:Key="Rose400" Color="#FFFB7185" />
-            <SolidColorBrush x:Key="Rose100" Color="#FFFFE4E6" />
-            <SolidColorBrush x:Key="Rose500" Color="#FFF43F5E" />
-            <SolidColorBrush x:Key="Slate50" Color="#FFF8FAFC" />
-            <SolidColorBrush x:Key="Slate100" Color="#FFF1F5F9" />
-            <SolidColorBrush x:Key="Slate200" Color="#FFE2E8F0" />
-            <SolidColorBrush x:Key="Slate300" Color="#FFCBD5E1" />
-            <SolidColorBrush x:Key="Slate400" Color="#FF94A3B8" />
-            <SolidColorBrush x:Key="Slate500" Color="#FF64748B" />
-            <SolidColorBrush x:Key="Slate600" Color="#FF475569" />
-            <SolidColorBrush x:Key="Slate800" Color="#FF1E293B" />
-
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light" Source="Themes/LightColors.xaml" />
+                <ResourceDictionary x:Key="Dark" Source="Themes/DarkColors.xaml" />
+            </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

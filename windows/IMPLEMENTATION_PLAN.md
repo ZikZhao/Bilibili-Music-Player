@@ -340,41 +340,42 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 
 ### 7. 🎨 UI / Theming
 
-| #   | Feature                      | Mobile                    | Windows                 | Status | Notes                                                           |
-| --- | ---------------------------- | ------------------------- | ----------------------- | ------ | --------------------------------------------------------------- |
-| 7.1 | Light/Dark/System theme      | ✅ Material 3             | ✅ RadioButtons + Apply | ✅     | ST3 done: System/Light/Dark via FrameworkElement.RequestedTheme |
-| 7.2 | Brand colors (Bilibili pink) | ✅ `#FB7299`              | ⚠️ hardcoded Rose       | ⚠️     | Need theme-aware brushes                                        |
-| 7.3 | Typography styles            | ✅ Material 3 text styles | ❌ raw FontSize         | ❌     |                                                                 |
-| 7.4 | Mica/Backdrop effect         | N/A                       | ❌                      | ❌     |                                                                 |
-| 7.5 | TitleBar customization       | N/A                       | ❌                      | ❌     |                                                                 |
-| 7.6 | NavigationView sidebar       | N/A (bottom nav)          | ❌ custom sidebar       | ❌     | Should use WinUI NavigationView                                 |
+| #   | Feature                      | Mobile                    | Windows                       | Status | Notes                                                           |
+| --- | ---------------------------- | ------------------------- | ----------------------------- | ------ | --------------------------------------------------------------- | --- |
+| 7.1 | Light/Dark/System theme      | ✅ Material 3             | ✅ RadioButtons + Apply       | ✅     | ST3 done: System/Light/Dark via FrameworkElement.RequestedTheme |
+| 7.2 | Brand colors (Bilibili pink) | ✅ `#FB7299`              | ✅ ThemeResource brushes      | ✅     | U2 done: LightColors/DarkColors with theme-aware Rose/Slate     |
+| 7.3 | Typography styles            | ✅ Material 3 text styles | ✅ WinUI typography           | ✅     | U3 done: Title/Subtitle/Caption styles replaced raw FontSize    |     |
+| 7.4 | Mica/Backdrop effect         | N/A                       | ✅ MicaBackdrop               | ✅     | U4 done: SystemBackdrop = new MicaBackdrop()                    |     |
+| 7.5 | TitleBar customization       | N/A                       | ✅ ExtendsContentIntoTitleBar | ✅     | U5 done: SetTitleBar(AppTitleBar) with custom drag region       |     |
+| 7.6 | NavigationView sidebar       | N/A (bottom nav)          | ✅ NavigationView             | ✅     | U1 done: LeftCompact mode with MenuItems + Frame navigation     |
 
 #### Implementation Tasks — UI
 
-- [ ] **U1** Replace custom sidebar with `NavigationView`
+- [x] **U1** Replace custom sidebar with `NavigationView`
   - `NavigationView.PaneDisplayMode="LeftCompact"`
-  - Items: Search, Library, Settings
+  - Items: Search (Audio), Library (Favorites), Settings (footer)
   - `NavigationView.SelectionChanged` → navigate Frame
-  - Remove manual `ListView` sidebar from `MainWindow.xaml`
+  - Removed manual `ListView` sidebar from `MainWindow.xaml`
 
-- [ ] **U2** Add theme-aware resource dictionaries
-  - `Themes/LightColors.xaml` — light theme brushes
-  - `Themes/DarkColors.xaml` — dark theme brushes
-  - Bilibili pink as `{ThemeResource BilibiliPinkBrush}`
-  - Migrate all `{StaticResource Slate...}` → `{ThemeResource TextFillColor...}` or custom theme brushes
+- [x] **U2** Add theme-aware resource dictionaries
+  - `Themes/LightColors.xaml` — light theme brushes (Rose + Slate scale)
+  - `Themes/DarkColors.xaml` — dark theme brushes (inverted Slate scale)
+  - `App.xaml` uses `ResourceDictionary.ThemeDictionaries` to merge
+  - All `{StaticResource Slate/Rose...}` migrated to `{ThemeResource Slate/Rose...}`
 
-- [ ] **U3** Replace raw `FontSize`/`FontWeight` with WinUI typography styles
-  - `TitleTextBlockStyle`, `SubtitleTextBlockStyle`, `BodyTextBlockStyle`, `CaptionTextBlockStyle`
+- [x] **U3** Replace raw `FontSize`/`FontWeight` with WinUI typography styles
+  - `TitleTextBlockStyle`, `SubtitleTextBlockStyle`, `BodyTextBlockStyle`, `CaptionTextBlockStyle` applied across all pages
 
-- [ ] **U4** Add `MicaBackdrop` / `DesktopAcrylicBackdrop` to `MainWindow`
+- [x] **U4** Add `MicaBackdrop` to `MainWindow`
   - `SystemBackdrop = new MicaBackdrop()`
 
-- [ ] **U5** Customize title bar
+- [x] **U5** Customize title bar
   - `ExtendsContentIntoTitleBar = true`
-  - `SetTitleBar()` with custom drag region
+  - `SetTitleBar(AppTitleBar)` with custom drag region Grid
+  - NavigationView respects `IsTitleBarAutoPaddingEnabled="False"`
 
-- [ ] **U6** Add `AutomationProperties.AutomationId` to ALL interactive controls  
-       Every Button, TextBox, ListView, ToggleSwitch, NavigationViewItem: unique AutomationId
+- [x] **U6** Add `AutomationProperties.AutomationId` to ALL interactive controls  
+       Every Button, TextBox, ListView, ToggleSwitch, NavigationViewItem, Slider: unique AutomationId
 
 ---
 

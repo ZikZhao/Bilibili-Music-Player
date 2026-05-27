@@ -1,6 +1,7 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 using System;
 using bilibili_music_player_windows.Pages;
 using bilibili_music_player_windows.ViewModels;
@@ -11,7 +12,8 @@ using bilibili_music_player_windows.ViewModels;
 namespace bilibili_music_player_windows
 {
     /// <summary>
-    /// An empty window that can be used on its own or navigated to within a Frame.
+    /// Main window with NavigationView sidebar, Mica backdrop (U4),
+    /// custom title bar (U5), and theme-aware layout.
     /// </summary>
     public sealed partial class MainWindow : Window
     {
@@ -33,16 +35,23 @@ namespace bilibili_music_player_windows
             PlayerViewModel = _playerViewModel;
             InitializeComponent();
 
-            // ST3: 订阅主题变化 — MainWindow 负责应用 theme，不经过 ViewModel
+            // U4: Enable MicaBackdrop
+            SystemBackdrop = new MicaBackdrop();
+
+            // U5: Custom title bar
+            ExtendsContentIntoTitleBar = true;
+            SetTitleBar(AppTitleBar);
+
+            // ST3: 订阅主题变化
             _settingsViewModel.ThemeChanged += OnThemeChanged;
-            // 应用初始主题（如果已保存）
             ApplyTheme(_settingsViewModel.ThemeMode);
 
-            NavList.SelectedIndex = 1;
+            // Set initial navigation to favorites
+            NavView.SelectedItem = NavView.MenuItems[2]; // "我的收藏"
             NavigateTo("favorites");
         }
 
-        /// <summary>主题变化时延迟应用，避免在事件传播过程中重绘视觉树导致原生崩溃。</summary>
+        /// <summary>主题变化时延迟应用。</summary>
         private void OnThemeChanged(object? sender, string mode)
         {
             var dispatcher = DispatcherQueue;
@@ -66,11 +75,14 @@ namespace bilibili_music_player_windows
             System.Diagnostics.Debug.WriteLine($"[MainWindow] Theme applied: {mode}");
         }
 
-        private void OnNavSelectionChanged(object sender, SelectionChangedEventArgs e)
+        /// <summary>
+        /// U1: Handle NavigationView selection changes.
+        /// </summary>
+        private void OnNavSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
         {
-            if (NavList.SelectedItem is ListViewItem item)
+            if (args.SelectedItemContainer is NavigationViewItem item)
             {
-                NavigateTo(item.Tag as string);
+                NavigateTo(item.Tag?.ToString());
             }
         }
 
@@ -96,6 +108,5 @@ namespace bilibili_music_player_windows
         {
             NavigateTo("nowplaying");
         }
-
     }
 }
