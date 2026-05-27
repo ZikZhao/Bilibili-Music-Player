@@ -107,7 +107,39 @@ namespace bilibili_music_player_windows.ViewModels
         [ObservableProperty]
         private string _lastKeyword = string.Empty;
 
+        // ── 全屏预览状态 ──
+
+        /// <summary>当前正在预览的视频项。</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(PreviewModeVisibility))]
+        [NotifyPropertyChangedFor(nameof(SearchModeVisibility))]
+        private VideoPreviewItem? _currentPreviewItem;
+
+        /// <summary>是否处于全屏预览模式。</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(PreviewModeVisibility))]
+        [NotifyPropertyChangedFor(nameof(SearchModeVisibility))]
+        private bool _isPreviewing;
+
+        /// <summary>当前预览项在搜索结果列表中的索引（用于高亮）。</summary>
+        [ObservableProperty]
+        private int _previewItemIndex = -1;
+
+        /// <summary>搜索结果数量文本。</summary>
+        [ObservableProperty]
+        private int _totalResults;
+
         // ── 计算可见性属性 ──
+
+        /// <summary>全屏预览模式的可见性。</summary>
+        public Visibility PreviewModeVisibility => IsPreviewing
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        /// <summary>搜索模式的可见性。</summary>
+        public Visibility SearchModeVisibility => IsPreviewing
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         /// <summary>搜索建议下拉列表的可见性。</summary>
         public Visibility SuggestionsVisibility => SearchState == SearchState.ShowingSuggestions
@@ -271,6 +303,7 @@ namespace bilibili_music_player_windows.ViewModels
                 }
 
                 HasMore = CurrentPage < result.NumPages;
+                TotalResults = result.NumResults;
                 SearchState = SearchVideos.Count > 0
                     ? SearchState.Results
                     : SearchState.NoResults;
@@ -320,6 +353,28 @@ namespace bilibili_music_player_windows.ViewModels
             {
                 IsSearching = false;
             }
+        }
+
+        /// <summary>
+        /// 进入全屏预览模式并切换到指定视频。
+        /// </summary>
+        public void EnterPreview(VideoPreviewItem item)
+        {
+            ArgumentNullException.ThrowIfNull(item);
+
+            CurrentPreviewItem = item;
+            PreviewItemIndex = SearchVideos.IndexOf(item);
+            IsPreviewing = true;
+        }
+
+        /// <summary>
+        /// 退出全屏预览模式。
+        /// </summary>
+        public void ExitPreview()
+        {
+            IsPreviewing = false;
+            CurrentPreviewItem = null;
+            PreviewItemIndex = -1;
         }
 
         /// <summary>
