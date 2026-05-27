@@ -157,31 +157,15 @@
                                        Foreground="{ThemeResource Slate400}" FontFamily="Consolas"
                                        Style="{StaticResource CaptionTextBlockStyle}"
                                        MinWidth="32" TextAlignment="Center" />
-                            <Grid>
-                                <Slider Width="240"
-                                        x:Name="ProgressSlider"
-                                        Value="{x:Bind PlayerViewModel.Progress, Mode=OneWay}"
-                                        Minimum="0" Maximum="1" StepFrequency="0.001"
-                                        IsThumbToolTipEnabled="False"
-                                        Loaded="OnProgressSliderLoaded"
-                                        AutomationProperties.AutomationId="ProgressSlider"
-                                        Foreground="{ThemeResource Rose400}"
-                                        Background="{ThemeResource Slate100}" />
-                                <Border x:Name="ProgressSeekToolTip"
-                                        Visibility="Collapsed"
-                                        HorizontalAlignment="Left"
-                                        VerticalAlignment="Top"
-                                        Margin="0,-20,0,0"
-                                        Background="{ThemeResource Slate800}"
-                                        CornerRadius="4"
-                                        Padding="6,3">
-                                    <TextBlock x:Name="ProgressSeekToolTipText"
-                                               Foreground="White"
-                                               FontFamily="Consolas"
-                                               FontSize="12"
-                                               Text="0:00" />
-                                </Border>
-                            </Grid>
+                            <Slider Width="240"
+                                    x:Name="ProgressSlider"
+                                    Value="{x:Bind PlayerViewModel.Progress, Mode=OneWay}"
+                                    Minimum="0" Maximum="1" StepFrequency="0.001"
+                                    IsThumbToolTipEnabled="True"
+                                    Loaded="OnProgressSliderLoaded"
+                                    AutomationProperties.AutomationId="ProgressSlider"
+                                    Foreground="{ThemeResource Rose400}"
+                                    Background="{ThemeResource Slate100}" />
                             <TextBlock Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(PlayerViewModel.Duration), Mode=OneWay}"
                                        Foreground="{ThemeResource Slate400}" FontFamily="Consolas"
                                        Style="{StaticResource CaptionTextBlockStyle}"

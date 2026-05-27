@@ -50,28 +50,12 @@
 
                 <!-- 进度条 -->
                 <StackPanel Spacing="8" HorizontalAlignment="Stretch">
-                    <Grid>
-                        <Slider Value="{x:Bind ViewModel.Progress, Mode=OneWay}"
-                                Minimum="0" Maximum="1" StepFrequency="0.001"
-                                IsThumbToolTipEnabled="False"
-                                x:Name="PlayerPageProgressSlider"
-                                Loaded="OnPlayerPageLoaded"
-                                AutomationProperties.AutomationId="PlayerPageProgressSlider" />
-                        <Border x:Name="PlayerPageSeekToolTip"
-                                Visibility="Collapsed"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Top"
-                                Margin="0,-20,0,0"
-                                Background="{ThemeResource Slate800}"
-                                CornerRadius="4"
-                                Padding="6,3">
-                            <TextBlock x:Name="PlayerPageSeekToolTipText"
-                                       Foreground="White"
-                                       FontFamily="Consolas"
-                                       FontSize="12"
-                                       Text="0:00" />
-                        </Border>
-                    </Grid>
+                    <Slider Value="{x:Bind ViewModel.Progress, Mode=OneWay}"
+                            Minimum="0" Maximum="1" StepFrequency="0.001"
+                            x:Name="PlayerPageProgressSlider"
+                            IsThumbToolTipEnabled="True"
+                            Loaded="OnPlayerPageLoaded"
+                            AutomationProperties.AutomationId="PlayerPageProgressSlider" />
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
