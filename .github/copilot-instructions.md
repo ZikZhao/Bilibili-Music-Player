@@ -114,17 +114,27 @@ mobile/
 
 ## 🖥️ Windows (WinUI 3) Build & Run
 
-The WinUI 3 project lives in `./windows/` and is configured for **unpackaged CLI execution** (no MSIX identity required).
+The WinUI 3 project lives in `./windows/` and is configured for **MSIX packaged deployment** (required for theme switching and WinRT API stability).
 
 ### Required .csproj Settings (Do NOT Revert)
 
 | Setting                      | Value     |
 | ---------------------------- | --------- |
-| `WindowsPackageType`         | `None`    |
-| `WindowsAppSDKSelfContained` | `true`    |
-| `EnableMsixTooling`          | `false`   |
+| `WindowsPackageType`         | `MSIX`    |
+| `WindowsAppSDKSelfContained` | `false`   |
+| `EnableMsixTooling`          | `true`    |
 | `Platforms`                  | `x64`     |
 | `RuntimeIdentifiers`         | `win-x64` |
+
+> ⚠️ **Unpackaged (`None`) causes theme-switch crashes (0xC000027B) due to missing package identity.** Always use MSIX.
+
+### One-Time Setup: Certificate
+
+```powershell
+cd windows
+winapp cert generate --manifest .
+winapp cert install .\devcert.pfx   # requires admin elevation
+```
 
 ### Build
 
@@ -134,16 +144,31 @@ dotnet build bilibili-music-player-windows.csproj -r win-x64
 ```
 
 - **MUST** target the `.csproj` directly — the `.slnx` file does **not** support the `-r` RID flag.
-- Output: `bin\Debug\net8.0-windows10.0.19041.0\win-x64\bilibili-music-player-windows.exe`
 
-### Run
+### Package
 
 ```powershell
-Start-Process -FilePath "windows\bin\Debug\net8.0-windows10.0.19041.0\win-x64\bilibili-music-player-windows.exe" -PassThru
+winapp package "bin\Debug\net8.0-windows10.0.19041.0\win-x64" --cert "..\devcert.pfx"
 ```
 
+- Output: `ff143b08-..._1.0.0.0_x64.msix`
+
+### Install & Run
+
+```powershell
+# Remove old version if present
+Get-AppxPackage -Name "*ff143b08*" | Remove-AppxPackage
+
+# Install
+Add-AppxPackage -Path ".\ff143b08-cf1c-4b89-a7b5-3ef19e21fc2e_1.0.0.0_x64.msix"
+
+# Launch via Start Menu (packaged identity)
+$pfn = (Get-AppxPackage -Name "*ff143b08*").PackageFamilyName
+Start-Process "explorer.exe" -ArgumentList "shell:appsFolder\$pfn!App"
+```
+
+- **DO NOT** run the `.exe` directly — packaged apps require `shell:appsFolder` or Start Menu launch.
 - **DO NOT** use `dotnet run` — it invokes MSIX-packaged paths and silently fails.
-- The window title is `BiliMusic Desktop`. Verify it spawned with a non-zero `MainWindowHandle`.
 
 ### Crash Diagnostics
 

@@ -40,7 +40,7 @@
                         </Border>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="音频质量" Foreground="{StaticResource Slate800}" FontWeight="SemiBold" />
-                            <TextBlock Text="高 (192K)" Foreground="{StaticResource Slate400}" FontSize="12" />
+                            <TextBlock Text="{x:Bind ViewModel.AudioQuality, Mode=OneWay}" Foreground="{StaticResource Slate400}" FontSize="12" />
                         </StackPanel>
                         <SymbolIcon Grid.Column="3" Symbol="Forward" Foreground="{StaticResource Slate300}" VerticalAlignment="Center" />
                     </Grid>
@@ -59,7 +59,9 @@
                             <TextBlock Text="渐变播放" Foreground="{StaticResource Slate800}" FontWeight="SemiBold" />
                             <TextBlock Text="暂停或开始时音量淡入淡出" Foreground="{StaticResource Slate400}" FontSize="12" />
                         </StackPanel>
-                        <ToggleSwitch Grid.Column="3" IsOn="True" />
+                        <ToggleSwitch Grid.Column="3"
+                                      IsOn="{x:Bind ViewModel.EnableFade, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="FadeToggle" />
                     </Grid>
                     <Border BorderBrush="{StaticResource Slate50}" BorderThickness="0,1,0,0" />
                     <Grid Padding="16">
@@ -76,24 +78,50 @@
                             <TextBlock Text="自动播放" Foreground="{StaticResource Slate800}" FontWeight="SemiBold" />
                             <TextBlock Text="收藏列表点击后自动开始播放" Foreground="{StaticResource Slate400}" FontSize="12" />
                         </StackPanel>
-                        <ToggleSwitch Grid.Column="3" IsOn="True" />
+                        <ToggleSwitch Grid.Column="3"
+                                      IsOn="{x:Bind ViewModel.EnableAutoPlay, Mode=TwoWay}"
+                                      AutomationProperties.AutomationId="AutoPlayToggle" />
                     </Grid>
                 </StackPanel>
             </Border>
 
             <TextBlock Grid.Row="3" Text="外观" Foreground="{StaticResource Rose400}" FontWeight="Bold" Margin="0,40,0,16" />
-            <Border Grid.Row="4" Background="White" BorderBrush="{StaticResource Slate200}" BorderThickness="1" CornerRadius="32" Padding="4">
+            <Border Grid.Row="4" Background="White" BorderBrush="{StaticResource Slate200}" BorderThickness="1" CornerRadius="32" Padding="4"
+                    AutomationProperties.AutomationId="ThemeModeSelector">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" Background="{StaticResource Rose400}" CornerRadius="24" Padding="0,8">
-                        <TextBlock Text="自动" Foreground="White" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <Border x:Name="ThemeAutoBg" Grid.Column="0" CornerRadius="24" Padding="0,8"
+                            Background="{StaticResource Rose400}">
+                        <TextBlock x:Name="ThemeAutoText" Text="自动" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Foreground="White" />
                     </Border>
-                    <TextBlock Grid.Column="1" Text="亮色" Foreground="{StaticResource Slate600}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="2" Text="深色" Foreground="{StaticResource Slate600}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Border x:Name="ThemeLightBg" Grid.Column="1" CornerRadius="24" Padding="0,8"
+                            Background="Transparent">
+                        <TextBlock x:Name="ThemeLightText" Text="亮色" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Foreground="{StaticResource Slate600}" />
+                    </Border>
+                    <Border x:Name="ThemeDarkBg" Grid.Column="2" CornerRadius="24" Padding="0,8"
+                            Background="Transparent">
+                        <TextBlock x:Name="ThemeDarkText" Text="深色" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" Foreground="{StaticResource Slate600}" />
+                    </Border>
+                    <!-- Transparent click overlays -->
+                    <Button Grid.Column="0" Click="OnThemeAutoClick"
+                            Background="Transparent" BorderThickness="0" Padding="0"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            AutomationProperties.AutomationId="ThemeAutoButton" />
+                    <Button Grid.Column="1" Click="OnThemeLightClick"
+                            Background="Transparent" BorderThickness="0" Padding="0"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            AutomationProperties.AutomationId="ThemeLightButton" />
+                    <Button Grid.Column="2" Click="OnThemeDarkClick"
+                            Background="Transparent" BorderThickness="0" Padding="0"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            AutomationProperties.AutomationId="ThemeDarkButton" />
                 </Grid>
             </Border>
 
@@ -101,7 +129,8 @@
             <Border Grid.Row="6" Background="White" BorderBrush="{StaticResource Slate100}" BorderThickness="1" CornerRadius="16">
                 <Button x:Name="ClearCacheButton" Command="{x:Bind ViewModel.ClearCacheCommand}"
                         Background="Transparent" BorderThickness="0" Padding="0"
-                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="ClearCacheButton">
                     <Grid Padding="16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="32" />

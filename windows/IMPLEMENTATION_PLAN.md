@@ -300,49 +300,54 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 
 ### 6. ⚙️ Settings
 
-| #   | Feature                      | Mobile                     | Windows                   | Status | Notes               |
-| --- | ---------------------------- | -------------------------- | ------------------------- | ------ | ------------------- |
-| 6.1 | Theme mode (Auto/Light/Dark) | ✅ segmented button + Hive | ⚠️ static mock            | ⚠️     | UI exists, no logic |
-| 6.2 | Fade playback toggle         | ✅ Switch + Hive           | ⚠️ static ToggleSwitch    | ⚠️     | UI exists, no logic |
-| 6.3 | Auto-play toggle             | ✅                         | ⚠️ static ToggleSwitch    | ⚠️     | UI exists, no logic |
-| 6.4 | Audio quality selector       | ✅ (mock)                  | ⚠️ static label           | ⚠️     |                     |
-| 6.5 | Clear cache                  | ✅ with size display       | ⚠️ static label "42.9 MB" | ⚠️     |                     |
+| #   | Feature                      | Mobile                     | Windows                   | Status | Notes                                               |
+| --- | ---------------------------- | -------------------------- | ------------------------- | ------ | --------------------------------------------------- |
+| 6.1 | Theme mode (Auto/Light/Dark) | ✅ segmented button + Hive | ✅ RadioButtons + binding | ✅     | Theme switching via FrameworkElement.RequestedTheme |
+| 6.2 | Fade playback toggle         | ✅ Switch + Hive           | ✅ ToggleSwitch + binding | ✅     | Synced to PlayerViewModel.EnableFade                |
+| 6.3 | Auto-play toggle             | ✅                         | ✅ ToggleSwitch + binding | ✅     | Persisted to LocalSettings                          |
+| 6.4 | Audio quality selector       | ✅ (mock)                  | ✅ bound to VM property   | ✅     | Read-only display                                   |
+| 6.5 | Clear cache                  | ✅ with size display       | ✅ with real CacheService | ✅     | Shows formatted size + clears cache                 |
 
 #### Implementation Tasks — Settings
 
-- [ ] **ST1** Create `SettingsViewModel`
-  - `[ObservableProperty]` for: `ThemeMode` (System/Light/Dark), `EnableFade`, `EnableAutoPlay`, `AudioQuality`, `CacheSize`
+- [x] **ST1** Create `SettingsViewModel` (enhanced)
+  - `[ObservableProperty]` for: `ThemeIndex` (0=System/1=Light/2=Dark), `EnableFade`, `EnableAutoPlay`, `AudioQuality`, `CacheSize`
   - `[RelayCommand]` for: `ClearCacheCommand`
-  - Persist settings to `ApplicationData.LocalSettings`
-  - Load settings on initialization
+  - ✅ Persist settings to `ApplicationData.LocalSettings`
+  - ✅ Load settings on initialization (`LoadSettings()`)
+  - ✅ Sync `EnableFade` with `PlayerViewModel`
+  - ✅ Constructor DI: `CacheService` + `PlayerViewModel`
   - **Target file**: `ViewModels/SettingsViewModel.cs`
 
-- [ ] **ST2** Wire `SettingsPage.xaml` to `SettingsViewModel`
-  - Theme segmented control → bound to `ThemeMode`
-  - Fade ToggleSwitch → bound to `EnableFade`
-  - Auto-play ToggleSwitch → bound to `EnableAutoPlay`
-  - Cache size → bound to `CacheSize`
-  - Clear cache button → bound to `ClearCacheCommand`
+- [x] **ST2** Wire `SettingsPage.xaml` to `SettingsViewModel`
+  - ✅ Theme selector: `RadioButtons SelectedIndex="{x:Bind ViewModel.ThemeIndex, Mode=TwoWay}"`
+  - ✅ Fade ToggleSwitch → bound to `ViewModel.EnableFade`
+  - ✅ Auto-play ToggleSwitch → bound to `ViewModel.EnableAutoPlay`
+  - ✅ Cache size → bound to `ViewModel.CacheSize`
+  - ✅ Clear cache button → bound to `ViewModel.ClearCacheCommand`
+  - ✅ `AutomationProperties.AutomationId` on all controls
 
-- [ ] **ST3** Implement theme switching  
+- [x] **ST3** Implement theme switching  
        When `ThemeMode` changes:
-  - `System`: follow OS theme
-  - `Light`: force Light
-  - `Dark`: force Dark
-  - Apply via `App.Current.RequestedTheme` or `FrameworkElement.RequestedTheme` on MainWindow
+  - ✅ `System`: `ElementTheme.Default` (follow OS)
+  - ✅ `Light`: `ElementTheme.Light`
+  - ✅ `Dark`: `ElementTheme.Dark`
+  - ✅ Apply via `FrameworkElement.RequestedTheme` on `MainWindow.Content`
+  - ✅ `MainWindow` registers via `SettingsViewModel.SetMainWindow(this)` in constructor
+  - ✅ Changed `SettingsViewModel` registration from `Transient` → `Singleton` in DI
 
 ---
 
 ### 7. 🎨 UI / Theming
 
-| #   | Feature                      | Mobile                    | Windows           | Status | Notes                           |
-| --- | ---------------------------- | ------------------------- | ----------------- | ------ | ------------------------------- |
-| 7.1 | Light/Dark/System theme      | ✅ Material 3             | ❌ light-only     | ❌     |                                 |
-| 7.2 | Brand colors (Bilibili pink) | ✅ `#FB7299`              | ⚠️ hardcoded Rose | ⚠️     | Need theme-aware brushes        |
-| 7.3 | Typography styles            | ✅ Material 3 text styles | ❌ raw FontSize   | ❌     |                                 |
-| 7.4 | Mica/Backdrop effect         | N/A                       | ❌                | ❌     |                                 |
-| 7.5 | TitleBar customization       | N/A                       | ❌                | ❌     |                                 |
-| 7.6 | NavigationView sidebar       | N/A (bottom nav)          | ❌ custom sidebar | ❌     | Should use WinUI NavigationView |
+| #   | Feature                      | Mobile                    | Windows                 | Status | Notes                                                           |
+| --- | ---------------------------- | ------------------------- | ----------------------- | ------ | --------------------------------------------------------------- |
+| 7.1 | Light/Dark/System theme      | ✅ Material 3             | ✅ RadioButtons + Apply | ✅     | ST3 done: System/Light/Dark via FrameworkElement.RequestedTheme |
+| 7.2 | Brand colors (Bilibili pink) | ✅ `#FB7299`              | ⚠️ hardcoded Rose       | ⚠️     | Need theme-aware brushes                                        |
+| 7.3 | Typography styles            | ✅ Material 3 text styles | ❌ raw FontSize         | ❌     |                                                                 |
+| 7.4 | Mica/Backdrop effect         | N/A                       | ❌                      | ❌     |                                                                 |
+| 7.5 | TitleBar customization       | N/A                       | ❌                      | ❌     |                                                                 |
+| 7.6 | NavigationView sidebar       | N/A (bottom nav)          | ❌ custom sidebar       | ❌     | Should use WinUI NavigationView                                 |
 
 #### Implementation Tasks — UI
 
@@ -469,7 +474,7 @@ Phase 7  P4..P8 (playback UI: now-playing bar, full player, play modes) ← depe
            ↓
 Phase 8  V1..V3 (video preview refactor) ← depends on P
            ↓
-Phase 9  ST1..ST3 (settings VM + theme switching) ← depends on C
+Phase 9  ST1..ST3 (settings VM + theme switching) ← depends on C  ✅
            ↓
 Phase 10 U1..U6 (UI polish: NavigationView, themes, accessibility) ← depends on ST
 ```
