@@ -110,19 +110,67 @@ namespace bilibili_music_player_windows
             NavigateTo("nowplaying");
         }
 
-        private void OnProgressSliderManipulationStarted(object sender, ManipulationStartedRoutedEventArgs e)
+        /// <summary>绕过 Slider 内部 Thumb 的事件截获，监听底层指针事件。</summary>
+        private void OnProgressSliderLoaded(object sender, RoutedEventArgs e)
         {
-            _playerViewModel.IsUserSeeking = true;
+            ProgressSlider.AddHandler(
+                UIElement.PointerPressedEvent,
+                new PointerEventHandler(OnProgressSliderPointerPressed),
+                handledEventsToo: true);
+
+            ProgressSlider.AddHandler(
+                UIElement.PointerCaptureLostEvent,
+                new PointerEventHandler(OnProgressSliderPointerCaptureLost),
+                handledEventsToo: true);
+
+            ProgressSlider.AddHandler(
+                UIElement.PointerMovedEvent,
+                new PointerEventHandler(OnProgressSliderPointerMoved),
+                handledEventsToo: true);
         }
 
-        private void OnProgressSliderManipulationCompleted(object sender, ManipulationCompletedRoutedEventArgs e)
+        private void OnProgressSliderPointerPressed(object sender, PointerRoutedEventArgs e)
         {
+            _playerViewModel.IsUserSeeking = true;
+            ProgressSeekToolTip.Visibility = Visibility.Visible;
+            UpdateSeekToolTip(sender);
+        }
+
+        private void OnProgressSliderPointerMoved(object sender, PointerRoutedEventArgs e)
+        {
+            UpdateSeekToolTip(sender);
+        }
+
+        private void OnProgressSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e)
+        {
+            ProgressSeekToolTip.Visibility = Visibility.Collapsed;
+
             if (sender is Slider slider)
             {
                 _playerViewModel.SeekCommand.Execute(slider.Value);
             }
 
             _playerViewModel.IsUserSeeking = false;
+        }
+
+        private void UpdateSeekToolTip(object sender)
+        {
+            if (sender is not Slider slider || _playerViewModel.Duration == TimeSpan.Zero)
+            {
+                return;
+            }
+
+            var position = TimeSpan.FromTicks((long)(_playerViewModel.Duration.Ticks * Math.Clamp(slider.Value, 0.0, 1.0)));
+            ProgressSeekToolTipText.Text = ViewHelpers.FormatTimeSpan(position);
+
+            // 让标签跟随滑块水平位置
+            var thumbRatio = Math.Clamp(slider.Value, 0.0, 1.0);
+            var trackWidth = slider.ActualWidth;
+            if (trackWidth > 0)
+            {
+                ProgressSeekToolTip.Margin = new Microsoft.UI.Xaml.Thickness(
+                    thumbRatio * trackWidth - 16, -20, 0, 0);
+            }
         }
     }
 }
