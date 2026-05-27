@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using bilibili_music_player_windows.Api;
 using bilibili_music_player_windows.Models;
+using bilibili_music_player_windows.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
@@ -50,6 +51,8 @@ namespace bilibili_music_player_windows.ViewModels
     public partial class SearchViewModel : ObservableObject
     {
         private readonly BilibiliClient _client;
+        private readonly PlayerViewModel _playerViewModel;
+        private readonly LibraryViewModel _libraryViewModel;
         private CancellationTokenSource? _debounceCts;
 
         private const int MaxHistoryItems = 10;
@@ -125,6 +128,56 @@ namespace bilibili_music_player_windows.ViewModels
         [ObservableProperty]
         private int _previewItemIndex = -1;
 
+        // ── 全屏预览信息属性 (V1) ──
+
+        /// <summary>预览视频标题。</summary>
+        [ObservableProperty]
+        private string _previewTitle = string.Empty;
+
+        /// <summary>预览视频 UP 主名称。</summary>
+        [ObservableProperty]
+        private string _previewAuthor = string.Empty;
+
+        /// <summary>预览视频元信息（如 "UP 主"）。</summary>
+        [ObservableProperty]
+        private string _previewMeta = string.Empty;
+
+        /// <summary>预览视频播放量。</summary>
+        [ObservableProperty]
+        private string _previewViews = string.Empty;
+
+        /// <summary>预览视频时长。</summary>
+        [ObservableProperty]
+        private string _previewDuration = string.Empty;
+
+        /// <summary>预览视频点赞数。</summary>
+        [ObservableProperty]
+        private string _previewLikes = string.Empty;
+
+        /// <summary>预览视频简介。</summary>
+        [ObservableProperty]
+        private string _previewDescription = string.Empty;
+
+        /// <summary>预览视频封面 URL。</summary>
+        [ObservableProperty]
+        private string _previewCoverUrl = string.Empty;
+
+        /// <summary>预览视频收藏数（格式化后）。</summary>
+        [ObservableProperty]
+        private string _previewFavoriteCount = string.Empty;
+
+        /// <summary>预览视频硬币数（格式化后）。</summary>
+        [ObservableProperty]
+        private string _previewCoinCount = string.Empty;
+
+        /// <summary>当前预览视频是否已收藏。</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(PreviewFavoriteText))]
+        private bool _isPreviewFavorited;
+
+        /// <summary>收藏按钮文本（"已收藏" / "收藏"）。</summary>
+        public string PreviewFavoriteText => IsPreviewFavorited ? "已收藏" : "收藏";
+
         /// <summary>搜索结果数量文本。</summary>
         [ObservableProperty]
         private int _totalResults;
@@ -173,9 +226,14 @@ namespace bilibili_music_player_windows.ViewModels
 
         // ── Constructor ──
 
-        public SearchViewModel(BilibiliClient client)
+        public SearchViewModel(
+            BilibiliClient client,
+            PlayerViewModel playerViewModel,
+            LibraryViewModel libraryViewModel)
         {
             _client = client ?? throw new ArgumentNullException(nameof(client));
+            _playerViewModel = playerViewModel ?? throw new ArgumentNullException(nameof(playerViewModel));
+            _libraryViewModel = libraryViewModel ?? throw new ArgumentNullException(nameof(libraryViewModel));
             LoadSearchHistory();
             InitializeHotKeywords();
         }
@@ -353,6 +411,103 @@ namespace bilibili_music_player_windows.ViewModels
             {
                 IsSearching = false;
             }
+        }
+
+        // ── V1: Preview commands ──
+
+        /// <summary>
+        /// 预览视频命令 — 暂停音频播放并填充预览信息（V1+V2）。
+        /// 播放地址获取由 code-behind 通过 <see cref="FetchPreviewUriAsync"/> 完成。
+        /// </summary>
+        [RelayCommand]
+        private async Task PreviewVideoAsync(VideoPreviewItem? item)
+        {
+            if (item is null || string.IsNullOrWhiteSpace(item.Bvid))
+            {
+                return;
+            }
+
+            // V2: 进入预览时暂停音频播放
+            if (_playerViewModel.IsPlaying)
+            {
+                _playerViewModel.PauseCommand.Execute(null);
+            }
+
+            // 从 VideoPreviewItem 填充预览信息
+            PreviewTitle = item.Title;
+            PreviewAuthor = item.Author;
+            PreviewMeta = "UP 主";
+            PreviewViews = item.Views;
+            PreviewDuration = item.Duration;
+            PreviewCoverUrl = item.CoverUri?.ToString() ?? string.Empty;
+            IsPreviewFavorited = _libraryViewModel.Favorites.Any(f => f.Bvid == item.Bvid);
+
+            // 异步获取完整视频信息以填充播放量/点赞/收藏/硬币等统计
+            try
+            {
+                var detailInfo = await _client.FetchVideoInfoAsync(item.Bvid);
+                if (detailInfo?.Stat is not null)
+                {
+                    PreviewViews = FormatLargeNumber(detailInfo.Stat.View);
+                    PreviewLikes = FormatLargeNumber(detailInfo.Stat.Like);
+                    PreviewFavoriteCount = FormatLargeNumber(detailInfo.Stat.Favorite);
+                    PreviewCoinCount = FormatLargeNumber(detailInfo.Stat.Coin);
+                }
+            }
+            catch
+            {
+                // 视频详情获取失败时静默处理，统计字段保持为初始值
+            }
+        }
+
+        /// <summary>
+        /// 格式化大数字（万/亿），与 VideoModel.FormatViewCount 保持一致。
+        /// </summary>
+        private static string FormatLargeNumber(long value)
+        {
+            if (value >= 100_000_000)
+            {
+                return $"{(value / 100_000_000.0):F1}亿";
+            }
+
+            if (value >= 10_000)
+            {
+                return $"{(value / 10_000.0):F1}万";
+            }
+
+            return value.ToString("N0");
+        }
+
+        /// <summary>
+        /// 切换当前预览视频的收藏状态（V1）。
+        /// </summary>
+        [RelayCommand]
+        private async Task TogglePreviewFavoriteAsync()
+        {
+            if (CurrentPreviewItem is null)
+            {
+                return;
+            }
+
+            try
+            {
+                var videoModel = VideoModel.FromPreviewItem(CurrentPreviewItem);
+                await _libraryViewModel.ToggleFavoriteCommand.ExecuteAsync(videoModel);
+                IsPreviewFavorited = _libraryViewModel.Favorites.Any(f => f.Bvid == CurrentPreviewItem.Bvid);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[SearchViewModel] TogglePreviewFavorite failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 关闭预览模式（V1）。
+        /// </summary>
+        [RelayCommand]
+        private void ClosePreview()
+        {
+            ExitPreview();
         }
 
         /// <summary>

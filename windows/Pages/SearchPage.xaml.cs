@@ -4,7 +4,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.Media.Core;
@@ -20,14 +19,12 @@ namespace bilibili_music_player_windows.Pages
         public SearchViewModel ViewModel { get; }
 
         private readonly HttpClient _httpClient;
-        private readonly LibraryViewModel _libraryViewModel;
         private HttpRangeStream? _previewStream;
         private bool _isPreviewMediaLoaded;
 
         public SearchPage()
         {
             ViewModel = App.Current.GetService<SearchViewModel>();
-            _libraryViewModel = App.Current.GetService<LibraryViewModel>();
             DataContext = ViewModel;
             _httpClient = App.Current.GetService<HttpClient>();
             InitializeComponent();
@@ -189,7 +186,7 @@ namespace bilibili_music_player_windows.Pages
         }
 
         /// <summary>
-        /// 点击搜索结果 — 进入全屏预览模式。
+        /// 点击搜索结果 — 进入全屏预览模式（V1）。
         /// </summary>
         private async void OnVideoClick(object sender, ItemClickEventArgs e)
         {
@@ -202,7 +199,7 @@ namespace bilibili_music_player_windows.Pages
         }
 
         /// <summary>
-        /// 在预览模式的侧边列表中点击某条结果 — 切换到该视频。
+        /// 在预览模式的侧边列表中点击某条结果 — 切换到该视频（V1）。
         /// </summary>
         private async void OnPreviewResultClick(object sender, ItemClickEventArgs e)
         {
@@ -221,15 +218,8 @@ namespace bilibili_music_player_windows.Pages
         }
 
         /// <summary>
-        /// 关闭预览 — 退出全屏预览模式回到搜索界面。
-        /// </summary>
-        private void OnClosePreviewClick(object sender, RoutedEventArgs e)
-        {
-            ViewModel.ExitPreview();
-        }
-
-        /// <summary>
-        /// 加载并播放指定视频，进入全屏预览模式。
+        /// 加载并播放指定视频，进入全屏预览模式（V1）。
+        /// 预览信息通过 ViewModel 的 PreviewVideoCommand 填充，UI 通过 {x:Bind} 更新。
         /// </summary>
         private async Task StartPreviewAsync(VideoPreviewItem item)
         {
@@ -250,11 +240,13 @@ namespace bilibili_music_player_windows.Pages
                 _previewStream?.Dispose();
                 _previewStream = null;
 
-                // 进入预览模式（显示 UI 骨架）
+                // V1+V2: 进入预览模式（暂停音频 + 填充预览信息）
                 ViewModel.EnterPreview(item);
-                UpdatePreviewInfo(item);
+                await ViewModel.PreviewVideoCommand.ExecuteAsync(item);
 
+                // 获取播放地址
                 var previewUri = await ViewModel.FetchPreviewUriAsync(item.Bvid);
+
                 var previewSource = await CreatePreviewSourceAsync(previewUri);
                 PreviewPlayer.Source = previewSource;
                 _isPreviewMediaLoaded = true;
@@ -267,68 +259,6 @@ namespace bilibili_music_player_windows.Pages
                 // 加载失败时退出预览模式并提示
                 ViewModel.ExitPreview();
                 await ShowErrorAsync("播放失败", ex.Message);
-            }
-        }
-
-        /// <summary>
-        /// 更新右侧视频信息面板的显示内容。
-        /// </summary>
-        private void UpdatePreviewInfo(VideoPreviewItem item)
-        {
-            PreviewTitleText.Text = item.Title;
-            PreviewAuthorText.Text = item.Author;
-            PreviewMetaText.Text = $"UP 主";
-            PreviewViewsText.Text = item.Views;
-            PreviewDurationText.Text = item.Duration;
-            UpdateFavoriteButtonState(item);
-        }
-
-        /// <summary>
-        /// 收藏按钮点击 — 切换当前预览视频的收藏状态。
-        /// </summary>
-        private async void OnToggleFavoriteClick(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (ViewModel.CurrentPreviewItem is not VideoPreviewItem item)
-                {
-                    return;
-                }
-
-                var videoModel = VideoModel.FromPreviewItem(item);
-
-                if (_libraryViewModel.ToggleFavoriteCommand is null)
-                {
-                    System.Diagnostics.Debug.WriteLine("[SearchPage] ToggleFavoriteCommand is null!");
-                    return;
-                }
-
-                await _libraryViewModel.ToggleFavoriteCommand.ExecuteAsync(videoModel);
-                UpdateFavoriteButtonState(item);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[SearchPage] ToggleFavorite failed: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 根据收藏状态更新收藏按钮的图标和文字。
-        /// </summary>
-        private void UpdateFavoriteButtonState(VideoPreviewItem item)
-        {
-            var isFavorited = _libraryViewModel.Favorites.Any(f => f.Bvid == item.Bvid);
-            if (isFavorited)
-            {
-                FavoriteButtonIcon.Symbol = Symbol.SolidStar;
-                FavoriteButtonText.Text = "已收藏";
-                AutomationProperties.SetName(FavoriteButton, "取消收藏");
-            }
-            else
-            {
-                FavoriteButtonIcon.Symbol = Symbol.OutlineStar;
-                FavoriteButtonText.Text = "收藏";
-                AutomationProperties.SetName(FavoriteButton, "收藏视频");
             }
         }
 
@@ -361,5 +291,6 @@ namespace bilibili_music_player_windows.Pages
             _previewStream?.Dispose();
             _previewStream = null;
         }
+
     }
 }

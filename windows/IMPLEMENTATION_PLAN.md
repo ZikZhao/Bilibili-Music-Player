@@ -375,25 +375,34 @@ Legend: ✅ Done & Aligned | ⚠️ Partial / Needs Work | ❌ Not Implemented
 
 ### 8. 🎬 Video Preview / Detail
 
-| #   | Feature                    | Mobile                    | Windows                               | Status | Notes                |
-| --- | -------------------------- | ------------------------- | ------------------------------------- | ------ | -------------------- |
-| 8.1 | Video preview dialog       | ✅ media_kit video player | ✅ ContentDialog + MediaPlayerElement | ✅     |                      |
-| 8.2 | Video detail page          | ✅ full page with stats   | ❌                                    | ❌     |                      |
-| 8.3 | Wakelock (screen stay on)  | ✅ `wakelock_plus`        | N/A                                   | N/A    | Desktop doesn't need |
-| 8.4 | Pause audio on video entry | ✅                        | ❌                                    | ❌     |                      |
+| #   | Feature                    | Mobile                    | Windows                               | Status | Notes                               |
+| --- | -------------------------- | ------------------------- | ------------------------------------- | ------ | ----------------------------------- |
+| 8.1 | Video preview dialog       | ✅ media_kit video player | ✅ ContentDialog + MediaPlayerElement | ✅     |                                     |
+| 8.2 | Stats bar                  | ✅ full page with stats   | ✅ VideoStatsBar (UserControl)        | ✅     | 5 stats: 播放/点赞/收藏数/硬币/时长 |
+| 8.3 | Wakelock (screen stay on)  | ✅ `wakelock_plus`        | N/A                                   | N/A    | Desktop doesn't need                |
+| 8.4 | Pause audio on video entry | ✅                        | ✅                                    | ✅     | V2 done: PreviewVideoCommand        |
 
 #### Implementation Tasks — Video
 
-- [ ] **V1** Move video preview logic from code-behind → `SearchViewModel` (or dedicated `VideoPreviewViewModel`)
-  - `PreviewVideoCommand`
-  - `PreviewUri`, `PreviewTitle`, `PreviewMeta` as observable properties
-  - Stream management in ViewModel
+- [x] **V1** Move video preview logic from code-behind → `SearchViewModel`
+  - `PreviewVideoCommand` — pauses audio + fills preview info
+  - `PreviewTitle`, `PreviewAuthor`, `PreviewMeta`, `PreviewViews`, `PreviewDuration`, `PreviewLikes`, `PreviewDescription`, `PreviewCoverUrl`, `IsPreviewFavorited`, `PreviewFavoriteText` as observable properties
+  - `TogglePreviewFavoriteCommand` — MVVM favorite toggle in preview
+  - `ClosePreviewCommand` — MVVM close button
+  - XAML updated: `x:Name` → `{x:Bind ViewModel.XXX, Mode=OneWay}`
+  - Code-behind cleaned: removed `UpdatePreviewInfo`, `OnToggleFavoriteClick`, `UpdateFavoriteButtonState`
+  - `_libraryViewModel` field removed from `SearchPage.xaml.cs`
 
-- [ ] **V2** When video preview opens, pause audio playback (if playing)  
-       Call `PlayerViewModel.PauseCommand`
+- [x] **V2** When video preview opens, pause audio playback (if playing)  
+       ✅ `PlayerViewModel.PauseCommand.Execute(null)` called inside `PreviewVideoCommand`
 
-- [ ] **V3** Add `VideoDetailPage` (future stretch goal)  
-       Full page with video info: title, author avatar, description, stats, favorite button
+- [x] **V3** Create `VideoStatsBar` reusable UserControl (replaces deleted `VideoDetailPage`)  
+       ✅ `Controls/VideoStatsBar.xaml` + `.xaml.cs` — 5-column stats: 播放/点赞/收藏数/硬币/时长  
+       ✅ Removed 弹幕, added 时长 after 硬币  
+       ✅ 5 `DependencyProperty` for data binding: `ViewCount`, `LikeCount`, `FavoriteCount`, `CoinCount`, `Duration`  
+       ✅ Integrated into SearchPage preview panel, replacing old 3-column inline stats  
+       ✅ Added `PreviewFavoriteCount` and `PreviewCoinCount` to `SearchViewModel`  
+       ✅ VideoDetailPage deleted (both .xaml and .xaml.cs)
 
 ---
 

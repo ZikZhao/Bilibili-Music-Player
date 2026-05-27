@@ -6,6 +6,8 @@
     xmlns:local="using:bilibili_music_player_windows.Pages"
     xmlns:models="using:bilibili_music_player_windows.Models"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    xmlns:mycontrols="using:bilibili_music_player_windows.Controls"
+    xmlns:helpers="using:bilibili_music_player_windows"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -233,7 +235,7 @@
                                     AreTransportControlsEnabled="True"
                                     Stretch="Uniform" />
 
-                <!-- 返回按钮 -->
+                <!-- 返回按钮 V1 -->
                 <Button x:Name="ClosePreviewButton"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Top"
@@ -243,7 +245,7 @@
                         Background="#66000000"
                         CornerRadius="20"
                         BorderThickness="0"
-                        Click="OnClosePreviewClick"
+                        Command="{x:Bind ViewModel.ClosePreviewCommand}"
                         AutomationProperties.AutomationId="ClosePreviewButton">
                     <SymbolIcon Symbol="Cancel" Foreground="White" />
                 </Button>
@@ -259,8 +261,8 @@
                 <!-- ── 顶部：视频信息 ── -->
                 <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Disabled">
                     <StackPanel Padding="24,20,24,16" Spacing="12">
-                        <!-- 标题 -->
-                        <TextBlock x:Name="PreviewTitleText"
+                        <!-- 标题 V1 -->
+                        <TextBlock Text="{x:Bind ViewModel.PreviewTitle, Mode=OneWay}"
                                    FontSize="20"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource Slate800}"
@@ -281,58 +283,40 @@
                                            HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" />
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                <TextBlock x:Name="PreviewAuthorText"
-                                           Text="UP 主"
+                                <TextBlock Text="{x:Bind ViewModel.PreviewAuthor, Mode=OneWay}"
                                            Foreground="{StaticResource Slate800}"
                                            FontWeight="SemiBold" />
-                                <TextBlock x:Name="PreviewMetaText"
+                                <TextBlock Text="{x:Bind ViewModel.PreviewMeta, Mode=OneWay}"
                                            Foreground="{StaticResource Slate400}"
                                            FontSize="12" />
                             </StackPanel>
                         </Grid>
 
-                        <!-- 统计信息 -->
-                        <Grid ColumnSpacing="24">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <SymbolIcon Symbol="Play" Foreground="{StaticResource Slate400}" />
-                                <TextBlock x:Name="PreviewViewsText"
-                                           Foreground="{StaticResource Slate500}"
-                                           FontSize="12" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                                <SymbolIcon Symbol="Clock" Foreground="{StaticResource Slate400}" />
-                                <TextBlock x:Name="PreviewDurationText"
-                                           Foreground="{StaticResource Slate500}"
-                                           FontSize="12" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
-                                <SymbolIcon Symbol="Like" Foreground="{StaticResource Slate400}" />
-                                <TextBlock x:Name="PreviewLikesText"
-                                           Foreground="{StaticResource Slate500}"
-                                           FontSize="12" />
-                            </StackPanel>
-                        </Grid>
+                        <!-- 统计信息（VideoStatsBar：播放/点赞/收藏数/硬币/时长） -->
+                        <mycontrols:VideoStatsBar
+                            ViewCount="{x:Bind ViewModel.PreviewViews, Mode=OneWay}"
+                            LikeCount="{x:Bind ViewModel.PreviewLikes, Mode=OneWay}"
+                            FavoriteCount="{x:Bind ViewModel.PreviewFavoriteCount, Mode=OneWay}"
+                            CoinCount="{x:Bind ViewModel.PreviewCoinCount, Mode=OneWay}"
+                            Duration="{x:Bind ViewModel.PreviewDuration, Mode=OneWay}" />
 
-                        <!-- 收藏按钮 -->
+                        <!-- 收藏按钮 V1 -->
                         <Button x:Name="FavoriteButton"
                                 Background="{StaticResource Slate50}"
                                 BorderThickness="0"
                                 CornerRadius="8"
                                 Padding="12,8"
                                 HorizontalAlignment="Stretch"
-                                Click="OnToggleFavoriteClick"
+                                Command="{x:Bind ViewModel.TogglePreviewFavoriteCommand}"
                                 AutomationProperties.AutomationId="PreviewFavoriteButton">
                             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                                <SymbolIcon x:Name="FavoriteButtonIcon"
-                                            Symbol="OutlineStar"
-                                            Foreground="{StaticResource Rose400}" />
-                                <TextBlock x:Name="FavoriteButtonText"
-                                           Text="收藏"
+                                <SymbolIcon Symbol="SolidStar"
+                                            Foreground="{StaticResource Rose400}"
+                                            Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsPreviewFavorited), Mode=OneWay}" />
+                                <SymbolIcon Symbol="OutlineStar"
+                                            Foreground="{StaticResource Rose400}"
+                                            Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsPreviewFavorited), Mode=OneWay}" />
+                                <TextBlock Text="{x:Bind ViewModel.PreviewFavoriteText, Mode=OneWay}"
                                            Foreground="{StaticResource Rose400}"
                                            FontWeight="SemiBold" />
                             </StackPanel>
