@@ -56,7 +56,7 @@
                 <TextBlock Grid.Column="1" Text="标题" Foreground="{ThemeResource Slate500}" />
                 <TextBlock Grid.Column="2" Text="UP主" Foreground="{ThemeResource Slate500}" />
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4">
-                    <SymbolIcon Symbol="Clock" Foreground="{ThemeResource Slate500}" />
+                    <ImageIcon Source="ms-appx:///Assets/Icons/clock.svg" Width="16" Height="16" />
                     <TextBlock Text="时长" Foreground="{ThemeResource Slate500}" />
                 </StackPanel>
             </Grid>
@@ -69,7 +69,7 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             Spacing="8">
-            <SymbolIcon Symbol="Library" Foreground="{ThemeResource Slate300}" Width="48" Height="48" />
+            <ImageIcon Source="ms-appx:///Assets/Icons/library.svg" Width="48" Height="48" />
             <TextBlock Text="收藏列表为空" Foreground="{ThemeResource Slate400}" FontSize="16" HorizontalAlignment="Center" />
             <TextBlock Text="在搜索结果中右键点击视频即可收藏" Foreground="{ThemeResource Slate300}" Style="{StaticResource CaptionTextBlockStyle}" HorizontalAlignment="Center" />
         </StackPanel>
@@ -117,7 +117,7 @@
                                 TextTrimming="CharacterEllipsis"
                                 MaxLines="2" />
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                                <SymbolIcon Symbol="Like" Foreground="{ThemeResource Slate300}" Width="12" Height="12" />
+                                <ImageIcon Source="ms-appx:///Assets/Icons/like-small.svg" Width="12" Height="12" />
                                 <TextBlock Text="{x:Bind Views, Mode=OneWay}" Foreground="{ThemeResource Slate400}" FontSize="11" />
                             </StackPanel>
                         </StackPanel>
@@ -151,7 +151,7 @@
                             Tag="{x:Bind Bvid, Mode=OneWay}"
                             VerticalAlignment="Center"
                             HorizontalAlignment="Center">
-                            <SymbolIcon Symbol="Cancel" Foreground="{ThemeResource Slate300}" />
+                            <ImageIcon Source="ms-appx:///Assets/Icons/cancel-sl.svg" Width="16" Height="16" />
                         </Button>
                     </Grid>
                 </DataTemplate>

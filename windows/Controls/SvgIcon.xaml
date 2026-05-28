@@ -1,0 +1,23 @@
+<UserControl
+    x:Class="bilibili_music_player_windows.Controls.SvgIcon"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:bilibili_music_player_windows.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Viewbox Stretch="Uniform">
+        <Canvas Width="48" Height="48">
+            <Path x:Name="IconPath"
+                  Stretch="None"
+                  Stroke="{x:Bind Stroke, Mode=OneWay}"
+                  StrokeThickness="{x:Bind StrokeWidth, Mode=OneWay}"
+                  StrokeLineJoin="Round"
+                  StrokeStartLineCap="Round"
+                  StrokeEndLineCap="Round"
+                  StrokeDashCap="Round"
+                  Fill="{x:Bind Fill, Mode=OneWay}" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

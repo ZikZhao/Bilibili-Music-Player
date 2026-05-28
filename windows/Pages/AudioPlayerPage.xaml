@@ -83,12 +83,12 @@
                                 Command="{x:Bind ViewModel.CyclePlayModeCommand}"
                                 AutomationProperties.AutomationId="CyclePlayModeButton">
                             <Grid>
-                                <SymbolIcon Symbol="RepeatAll" Foreground="{ThemeResource Rose400}"
-                                            Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 0), Mode=OneWay}" />
-                                <SymbolIcon Symbol="RepeatOne" Foreground="{ThemeResource Rose400}"
-                                            Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 1), Mode=OneWay}" />
-                                <SymbolIcon Symbol="Shuffle" Foreground="{ThemeResource Rose400}"
-                                            Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 2), Mode=OneWay}" />
+                                <ImageIcon Source="ms-appx:///Assets/Icons/repeat-all.svg" Width="24" Height="24"
+                                           Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 0), Mode=OneWay}" />
+                                <ImageIcon Source="ms-appx:///Assets/Icons/repeat-one.svg" Width="24" Height="24"
+                                           Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 1), Mode=OneWay}" />
+                                <ImageIcon Source="ms-appx:///Assets/Icons/shuffle.svg" Width="24" Height="24"
+                                           Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 2), Mode=OneWay}" />
                             </Grid>
                         </Button>
 
@@ -96,7 +96,7 @@
                         <Button Width="44" Height="44" Background="Transparent" BorderThickness="0"
                                 Command="{x:Bind ViewModel.PreviousCommand}"
                                 AutomationProperties.AutomationId="PlayerPagePreviousButton">
-                            <SymbolIcon Symbol="Previous" Foreground="{ThemeResource Slate600}" />
+                            <ImageIcon Source="ms-appx:///Assets/Icons/previous.svg" Width="28" Height="28" />
                         </Button>
 
                         <!-- 播放/暂停 -->
@@ -104,10 +104,10 @@
                                 Command="{x:Bind ViewModel.TogglePlayCommand}"
                                 AutomationProperties.AutomationId="PlayerPagePlayPauseButton">
                             <Grid>
-                                <SymbolIcon Symbol="Play" Foreground="White"
-                                            Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
-                                <SymbolIcon Symbol="Pause" Foreground="White"
-                                            Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
+                                <ImageIcon Source="ms-appx:///Assets/Icons/play.svg" Width="32" Height="32"
+                                           Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
+                                <ImageIcon Source="ms-appx:///Assets/Icons/pause.svg" Width="32" Height="32"
+                                           Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
                             </Grid>
                         </Button>
 
@@ -115,14 +115,14 @@
                         <Button Width="44" Height="44" Background="Transparent" BorderThickness="0"
                                 Command="{x:Bind ViewModel.NextCommand}"
                                 AutomationProperties.AutomationId="PlayerPageNextButton">
-                            <SymbolIcon Symbol="Next" Foreground="{ThemeResource Slate600}" />
+                            <ImageIcon Source="ms-appx:///Assets/Icons/next.svg" Width="28" Height="28" />
                         </Button>
 
                         <!-- P7: 播放列表按钮 -->
                         <Button Width="40" Height="40" Background="Transparent" BorderThickness="0"
                                 Click="OnTogglePlaylistClick"
                                 AutomationProperties.AutomationId="TogglePlaylistButton">
-                            <SymbolIcon Symbol="List" Foreground="{ThemeResource Slate400}" />
+                            <ImageIcon Source="ms-appx:///Assets/Icons/list.svg" Width="24" Height="24" />
                         </Button>
                     </StackPanel>
                 </StackPanel>
@@ -135,7 +135,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <SymbolIcon Grid.Column="0" Symbol="Volume" Foreground="{ThemeResource Slate400}" />
+                        <ImageIcon Grid.Column="0" Source="ms-appx:///Assets/Icons/volume.svg" Width="20" Height="20" />
                         <Slider Grid.Column="1"
                                 Value="{x:Bind ViewModel.Volume, Mode=TwoWay}"
                                 Minimum="0" Maximum="1" StepFrequency="0.01"
