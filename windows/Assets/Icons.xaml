@@ -1,9 +1,19 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <x:String x:Key="IconPark_GoEnd">M14 12L26 24L14 36 M34 12V36</x:String>
-    <x:String x:Key="IconPark_GoStart">M34 36L22 24L34 12 M14 12V36</x:String>
-    <x:String x:Key="IconPark_Like">M15 8C8.92487 8 4 12.9249 4 19C4 30 17 40 24 42.3262C31 40 44 30 44 19C44 12.9249 39.0751 8 33 8C29.2797 8 25.9907 9.8469 24 12.6738C22.0093 9.8469 18.7203 8 15 8Z</x:String>
-    <x:String x:Key="IconPark_Pause">M16 12V36 M32 12V36</x:String>
-    <x:String x:Key="IconPark_PlayOne">M15 24V11.8756L25.5 17.9378L36 24L25.5 30.0622L15 36.1244V24Z</x:String>
+    <x:String x:Key="Icon_Close">&#xe001;</x:String>
+    <x:String x:Key="Icon_Fire">&#xe002;</x:String>
+    <x:String x:Key="Icon_GoEnd">&#xe003;</x:String>
+    <x:String x:Key="Icon_GoStart">&#xe004;</x:String>
+    <x:String x:Key="Icon_Like">&#xe005;</x:String>
+    <x:String x:Key="Icon_More">&#xe006;</x:String>
+    <x:String x:Key="Icon_Pause">&#xe007;</x:String>
+    <x:String x:Key="Icon_PlayCycle">&#xe008;</x:String>
+    <x:String x:Key="Icon_PlayOnce">&#xe009;</x:String>
+    <x:String x:Key="Icon_PlayOne">&#xe00a;</x:String>
+    <x:String x:Key="Icon_RecordPlayer">&#xe00b;</x:String>
+    <x:String x:Key="Icon_Search">&#xe00c;</x:String>
+    <x:String x:Key="Icon_SettingTwo">&#xe00d;</x:String>
+    <x:String x:Key="Icon_Shuffle">&#xe00e;</x:String>
+    <x:String x:Key="Icon_VolumeNotice">&#xe00f;</x:String>
 </ResourceDictionary>

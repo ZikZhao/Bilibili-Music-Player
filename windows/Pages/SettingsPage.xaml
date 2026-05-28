@@ -42,7 +42,7 @@
                             <TextBlock Text="音频质量" Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" />
                             <TextBlock Text="{x:Bind ViewModel.AudioQuality, Mode=OneWay}" Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}" />
                         </StackPanel>
-                        <ImageIcon Grid.Column="3" Source="ms-appx:///Assets/Icons/forward.svg" Width="16" Height="16" VerticalAlignment="Center" />
+                        <!-- <ImageIcon Grid.Column="3" Source="ms-appx:///Assets/Icons/forward.svg" Width="16" Height="16" VerticalAlignment="Center" /> -->
                     </Grid>
                     <Border BorderBrush="{ThemeResource Slate50}" BorderThickness="0,1,0,0" />
                     <Grid Padding="16">
@@ -53,7 +53,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Border Width="32" Height="32" Background="{ThemeResource Slate100}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ImageIcon Source="ms-appx:///Assets/Icons/audio.svg" Width="18" Height="18" />
+                            <!-- <ImageIcon Source="ms-appx:///Assets/Icons/audio.svg" Width="18" Height="18" /> -->
                         </Border>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="渐变播放" Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" />
@@ -72,7 +72,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Border Width="32" Height="32" Background="{ThemeResource Slate100}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ImageIcon Source="ms-appx:///Assets/Icons/play-sl.svg" Width="18" Height="18" />
+                            <!-- <ImageIcon Source="ms-appx:///Assets/Icons/play-sl.svg" Width="18" Height="18" /> -->
                         </Border>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="自动播放" Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" />
@@ -139,13 +139,13 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Border Width="32" Height="32" Background="{ThemeResource Slate100}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ImageIcon Source="ms-appx:///Assets/Icons/folder.svg" Width="18" Height="18" />
+                            <!-- <ImageIcon Source="ms-appx:///Assets/Icons/folder.svg" Width="18" Height="18" /> -->
                         </Border>
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="清除缓存" Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" />
                             <TextBlock Text="{x:Bind ViewModel.CacheSize, Mode=OneWay}" Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}" />
                         </StackPanel>
-                        <ImageIcon Grid.Column="3" Source="ms-appx:///Assets/Icons/delete.svg" Width="20" Height="20" VerticalAlignment="Center" />
+                        <!-- <ImageIcon Grid.Column="3" Source="ms-appx:///Assets/Icons/delete.svg" Width="20" Height="20" VerticalAlignment="Center" /> -->
                     </Grid>
                 </Button>
             </Border>

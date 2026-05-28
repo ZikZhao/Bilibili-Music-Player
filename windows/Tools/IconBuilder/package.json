@@ -1,0 +1,13 @@
+{
+  "name": "bilibili-music-player-icon-builder",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "oslllo-svg-fixer": "^6.0.0",
+    "svgicons2svgfont": "^15.0.0",
+    "svg2ttf": "^6.0.0"
+  }
+}

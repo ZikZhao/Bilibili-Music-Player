@@ -44,7 +44,7 @@
                 <Grid Height="48" Margin="0,4,0,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                         <Border Width="28" Height="28" Background="{ThemeResource Rose400}" CornerRadius="6">
-                            <ImageIcon Source="ms-appx:///Assets/Icons/like.svg" Width="18" Height="18" />
+                            <controls:Icon Glyph="{StaticResource Icon_Like}" Width="18" Height="18" />
                         </Border>
                         <TextBlock Text="BiliMusic" Margin="8,0,0,0"
                                    Style="{StaticResource SubtitleTextBlockStyle}"
@@ -58,24 +58,19 @@
                 <NavigationViewItem Tag="nowplaying" Content="正在播放"
                                     AutomationProperties.AutomationId="NavNowPlaying">
                     <NavigationViewItem.Icon>
-                        <ImageIcon Source="ms-appx:///Assets/Icons/audio.svg" />
+                        <controls:Icon Glyph="{StaticResource Icon_PlayOne}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Tag="search" Content="搜索"
                                     AutomationProperties.AutomationId="NavSearch">
                     <NavigationViewItem.Icon>
-                        <ImageIcon Source="ms-appx:///Assets/Icons/find.svg" />
+                        <controls:Icon Glyph="{StaticResource Icon_Search}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Tag="favorites" Content="我的收藏"
                                     AutomationProperties.AutomationId="NavFavorites">
                     <NavigationViewItem.Icon>
-                        <!-- WinUI3 中 NavigationViewItem.Icon 必须是 IconElement (如 PathIcon, ImageIcon 等)，不能是 UserControl -->
-                        <!-- 选择方案 A: 使用纯路径的 PathIcon（注意只能是填充色，不支持 Stroke 描边） -->
-                        <!-- <PathIcon Data="{StaticResource IconPark_Like}" Foreground="{ThemeResource Slate800}" /> -->
-                        
-                        <!-- 选择方案 B (推荐): 保持与其他导航项一致，使用原生的 ImageIcon 加载 svg 文件 -->
-                        <ImageIcon Source="ms-appx:///Assets/Icons/like.svg" />
+                        <controls:Icon Glyph="{StaticResource Icon_Like}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
@@ -84,7 +79,7 @@
                 <NavigationViewItem Tag="settings" Content="设置"
                                     AutomationProperties.AutomationId="NavSettings">
                     <NavigationViewItem.Icon>
-                        <ImageIcon Source="ms-appx:///Assets/Icons/setting.svg" />
+                        <controls:Icon Glyph="{StaticResource Icon_SettingTwo}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
@@ -135,8 +130,7 @@
                                     Command="{x:Bind PlayerViewModel.PreviousCommand}"
                                     AutomationProperties.AutomationId="PreviousButton">
                                 <Grid Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <controls:SvgIcon Data="{StaticResource IconPark_GoStart}"
-                                                      Stroke="{ThemeResource Slate800}" />
+                                    <controls:Icon Glyph="{StaticResource Icon_GoStart}" />
                                 </Grid>
                             </Button>
 
@@ -146,14 +140,14 @@
                                     Command="{x:Bind PlayerViewModel.TogglePlayCommand}"
                                     AutomationProperties.AutomationId="PlayPauseButton">
                                 <Grid Width="28" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <!-- 播放状态 -->
-                                    <controls:SvgIcon Data="{StaticResource IconPark_PlayOne}"
-                                                      Stroke="{ThemeResource Slate800}"
-                                                      Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(PlayerViewModel.IsPlaying), Mode=OneWay}" />
-                                    <!-- 暂停状态 -->
-                                    <controls:SvgIcon Data="{StaticResource IconPark_Pause}"
-                                                      Stroke="{ThemeResource Slate800}"
-                                                      Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(PlayerViewModel.IsPlaying), Mode=OneWay}" />
+                                <!-- 播放状态 -->
+                                <controls:Icon Glyph="{StaticResource Icon_PlayOne}"
+                                               FontSize="28"
+                                               Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(PlayerViewModel.IsPlaying), Mode=OneWay}" />
+                                <!-- 暂停状态 -->
+                                <controls:Icon Glyph="{StaticResource Icon_Pause}"
+                                               FontSize="28"
+                                               Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(PlayerViewModel.IsPlaying), Mode=OneWay}" />
                                 </Grid>
                             </Button>
 
@@ -162,8 +156,7 @@
                                     Command="{x:Bind PlayerViewModel.NextCommand}"
                                     AutomationProperties.AutomationId="NextButton">
                                 <Grid Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <controls:SvgIcon Data="{StaticResource IconPark_GoEnd}"
-                                                      Stroke="{ThemeResource Slate800}" />
+                                    <controls:Icon Glyph="{StaticResource Icon_GoEnd}" />
                                 </Grid>
                             </Button>
                         </StackPanel>
@@ -192,7 +185,7 @@
 
                     <!-- 右侧：音量控制 -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="12">
-                        <ImageIcon Source="ms-appx:///Assets/Icons/volume.svg" Width="20" Height="20" />
+                        <controls:Icon Glyph="{StaticResource Icon_VolumeNotice}" Width="20" Height="20" />
                         <Slider Width="96" Minimum="0" Maximum="1" StepFrequency="0.01"
                                 Value="{x:Bind PlayerViewModel.Volume, Mode=TwoWay}"
                                 AutomationProperties.AutomationId="VolumeSlider"
