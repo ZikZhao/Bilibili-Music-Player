@@ -1,5 +1,7 @@
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Input;
+using System;
+using System.IO;
 using Windows.System;
 using bilibili_music_player_windows.Services;
 
@@ -13,7 +15,9 @@ public sealed partial class MainWindow
 
     private void InitializeWindowLifetime()
     {
-        _tray = new TrayIcon(WinRT.Interop.WindowNative.GetWindowHandle(this), ShowFromBackground, ExitApplication);
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
+        AppWindow.SetIcon(iconPath);
+        _tray = new TrayIcon(WinRT.Interop.WindowNative.GetWindowHandle(this), iconPath, ShowFromBackground, ExitApplication);
         AppWindow.Closing += OnAppWindowClosing;
 
         var escape = new KeyboardAccelerator { Key = VirtualKey.Escape };

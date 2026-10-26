@@ -14,12 +14,13 @@ internal sealed class TrayIcon : IDisposable
     private readonly Action _exit;
     private readonly SubclassProc _callback;
     private readonly uint _taskbarCreated;
+    private readonly nint _ownedIcon;
     private NotifyIconData _icon;
     private bool _disposed;
 
     public bool IsAvailable { get; private set; }
 
-    public TrayIcon(nint window, Action show, Action exit)
+    public TrayIcon(nint window, string iconPath, Action show, Action exit)
     {
         _window = window;
         _show = show;
@@ -28,7 +29,11 @@ internal sealed class TrayIcon : IDisposable
         _taskbarCreated = RegisterWindowMessage("TaskbarCreated");
         if (!SetWindowSubclass(window, _callback, SubclassId, 0)) return;
 
-        var icon = SendMessage(window, 0x007F, 0, 0); // WM_GETICON / ICON_SMALL
+        var dpi = GetDpiForWindow(window);
+        _ownedIcon = LoadImage(0, iconPath, 1, GetSystemMetricsForDpi(49, dpi),
+            GetSystemMetricsForDpi(50, dpi), 0x0010); // IMAGE_ICON / LR_LOADFROMFILE
+        var icon = _ownedIcon;
+        if (icon == 0) icon = SendMessage(window, 0x007F, 0, 0); // WM_GETICON / ICON_SMALL
         if (icon == 0) icon = SendMessage(window, 0x007F, 1, 0); // ICON_BIG
         if (icon == 0) icon = LoadIcon(0, (nint)32512); // Shared application icon
         _icon = new NotifyIconData
@@ -111,6 +116,7 @@ internal sealed class TrayIcon : IDisposable
         if (IsAvailable) ShellNotifyIcon(2, ref _icon); // NIM_DELETE
         IsAvailable = false;
         RemoveWindowSubclass(_window, _callback, SubclassId);
+        if (_ownedIcon != 0) DestroyIcon(_ownedIcon);
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -153,6 +159,15 @@ internal sealed class TrayIcon : IDisposable
     private static extern nint SendMessage(nint window, uint message, nuint wParam, nint lParam);
     [DllImport("user32.dll", EntryPoint = "LoadIconW")]
     private static extern nint LoadIcon(nint instance, nint name);
+    [DllImport("user32.dll", EntryPoint = "LoadImageW", CharSet = CharSet.Unicode)]
+    private static extern nint LoadImage(nint instance, string name, uint type, int width, int height, uint flags);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyIcon(nint icon);
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(nint window);
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetricsForDpi(int index, uint dpi);
     [DllImport("user32.dll")]
     private static extern nint CreatePopupMenu();
     [DllImport("user32.dll", EntryPoint = "AppendMenuW", CharSet = CharSet.Unicode)]
