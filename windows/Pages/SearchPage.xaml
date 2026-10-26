@@ -3,177 +3,120 @@
     x:Class="bilibili_music_player_windows.Pages.SearchPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:bilibili_music_player_windows.Pages"
     xmlns:models="using:bilibili_music_player_windows.Models"
-    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     xmlns:mycontrols="using:bilibili_music_player_windows.Controls"
-    xmlns:helpers="using:bilibili_music_player_windows"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
-    NavigationCacheMode="Disabled">
+    xmlns:helpers="using:bilibili_music_player_windows">
 
-    <Grid>
-        <!-- ════════════════════════════════════════════════ -->
-        <!-- LAYER 1: 搜索模式（非预览时显示）                 -->
-        <!-- ════════════════════════════════════════════════ -->
-        <Grid Visibility="{x:Bind ViewModel.SearchModeVisibility, Mode=OneWay}">
-            <ScrollViewer x:Name="MainScrollViewer">
-                <StackPanel Margin="32" Spacing="24">
-                <!-- 标题 -->
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Rectangle Width="4" Height="28" Fill="{ThemeResource Rose400}" VerticalAlignment="Center" RadiusX="2" RadiusY="2" Margin="0,2,0,0" />
-                    <TextBlock Text="搜索音乐" Style="{StaticResource TitleTextBlockStyle}" Foreground="{ThemeResource Slate800}" />
+    <Grid x:Name="SearchPageRoot">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="NarrowSearchHeader">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="0" /></VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="SearchEntryContainer.(Grid.Row)" Value="1" />
+                        <Setter Target="SearchEntryContainer.(Grid.Column)" Value="0" />
+                        <Setter Target="SearchEntryContainer.(Grid.ColumnSpan)" Value="3" />
+                        <Setter Target="SearchHeader.RowSpacing" Value="16" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WideSearchHeader">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="744" /></VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid x:Name="SearchHeader" Margin="28,20,28,20"
+              SizeChanged="OnSearchHeaderSizeChanged">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="48" />
+                <ColumnDefinition Width="3*" MaxWidth="640" />
+            </Grid.ColumnDefinitions>
+            <StackPanel x:Name="SearchHeading" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <Rectangle Width="4" Height="28" Fill="{ThemeResource Rose400}" RadiusX="2" RadiusY="2" />
+                <TextBlock Text="搜索音乐" FontSize="28" FontWeight="SemiBold" Foreground="{ThemeResource Slate800}" />
+            </StackPanel>
+            <Grid x:Name="SearchEntryContainer" Grid.Column="2">
+                <!-- Keep the native natural height instead of stretching to the larger heading. -->
+                <mycontrols:SearchTextBox x:Name="SearchBox"
+                         Style="{StaticResource DefaultTextBoxStyle}"
+                         VerticalAlignment="Center"
+                         Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         KeyDown="OnSearchKeyDown" SearchRequested="OnSearchButtonClick"
+                         PlaceholderText="搜索 Bilibili 音乐视频"
+                         AutomationProperties.Name="搜索音乐" AutomationProperties.AutomationId="SearchTextBox" />
+            </Grid>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
+                      Visibility="{x:Bind ViewModel.LandingVisibility, Mode=OneWay}">
+            <StackPanel Margin="28,4,28,28" Spacing="14">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <TextBlock Text="搜索历史" FontSize="16" FontWeight="SemiBold"
+                               Foreground="{ThemeResource Slate600}" VerticalAlignment="Center" />
+                    <Button x:Name="ClearHistoryButton" Content="清空" Style="{StaticResource SubtleButtonStyle}"
+                            Command="{x:Bind ViewModel.ClearHistoryCommand}" Padding="8,4" MinWidth="0"
+                            Foreground="{ThemeResource Slate500}" AutomationProperties.AutomationId="ClearHistoryButton" />
                 </StackPanel>
+                <ItemsControl ItemsSource="{x:Bind ViewModel.SearchHistory}" AutomationProperties.AutomationId="SearchHistoryItems">
+                    <ItemsControl.Resources>
+                        <SolidColorBrush x:Key="ButtonBorderBrush" Color="Transparent" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="Transparent" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="Transparent" />
+                    </ItemsControl.Resources>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><mycontrols:WrapPanel Spacing="8" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <Button Content="{x:Bind}" Tag="{x:Bind}" Click="OnKeywordClick"
+                                    Background="{ThemeResource SearchHistoryBackgroundBrush}"
+                                    BorderThickness="0" CornerRadius="8" Padding="14,7"
+                                    HorizontalAlignment="Left" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="搜索过的关键词会显示在这里。"
+                           Visibility="{x:Bind ViewModel.EmptyHistoryVisibility, Mode=OneWay}"
+                           Foreground="{ThemeResource Slate400}" />
+            </StackPanel>
+        </ScrollViewer>
 
-                <!-- 搜索框区域（含建议下拉） -->
-                <Grid>
-                    <StackPanel Spacing="0">
-                        <Border Background="{ThemeResource Slate100}" CornerRadius="12,12,0,0" Padding="12,8">
-                            <TextBox x:Name="SearchBox" PlaceholderText="搜索 Bilibili 音乐视频" BorderThickness="0" Background="Transparent" Foreground="{ThemeResource Slate800}" PlaceholderForeground="{ThemeResource Slate400}"
-                                     Text="{x:Bind ViewModel.SearchText, Mode=TwoWay}"
-                                     KeyDown="OnSearchKeyDown"
-                                     AutomationProperties.AutomationId="SearchTextBox" />
-                        </Border>
-
-                        <!-- 搜索建议下拉列表 S3 -->
-                        <ListView x:Name="SuggestionsList"
-                                  ItemsSource="{x:Bind ViewModel.Suggestions, Mode=OneWay}"
-                                  Visibility="{x:Bind ViewModel.SuggestionsVisibility, Mode=OneWay}"
-                                  MaxHeight="300"
-                                  BorderBrush="{ThemeResource Slate200}"
-                                  BorderThickness="1"
-                                  CornerRadius="0,0,12,12"
-                                  SelectionMode="None"
-                                  IsItemClickEnabled="True"
-                                  ItemClick="OnSuggestionClick"
-                                  AutomationProperties.AutomationId="SuggestionsList">
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="models:SuggestionModel">
-                                    <Grid Padding="12,8">
-                                        <TextBlock Text="{x:Bind Name, Mode=OneWay}" Foreground="{ThemeResource Slate800}" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                    </StackPanel>
-                </Grid>
-
-                <!-- 搜索历史 -->
+        <Grid Grid.Row="1" Visibility="{x:Bind ViewModel.ResultsVisibility, Mode=OneWay}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <TextBlock Text="{x:Bind ViewModel.ResultSummary, Mode=OneWay}" Margin="28,0,28,16"
+                       Foreground="{ThemeResource Slate500}" TextTrimming="CharacterEllipsis" />
+            <ScrollViewer x:Name="MainScrollViewer" Grid.Row="1" Padding="28,0,12,24">
                 <StackPanel Spacing="12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <mycontrols:Icon Glyph="{StaticResource Icon_Search}" FontSize="20" />
-                            <TextBlock Text="搜索历史" Foreground="{ThemeResource Slate600}" FontWeight="SemiBold" />
-                        </StackPanel>
-                        <Button x:Name="ClearHistoryButton" Grid.Column="1" Content="清空" Foreground="{ThemeResource Slate400}" Background="Transparent" BorderThickness="0" IsEnabled="False" Command="{x:Bind ViewModel.ClearHistoryCommand}" AutomationProperties.AutomationId="ClearHistoryButton" />
-                    </Grid>
-
-                    <ScrollViewer HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" Padding="0">
-                        <controls:ItemsRepeater ItemsSource="{x:Bind ViewModel.SearchHistory, Mode=OneWay}">
-                            <controls:ItemsRepeater.Layout>
-                                <controls:StackLayout Orientation="Horizontal" Spacing="8" />
-                            </controls:ItemsRepeater.Layout>
-                            <controls:ItemsRepeater.ItemTemplate>
-                                <DataTemplate x:DataType="x:String">
-                                    <Button Padding="0" Background="Transparent" BorderThickness="0" Click="OnKeywordClick" Tag="{x:Bind Mode=OneWay}">
-                                        <Border Background="{ThemeResource Slate100}" CornerRadius="8" Padding="16,8" Margin="0">
-                                            <TextBlock Text="{x:Bind Mode=OneWay}" Foreground="{ThemeResource Slate600}" />
-                                        </Border>
-                                    </Button>
-                                </DataTemplate>
-                            </controls:ItemsRepeater.ItemTemplate>
-                        </controls:ItemsRepeater>
-                    </ScrollViewer>
-                </StackPanel>
-
-                <!-- 热门搜索 -->
-                <StackPanel Spacing="12">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <mycontrols:Icon Glyph="{StaticResource Icon_Fire}" FontSize="20" />
-                        <TextBlock Text="热门搜索" Foreground="{ThemeResource Slate600}" FontWeight="SemiBold" />
-                    </StackPanel>
-
-                    <ScrollViewer HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto" VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled" Padding="0">
-                        <controls:ItemsRepeater ItemsSource="{x:Bind ViewModel.HotKeywords, Mode=OneWay}">
-                            <controls:ItemsRepeater.Layout>
-                                <controls:StackLayout Orientation="Horizontal" Spacing="8" />
-                            </controls:ItemsRepeater.Layout>
-                            <controls:ItemsRepeater.ItemTemplate>
-                                <DataTemplate x:DataType="x:String">
-                                    <Button Padding="0" Background="Transparent" BorderThickness="0" Click="OnKeywordClick" Tag="{x:Bind Mode=OneWay}">
-                                        <Border Background="{ThemeResource Slate100}" CornerRadius="8" Padding="16,8" Margin="0">
-                                            <TextBlock Text="{x:Bind Mode=OneWay}" Foreground="{ThemeResource Slate600}" />
-                                        </Border>
-                                    </Button>
-                                </DataTemplate>
-                            </controls:ItemsRepeater.ItemTemplate>
-                        </controls:ItemsRepeater>
-                    </ScrollViewer>
-                </StackPanel>
-
-                <!-- 加载指示器 -->
-                <StackPanel HorizontalAlignment="Center" Visibility="{x:Bind ViewModel.IsSearchingVisibility, Mode=OneWay}">
-                    <ProgressRing IsActive="{x:Bind ViewModel.IsSearching, Mode=OneWay}" Width="32" Height="32" />
-                    <TextBlock Text="搜索中..." Foreground="{ThemeResource Slate500}" HorizontalAlignment="Center" Margin="0,8,0,0" />
-                </StackPanel>
-
-                <!-- 错误状态 UI S7 -->
-                <Border Visibility="{x:Bind ViewModel.ErrorMessageVisibility, Mode=OneWay}"
-                        Background="{ThemeResource Slate50}"
-                        CornerRadius="12"
-                        Padding="24"
-                        BorderBrush="{ThemeResource Rose200}"
-                        BorderThickness="1">
-                    <StackPanel HorizontalAlignment="Center" Spacing="8">
-                        <TextBlock Text="⚠" Foreground="{ThemeResource Rose400}" HorizontalAlignment="Center" FontSize="24" />
-                        <TextBlock x:Name="ErrorTextBlock"
-                                   Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
-                                   Foreground="{ThemeResource Rose500}"
-                                   HorizontalAlignment="Center"
-                                   TextWrapping="Wrap" />
-                        <Button Content="重试"
-                                Foreground="White"
-                                Background="{ThemeResource Rose400}"
-                                CornerRadius="8"
-                                Padding="16,8"
-                                HorizontalAlignment="Center"
-                                Command="{x:Bind ViewModel.RefreshCommand}"
-                                AutomationProperties.AutomationId="RetrySearchButton" />
-                    </StackPanel>
-                </Border>
-
-                <!-- 搜索结果标题 -->
-                <TextBlock Text="搜索结果" Foreground="{ThemeResource Rose400}" FontWeight="SemiBold" Margin="0,8,0,0" />
-
-                <!-- 搜索结果网格 -->
-                <GridView
-                    ItemsSource="{x:Bind ViewModel.SearchVideos, Mode=OneWay}"
-                    SelectionMode="None"
-                    IsItemClickEnabled="True"
-                    ItemClick="OnVideoClick"
-                    BorderThickness="0"
-                    AutomationProperties.AutomationId="SearchResultsGrid">
-                    <GridView.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <ItemsWrapGrid Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </GridView.ItemsPanel>
-                    <GridView.ItemContainerStyle>
-                        <Style TargetType="GridViewItem">
-                            <Setter Property="Margin" Value="0,0,16,16" />
-                            <Setter Property="Padding" Value="0" />
-                            <Setter Property="Width" Value="260" />
-                            <Setter Property="Height" Value="230" />
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
-                        </Style>
-                    </GridView.ItemContainerStyle>
-                    <GridView.ItemTemplate>
+                    <GridView x:Name="SearchResultsGrid" ItemsSource="{x:Bind ViewModel.SearchVideos, Mode=OneWay}"
+                              SelectionMode="None" IsItemClickEnabled="True" ItemClick="OnVideoClick"
+                              BorderThickness="0" AutomationProperties.AutomationId="SearchResultsGrid">
+                        <GridView.ItemsPanel>
+                            <ItemsPanelTemplate><ItemsWrapGrid Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </GridView.ItemsPanel>
+                        <GridView.ItemContainerStyle>
+                            <Style TargetType="GridViewItem">
+                                <Setter Property="Margin" Value="0,0,16,16" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Width" Value="260" />
+                                <Setter Property="Height" Value="230" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </GridView.ItemContainerStyle>
+                        <GridView.ItemTemplate>
                         <DataTemplate x:DataType="models:VideoPreviewItem">
                             <Border BorderBrush="{ThemeResource Slate200}" BorderThickness="1" CornerRadius="6">
                                 <Grid>
@@ -187,176 +130,92 @@
                                             <Border.Background>
                                                 <ImageBrush Stretch="UniformToFill">
                                                     <ImageBrush.ImageSource>
-                                                        <BitmapImage UriSource="{x:Bind CoverUri, Mode=OneWay}" />
+                                                        <BitmapImage UriSource="{x:Bind CoverUri}" />
                                                     </ImageBrush.ImageSource>
                                                 </ImageBrush>
                                             </Border.Background>
                                         </Border>
                                         <Border Background="#99000000" CornerRadius="8" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,8,8" Padding="6,2">
-                                            <TextBlock Text="{x:Bind Duration, Mode=OneWay}" Foreground="White" FontSize="10" FontFamily="Consolas" />
+                                            <TextBlock Text="{x:Bind Duration}" Foreground="White" FontSize="10" FontFamily="Consolas" />
                                         </Border>
                                     </Grid>
                                     <StackPanel Grid.Row="1" Padding="12,12,12,12" Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock Text="{x:Bind Title, Mode=OneWay}" Foreground="{ThemeResource Slate800}" TextTrimming="CharacterEllipsis" MaxLines="2" />
-                                        <TextBlock Text="{x:Bind Author, Mode=OneWay}" Foreground="{ThemeResource Slate500}" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{x:Bind Views, Mode=OneWay}" Foreground="{ThemeResource Slate400}" FontSize="11" Margin="0" />
+                                        <TextBlock Text="{x:Bind Title}" Foreground="{ThemeResource Slate800}" TextTrimming="CharacterEllipsis" MaxLines="2" />
+                                        <TextBlock Text="{x:Bind Author}" Foreground="{ThemeResource Slate500}" Style="{StaticResource CaptionTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Views}" Foreground="{ThemeResource Slate400}" FontSize="11" Margin="0" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
                         </DataTemplate>
                     </GridView.ItemTemplate>
-                </GridView>
-
-                <!-- 加载更多按钮 S4 -->
-                <Button x:Name="LoadMoreButton"
-                        Content="加载更多"
-                        Visibility="{x:Bind ViewModel.HasMoreVisibility, Mode=OneWay}"
-                        Command="{x:Bind ViewModel.LoadMoreCommand}"
-                        HorizontalAlignment="Center"
-                        Background="{ThemeResource Slate100}"
-                        Foreground="{ThemeResource Slate600}"
-                        CornerRadius="8"
-                        Padding="24,12"
-                        BorderThickness="0"
-                        AutomationProperties.AutomationId="LoadMoreButton" />
+                    </GridView>
+                    <ProgressRing Width="28" Height="28" IsActive="{x:Bind ViewModel.IsLoadingMore, Mode=OneWay}"
+                                  Visibility="{x:Bind ViewModel.LoadingMoreVisibility, Mode=OneWay}" />
+                    <TextBlock Text="{x:Bind ViewModel.LoadMoreError, Mode=OneWay}" TextWrapping="Wrap"
+                               Visibility="{x:Bind ViewModel.LoadMoreErrorVisibility, Mode=OneWay}"
+                               Foreground="{ThemeResource Rose500}" HorizontalAlignment="Center" />
+                    <Button Content="加载更多" Command="{x:Bind ViewModel.LoadMoreCommand}" HorizontalAlignment="Center"
+                            Visibility="{x:Bind ViewModel.HasMoreVisibility, Mode=OneWay}"
+                            AutomationProperties.AutomationId="LoadMoreButton" />
                 </StackPanel>
             </ScrollViewer>
+            <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"
+                        Visibility="{x:Bind ViewModel.EmptyResultsVisibility, Mode=OneWay}">
+                <TextBlock Text="没有找到相关视频" FontSize="20" Foreground="{ThemeResource Slate800}" />
+                <TextBlock Text="试试其他关键词" Foreground="{ThemeResource Slate500}" HorizontalAlignment="Center" />
+            </StackPanel>
         </Grid>
 
-        <!-- ════════════════════════════════════════════════ -->
-        <!-- LAYER 2: 全屏预览模式（左视频 + 右侧信息+列表）  -->
-        <!-- ════════════════════════════════════════════════ -->
-        <Grid Visibility="{x:Bind ViewModel.PreviewModeVisibility, Mode=OneWay}">
+        <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16"
+                    Visibility="{x:Bind ViewModel.IsSearchingVisibility, Mode=OneWay}"
+                    AutomationProperties.AutomationId="SearchLoadingPanel">
+            <ProgressRing Width="40" Height="40" IsActive="{x:Bind ViewModel.IsSearching, Mode=OneWay}" />
+            <TextBlock Text="正在搜索…" Foreground="{ThemeResource Slate500}" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Visibility="{x:Bind ViewModel.ErrorMessageVisibility, Mode=OneWay}" Margin="28"
+                Padding="28" CornerRadius="12" Background="{ThemeResource Slate50}"
+                MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Spacing="16">
+                <TextBlock Text="搜索暂时未完成" FontSize="20" Foreground="{ThemeResource Slate800}" />
+                <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}" TextWrapping="Wrap"
+                           Foreground="{ThemeResource Slate500}" AutomationProperties.AutomationId="SearchErrorText" />
+                <Button Content="重试搜索" Command="{x:Bind ViewModel.RefreshCommand}"
+                        HorizontalAlignment="Left" AutomationProperties.AutomationId="RetrySearchButton" />
+            </StackPanel>
+        </Border>
+
+        <Grid x:Name="PreviewLayout" Grid.Row="1" Margin="20,0,24,20" ColumnSpacing="20" RowSpacing="16"
+              Visibility="{x:Bind ViewModel.PreviewModeVisibility, Mode=OneWay}" SizeChanged="OnPreviewLayoutSizeChanged">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="PreviewListColumn" Width="360" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="380" />
             </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-            <!-- ── 左侧：视频播放器 ── -->
-            <Grid Background="Black">
-                <MediaPlayerElement x:Name="PreviewPlayer"
-                                    AutoPlay="True"
-                                    AreTransportControlsEnabled="True"
-                                    />
-
-                <!-- 返回按钮 V1 -->
-                <Button x:Name="ClosePreviewButton"
-                        HorizontalAlignment="Left"
-                        VerticalAlignment="Top"
-                        Margin="16"
-                        Width="40"
-                        Height="40"
-                        Background="#66000000"
-                        CornerRadius="20"
-                        BorderThickness="0"
-                        Command="{x:Bind ViewModel.ClosePreviewCommand}"
-                        AutomationProperties.AutomationId="ClosePreviewButton">
-                    <mycontrols:Icon Glyph="{StaticResource Icon_Close}" FontSize="20" />
-                </Button>
-            </Grid>
-
-            <!-- ── 右侧：视频信息 + 搜索结果列表 ── -->
-            <Grid Grid.Column="1" Background="White">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <!-- ── 顶部：视频信息 ── -->
-                <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Disabled">
-                    <StackPanel Padding="24,20,24,16" Spacing="12">
-                        <!-- 标题 V1 -->
-                        <TextBlock Text="{x:Bind ViewModel.PreviewTitle, Mode=OneWay}"
-                                   Style="{StaticResource SubtitleTextBlockStyle}"
-                                   Foreground="{ThemeResource Slate800}"
-                                   TextWrapping="Wrap"
-                                   MaxLines="3" />
-
-                        <!-- 分隔线 -->
-                        <Rectangle Height="1" Fill="{ThemeResource Slate100}" />
-
-                        <!-- UP 主信息 -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Width="40" Height="40" CornerRadius="20" Background="{ThemeResource Rose100}">
-                                <TextBlock Text="UP" Foreground="{ThemeResource Rose500}" FontWeight="SemiBold"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16" />
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                <TextBlock Text="{x:Bind ViewModel.PreviewAuthor, Mode=OneWay}"
-                                           Foreground="{ThemeResource Slate800}"
-                                           FontWeight="SemiBold" />
-                                <TextBlock Text="{x:Bind ViewModel.PreviewMeta, Mode=OneWay}"
-                                           Foreground="{ThemeResource Slate400}"
-                                           Style="{StaticResource CaptionTextBlockStyle}" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- 统计信息（VideoStatsBar：播放/点赞/收藏数/硬币/时长） -->
-                        <mycontrols:VideoStatsBar
-                            ViewCount="{x:Bind ViewModel.PreviewViews, Mode=OneWay}"
-                            LikeCount="{x:Bind ViewModel.PreviewLikes, Mode=OneWay}"
-                            FavoriteCount="{x:Bind ViewModel.PreviewFavoriteCount, Mode=OneWay}"
-                            CoinCount="{x:Bind ViewModel.PreviewCoinCount, Mode=OneWay}"
-                            Duration="{x:Bind ViewModel.PreviewDuration, Mode=OneWay}" />
-
-                        <!-- 收藏按钮 V1 -->
-                        <Button x:Name="FavoriteButton"
-                                Background="{ThemeResource Slate50}"
-                                BorderThickness="0"
-                                CornerRadius="8"
-                                Padding="12,8"
-                                HorizontalAlignment="Stretch"
-                                Command="{x:Bind ViewModel.TogglePreviewFavoriteCommand}"
-                                AutomationProperties.AutomationId="PreviewFavoriteButton">
-                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                                <!-- <ImageIcon Source="ms-appx:///Assets/Icons/star-solid-rose.svg"
-                                           Width="20" Height="20"
-                                           Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsPreviewFavorited), Mode=OneWay}" />
-                                <ImageIcon Source="ms-appx:///Assets/Icons/star-rose.svg"
-                                           Width="20" Height="20"
-                                           Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsPreviewFavorited), Mode=OneWay}" /> -->
-                                <TextBlock Text="{x:Bind ViewModel.PreviewFavoriteText, Mode=OneWay}"
-                                           Foreground="{ThemeResource Rose400}"
-                                           FontWeight="SemiBold" />
-                            </StackPanel>
-                        </Button>
-
-                        <!-- 分隔线 -->
-                        <Rectangle Height="1" Fill="{ThemeResource Slate100}" />
-                    </StackPanel>
-                </ScrollViewer>
-
-                <!-- ── 底部：搜索结果列表（可滚动） ── -->
-                <Grid Grid.Row="1">
+            <Border Grid.RowSpan="2" Background="{ThemeResource Slate50}" BorderBrush="{ThemeResource Slate200}"
+                    BorderThickness="1" CornerRadius="12">
+                <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-
-                    <!-- 列表标题 -->
-                    <Border Background="{ThemeResource Slate50}" Padding="24,12">
+                    <Border Padding="16,14" BorderBrush="{ThemeResource Slate200}" BorderThickness="0,0,0,1">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <mycontrols:Icon Glyph="{StaticResource Icon_Search}" FontSize="20" />
-                            <TextBlock Foreground="{ThemeResource Slate600}" FontWeight="SemiBold" FontSize="13">
-                                <Run Text="搜索结果" />
-                                <Run Text="{x:Bind ViewModel.TotalResults, Mode=OneWay}" />
+                            <mycontrols:Icon Glyph="{StaticResource Icon_Search}" FontSize="18" />
+                            <TextBlock Foreground="{ThemeResource Slate600}" FontWeight="SemiBold">
+                                <Run Text="搜索结果 " /><Run Text="{x:Bind ViewModel.TotalResults, Mode=OneWay}" />
                             </TextBlock>
                         </StackPanel>
                     </Border>
-
-                    <!-- 搜索结果列表 -->
-                    <ListView Grid.Row="1"
-                              x:Name="PreviewSearchResultsList"
+                    <ListView x:Name="PreviewSearchResultsList" Grid.Row="1"
                               ItemsSource="{x:Bind ViewModel.SearchVideos, Mode=OneWay}"
-                              SelectionMode="Single"
-                              IsItemClickEnabled="True"
-                              ItemClick="OnPreviewResultClick"
-                              BorderThickness="0"
-                              AutomationProperties.AutomationId="PreviewSearchResultsList">
+                              SelectionMode="Single" IsItemClickEnabled="True" ItemClick="OnPreviewResultClick"
+                              BorderThickness="0" AutomationProperties.AutomationId="PreviewSearchResultsList">
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="Padding" Value="0" />
@@ -381,29 +240,29 @@
                                                 <Border.Background>
                                                     <ImageBrush Stretch="UniformToFill">
                                                         <ImageBrush.ImageSource>
-                                                            <BitmapImage UriSource="{x:Bind CoverUri, Mode=OneWay}" />
+                                                            <BitmapImage UriSource="{x:Bind CoverUri}" />
                                                         </ImageBrush.ImageSource>
                                                     </ImageBrush>
                                                 </Border.Background>
                                             </Border>
                                             <Border Background="#99000000" CornerRadius="4" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,4,4" Padding="4,1">
-                                                <TextBlock Text="{x:Bind Duration, Mode=OneWay}" Foreground="White" FontSize="10" FontFamily="Consolas" />
+                                                <TextBlock Text="{x:Bind Duration}" Foreground="White" FontSize="10" FontFamily="Consolas" />
                                             </Border>
                                         </Grid>
                                     </Border>
 
                                     <!-- 文字信息 -->
                                     <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" Spacing="2">
-                                        <TextBlock Text="{x:Bind Title, Mode=OneWay}"
+                                        <TextBlock Text="{x:Bind Title}"
                                                    Foreground="{ThemeResource Slate800}"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis"
                                                    MaxLines="2" />
-                                        <TextBlock Text="{x:Bind Author, Mode=OneWay}"
+                                        <TextBlock Text="{x:Bind Author}"
                                                    Foreground="{ThemeResource Slate500}"
                                                    FontSize="11" />
-                                        <TextBlock Text="{x:Bind Views, Mode=OneWay}"
+                                        <TextBlock Text="{x:Bind Views}"
                                                    Foreground="{ThemeResource Slate400}"
                                                    FontSize="10" />
                                     </StackPanel>
@@ -411,8 +270,89 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+                    <StackPanel Grid.Row="2" Padding="12" Spacing="8"
+                                Visibility="{x:Bind ViewModel.HasMoreVisibility, Mode=OneWay}">
+                        <ProgressRing Width="24" Height="24" IsActive="{x:Bind ViewModel.IsLoadingMore, Mode=OneWay}"
+                                      Visibility="{x:Bind ViewModel.LoadingMoreVisibility, Mode=OneWay}" />
+                        <TextBlock Text="{x:Bind ViewModel.LoadMoreError, Mode=OneWay}" TextWrapping="Wrap"
+                                   Visibility="{x:Bind ViewModel.LoadMoreErrorVisibility, Mode=OneWay}"
+                                   Foreground="{ThemeResource Rose500}" />
+                        <Button Content="加载更多视频" Command="{x:Bind ViewModel.LoadMoreCommand}"
+                                HorizontalAlignment="Stretch" AutomationProperties.AutomationId="PreviewLoadMoreButton" />
+                    </StackPanel>
                 </Grid>
+            </Border>
+
+            <Grid Grid.Column="1" Background="Black" CornerRadius="12">
+                <MediaPlayerElement x:Name="PreviewPlayer" AutoPlay="False" Stretch="Uniform"
+                                    AreTransportControlsEnabled="True" AutomationProperties.AutomationId="PreviewPlayer">
+                    <MediaPlayerElement.TransportControls>
+                        <MediaTransportControls IsSeekBarVisible="True" IsSeekEnabled="True"
+                                                IsZoomButtonVisible="False" IsPlaybackRateEnabled="True"
+                                                IsPlaybackRateButtonVisible="True" />
+                    </MediaPlayerElement.TransportControls>
+                </MediaPlayerElement>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" IsHitTestVisible="False"
+                            Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsPreviewLoading), Mode=OneWay}">
+                    <ProgressRing Width="40" Height="40" Foreground="White"
+                                  IsActive="{x:Bind ViewModel.IsPreviewLoading, Mode=OneWay}" />
+                    <TextBlock Text="正在加载视频…" Foreground="White" HorizontalAlignment="Center" />
+                </StackPanel>
+                <Border Margin="24" Padding="24" MaxWidth="480" Background="#E6000000" CornerRadius="12"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{x:Bind ViewModel.PreviewErrorVisibility, Mode=OneWay}">
+                    <StackPanel Spacing="16" AutomationProperties.AutomationId="PreviewErrorPanel">
+                        <TextBlock Text="{x:Bind ViewModel.PreviewErrorMessage, Mode=OneWay}"
+                                   TextWrapping="Wrap" Foreground="White" MaxLines="5" />
+                        <Button Content="重试播放" Click="OnRetryPreviewClick" HorizontalAlignment="Center"
+                                AutomationProperties.AutomationId="RetryPreviewButton" />
+                    </StackPanel>
+                </Border>
             </Grid>
+
+            <ScrollViewer x:Name="PreviewMetadataScrollViewer" Grid.Column="1" Grid.Row="1" MaxHeight="220"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{x:Bind ViewModel.PreviewTitle, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"
+                                       Foreground="{ThemeResource Slate800}" TextWrapping="Wrap" MaxLines="3" />
+                            <TextBlock Text="{x:Bind ViewModel.PreviewAuthor, Mode=OneWay}"
+                                       Foreground="{ThemeResource Slate500}" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Command="{x:Bind ViewModel.TogglePreviewFavoriteCommand}"
+                                Background="{ThemeResource Rose400}" CornerRadius="8" BorderThickness="0"
+                                Padding="14,10" VerticalAlignment="Top" AutomationProperties.AutomationId="PreviewFavoriteButton">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <mycontrols:Icon Glyph="{StaticResource Icon_Like}" FontSize="18" />
+                                <TextBlock Text="{x:Bind ViewModel.PreviewFavoriteText, Mode=OneWay}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <mycontrols:VideoStatsBar ViewCount="{x:Bind ViewModel.PreviewViews, Mode=OneWay}"
+                        LikeCount="{x:Bind ViewModel.PreviewLikes, Mode=OneWay}"
+                        FavoriteCount="{x:Bind ViewModel.PreviewFavoriteCount, Mode=OneWay}"
+                        CoinCount="{x:Bind ViewModel.PreviewCoinCount, Mode=OneWay}"
+                        Duration="{x:Bind ViewModel.PreviewDuration, Mode=OneWay}" />
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
+        <Canvas Grid.RowSpan="2" Canvas.ZIndex="20"
+                Visibility="{x:Bind ViewModel.SuggestionsVisibility, Mode=OneWay}">
+            <Border x:Name="SuggestionsBorder" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                    BorderBrush="{ThemeResource Slate200}" BorderThickness="1" CornerRadius="10" Padding="4">
+                <ListView x:Name="SuggestionsList" MaxHeight="300"
+                          ItemsSource="{x:Bind ViewModel.Suggestions, Mode=OneWay}"
+                          IsItemClickEnabled="True" SelectionMode="Single" ItemClick="OnSuggestionClick"
+                          KeyDown="OnSuggestionsKeyDown" AutomationProperties.AutomationId="SuggestionsList">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:SuggestionModel">
+                            <TextBlock Text="{x:Bind Name}" Margin="12,8" Foreground="{ThemeResource Slate800}" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
+        </Canvas>
     </Grid>
 </Page>

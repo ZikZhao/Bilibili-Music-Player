@@ -75,7 +75,7 @@ namespace bilibili_music_player_windows
             // ViewModels
             services.AddSingleton<MainViewModel>();
             services.AddSingleton<PlayerViewModel>();
-            services.AddTransient<SearchViewModel>();
+            services.AddSingleton<SearchViewModel>();
             services.AddSingleton<LibraryViewModel>();
             services.AddSingleton<SettingsViewModel>();
 

@@ -18,47 +18,46 @@
         </Grid.RowDefinitions>
 
         <!-- ═══ Custom Title Bar (U5) ═══ -->
-        <Grid x:Name="AppTitleBar" Height="32" Background="Transparent">
-            <TextBlock x:Name="TitleBarText"
-                       Text="BiliMusic Desktop"
-                       Style="{StaticResource CaptionTextBlockStyle}"
-                       Foreground="{ThemeResource Slate600}"
-                       VerticalAlignment="Center"
-                       Margin="48,0,0,0"
-                       AutomationProperties.AutomationId="TitleBarText" />
+        <Grid Height="40" Background="Transparent">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="TitleBackButton" Width="28" Height="28" Padding="0" CornerRadius="4"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Style="{StaticResource SubtleButtonStyle}" IsEnabled="False"
+                    Click="OnTitleBackClick" ToolTipService.ToolTip="返回 (Alt+←)"
+                    AutomationProperties.Name="返回" AutomationProperties.AutomationId="TitleBackButton">
+                <FontIcon Glyph="&#xE72B;" FontSize="12" />
+            </Button>
+            <Grid x:Name="AppTitleBar" Grid.Column="1" Background="Transparent">
+                <TextBlock x:Name="TitleBarText" Text="BiliMusic Desktop"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource Slate600}" VerticalAlignment="Center" Margin="8,0,0,0"
+                           AutomationProperties.AutomationId="TitleBarText" />
+            </Grid>
         </Grid>
 
         <!-- ═══ NavigationView (U1) + Content + Now-Playing Bar ═══ -->
         <NavigationView x:Name="NavView"
                         Grid.Row="1"
                         PaneDisplayMode="LeftCompact"
-                        OpenPaneLength="256"
+                        OpenPaneLength="48"
+                        CompactPaneLength="48"
+                        IsPaneToggleButtonVisible="False"
+                        IsPaneOpen="False"
                         IsSettingsVisible="False"
                         IsBackButtonVisible="Collapsed"
                         IsTitleBarAutoPaddingEnabled="False"
                         SelectionChanged="OnNavSelectionChanged"
                         AutomationProperties.AutomationId="MainNavigationView">
 
-            <!-- Pane header: app logo -->
-            <NavigationView.PaneHeader>
-                <Grid Height="48" Margin="0,4,0,0">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                        <Border Width="28" Height="28" Background="{ThemeResource Rose400}" CornerRadius="6">
-                            <controls:Icon Glyph="{StaticResource Icon_Like}" Width="18" Height="18" />
-                        </Border>
-                        <TextBlock Text="BiliMusic" Margin="8,0,0,0"
-                                   Style="{StaticResource SubtitleTextBlockStyle}"
-                                   Foreground="{ThemeResource Slate800}" />
-                    </StackPanel>
-                </Grid>
-            </NavigationView.PaneHeader>
-
             <!-- Main navigation items -->
             <NavigationView.MenuItems>
                 <NavigationViewItem Tag="nowplaying" Content="正在播放"
                                     AutomationProperties.AutomationId="NavNowPlaying">
                     <NavigationViewItem.Icon>
-                        <controls:Icon Glyph="{StaticResource Icon_PlayOne}" />
+                        <controls:Icon Glyph="{StaticResource Icon_Play}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Tag="search" Content="搜索"
@@ -84,14 +83,14 @@
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <!-- ═══ Content area: Frame + Now-Playing Bar ═══ -->
+            <!-- Tabs stay attached to this host; switching only changes Visibility. -->
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Frame x:Name="ContentFrame" Grid.Row="0" />
+                <Grid x:Name="PageHost" Grid.Row="0" AutomationProperties.AutomationId="ResidentPageHost" />
 
                 <!-- ── Now-Playing Bar (P4) ── -->
                 <Grid Grid.Row="1" BorderBrush="{ThemeResource Slate200}" BorderThickness="0,1,0,0"

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../windows/Api/HttpRangeStream.cs" Link="HttpRangeStream.cs" />
+    <Compile Include="../windows/Services/SearchSession.cs" Link="SearchSession.cs" />
+    <Compile Include="../windows/Services/ResidentTabs.cs" Link="ResidentTabs.cs" />
+    <Compile Include="../windows/Models/SearchResult.cs" Link="SearchResult.cs" />
+    <Compile Include="../windows/Models/SuggestionModel.cs" Link="SuggestionModel.cs" />
+    <Compile Include="../windows/Models/VideoPreviewItem.cs" Link="VideoPreviewItem.cs" />
+  </ItemGroup>
+</Project>

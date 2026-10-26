@@ -458,6 +458,13 @@ namespace bilibili_music_player_windows.ViewModels
 
         // ── 队列管理 ──
 
+        /// <summary>预览视频时也取消尚未完成的音频加载，避免随后出现双重播放。</summary>
+        public async Task PauseForPreviewAsync()
+        {
+            _playCts?.Cancel();
+            await PauseCommand.ExecuteAsync(null);
+        }
+
         /// <summary>
         /// 设置播放队列并从指定索引开始播放。
         /// </summary>

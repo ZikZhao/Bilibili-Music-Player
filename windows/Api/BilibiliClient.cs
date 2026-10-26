@@ -297,7 +297,11 @@ namespace bilibili_music_player_windows.Api
         {
             await EnsureInitializedAsync(ct);
 
-            var requestUri = $"{BaseUrl}/x/web-interface/view?bvid={Uri.EscapeDataString(bvid)}";
+            var signedParams = _wbiSigner.Sign(new Dictionary<string, string>
+            {
+                ["bvid"] = bvid,
+            });
+            var requestUri = BuildUri($"{BaseUrl}/x/web-interface/wbi/view", signedParams);
 
             using var response = await _client.GetAsync(requestUri, ct);
             response.EnsureSuccessStatusCode();

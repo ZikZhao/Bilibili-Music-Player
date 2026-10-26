@@ -2,6 +2,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <FontFamily x:Key="ContentControlThemeFontFamily">Microsoft YaHei</FontFamily>
+    <SolidColorBrush x:Key="SearchHistoryBackgroundBrush" Color="#FFE5E5E5" />
+
     <!-- Bilibili brand pink -->
     <SolidColorBrush x:Key="Rose200" Color="#FFFECDD3" />
     <SolidColorBrush x:Key="Rose400" Color="#FFFB7185" />

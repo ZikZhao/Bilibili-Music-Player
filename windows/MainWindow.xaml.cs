@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using System;
+using bilibili_music_player_windows.Services;
 using bilibili_music_player_windows.Pages;
 using bilibili_music_player_windows.ViewModels;
 
@@ -21,6 +22,8 @@ namespace bilibili_music_player_windows
         private readonly MainViewModel _mainViewModel;
         private readonly PlayerViewModel _playerViewModel;
         private readonly SettingsViewModel _settingsViewModel;
+        private readonly SearchViewModel _searchViewModel;
+        private readonly ResidentTabs<Page>? _tabs;
 
         /// <summary>暴露给 XAML x:Bind 的 PlayerViewModel。</summary>
         public PlayerViewModel PlayerViewModel { get; }
@@ -28,13 +31,17 @@ namespace bilibili_music_player_windows
         public MainWindow(
             MainViewModel mainViewModel,
             PlayerViewModel playerViewModel,
-            SettingsViewModel settingsViewModel)
+            SettingsViewModel settingsViewModel,
+            SearchViewModel searchViewModel)
         {
             _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
             _playerViewModel = playerViewModel ?? throw new ArgumentNullException(nameof(playerViewModel));
             _settingsViewModel = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
+            _searchViewModel = searchViewModel;
             PlayerViewModel = _playerViewModel;
             InitializeComponent();
+            _tabs = new ResidentTabs<Page>(CreateTab, SetTabActive);
+            Closed += OnWindowClosed;
 
             // U4: Enable MicaBackdrop
             SystemBackdrop = new MicaBackdrop();
@@ -42,6 +49,20 @@ namespace bilibili_music_player_windows
             // U5: Custom title bar
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
+            _searchViewModel.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(SearchViewModel.CanGoBack)) UpdateBackButton();
+            };
+            var backShortcut = new KeyboardAccelerator
+            {
+                Key = Windows.System.VirtualKey.Left,
+                Modifiers = Windows.System.VirtualKeyModifiers.Menu,
+            };
+            backShortcut.Invoked += (_, args) =>
+            {
+                if (TitleBackButton.IsEnabled) { _searchViewModel.GoBack(); args.Handled = true; }
+            };
+            ((FrameworkElement)Content).KeyboardAccelerators.Add(backShortcut);
 
             // ST3: 订阅主题变化
             _settingsViewModel.ThemeChanged += OnThemeChanged;
@@ -50,6 +71,9 @@ namespace bilibili_music_player_windows
             // Set initial navigation to favorites
             NavView.SelectedItem = NavView.MenuItems[2]; // "我的收藏"
             NavigateTo("favorites");
+#if DEBUG
+            StartUiDiagnostics();
+#endif
         }
 
         /// <summary>主题变化时延迟应用。</summary>
@@ -89,19 +113,56 @@ namespace bilibili_music_player_windows
 
         private void NavigateTo(string? target)
         {
-            Type? pageType = target switch
-            {
-                "search" => typeof(SearchPage),
-                "favorites" => typeof(FavoritesPage),
-                "settings" => typeof(SettingsPage),
-                "nowplaying" => typeof(AudioPlayerPage),
-                _ => null,
-            };
+            if (_tabs is null || target is not ("search" or "favorites" or "settings" or "nowplaying")) return;
+            _tabs.Select(target);
+            foreach (var entry in NavView.MenuItems)
+                if (entry is NavigationViewItem item && item.Tag?.ToString() == target &&
+                    !ReferenceEquals(NavView.SelectedItem, item)) NavView.SelectedItem = item;
+            UpdateBackButton();
+        }
 
-            if (pageType is not null && ContentFrame.CurrentSourcePageType != pageType)
+        private Page CreateTab(string key)
+        {
+            Page page = key switch
             {
-                ContentFrame.Navigate(pageType);
-            }
+                "search" => new SearchPage(),
+                "favorites" => new FavoritesPage(),
+                "settings" => new SettingsPage(),
+                "nowplaying" => new AudioPlayerPage(),
+                _ => throw new ArgumentOutOfRangeException(nameof(key)),
+            };
+            page.Visibility = Visibility.Collapsed;
+            PageHost.Children.Add(page);
+            return page;
+        }
+
+        private static void SetTabActive(Page page, bool active)
+        {
+            // Pause before hiding. The page stays parented, so neither Loaded nor
+            // Unloaded is used as the tab activation signal.
+            if (active) page.Visibility = Visibility.Visible;
+            (page as IResidentTab)?.SetTabActive(active);
+            page.IsHitTestVisible = active;
+            if (!active) page.Visibility = Visibility.Collapsed;
+        }
+
+        private void OnWindowClosed(object sender, WindowEventArgs args)
+        {
+            try { _tabs?.Dispose(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Tabs] Window cleanup: {ex}"); }
+        }
+
+        private void UpdateBackButton()
+        {
+            TitleBackButton.IsEnabled = _tabs?.ActivePage is SearchPage && _searchViewModel.CanGoBack;
+            var label = _searchViewModel.IsPreviewing ? "返回搜索结果" : "返回搜索历史";
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(TitleBackButton, label);
+            ToolTipService.SetToolTip(TitleBackButton, $"{label} (Alt+←)");
+        }
+
+        private void OnTitleBackClick(object sender, RoutedEventArgs e)
+        {
+            if (TitleBackButton.IsEnabled) _searchViewModel.GoBack();
         }
 
         /// <summary>导航到全屏播放器页面。</summary>

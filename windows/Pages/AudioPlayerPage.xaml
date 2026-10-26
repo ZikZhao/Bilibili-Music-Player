@@ -107,7 +107,7 @@
                                 Command="{x:Bind ViewModel.TogglePlayCommand}"
                                 AutomationProperties.AutomationId="PlayerPagePlayPauseButton">
                             <Grid>
-                                <controls:Icon Glyph="{StaticResource Icon_Play}" FontSize="32"
+                                <controls:Icon Glyph="{StaticResource Icon_PlayOne}" FontSize="32"
                                            Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
                                 <controls:Icon Glyph="{StaticResource Icon_Pause}" FontSize="32"
                                            Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
@@ -125,7 +125,7 @@
                         <Button Width="40" Height="40" Background="Transparent" BorderThickness="0"
                                 Click="OnTogglePlaylistClick"
                                 AutomationProperties.AutomationId="TogglePlaylistButton">
-                            <controls:Icon Glyph="{StaticResource Icon_Playlist}" FontSize="24" />
+                            <controls:Icon Glyph="{StaticResource Icon_MusicList}" FontSize="24" />
                         </Button>
                     </StackPanel>
                 </StackPanel>
@@ -138,7 +138,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <controls:Icon Grid.Column="0" Glyph="{StaticResource Icon_Volume}" FontSize="20" />
+                        <controls:Icon Grid.Column="0" Glyph="{StaticResource Icon_VolumeNotice}" FontSize="20" />
                         <Slider Grid.Column="1"
                                 Value="{x:Bind ViewModel.Volume, Mode=TwoWay}"
                                 Minimum="0" Maximum="1" StepFrequency="0.01"

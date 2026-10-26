@@ -2,3 +2,6 @@ bilibili-API-collect-master/
 
 # Development certificate
 devcert.pfx
+
+# Local UI inspection exports
+artifacts/ui/

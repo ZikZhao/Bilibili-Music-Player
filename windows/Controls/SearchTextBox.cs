@@ -1,0 +1,113 @@
+using System.Diagnostics;
+using System.Linq;
+using Microsoft.UI;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Media;
+
+namespace bilibili_music_player_windows.Controls;
+
+/// <summary>A native TextBox with a search button before its editing column.</summary>
+public sealed class SearchTextBox : TextBox
+{
+    private Button? _searchButton;
+    internal string TemplateStatus { get; private set; } = "Not applied";
+
+    public event RoutedEventHandler? SearchRequested;
+
+    public SearchTextBox() => DefaultStyleKey = typeof(TextBox);
+
+    protected override void OnApplyTemplate()
+    {
+        if (_searchButton is not null) _searchButton.Click -= OnSearchClick;
+        base.OnApplyTemplate();
+
+        // Keep the SDK's text presenter, placeholder, clear button, bindings and
+        // visual states intact. Vertical layout and clipping belong entirely to
+        // the native text control; only horizontal column placement changes.
+        if (GetTemplateChild("ContentElement") is not FrameworkElement content ||
+            GetTemplateChild("PlaceholderTextContentPresenter") is not FrameworkElement placeholder ||
+            GetTemplateChild("DeleteButton") is not FrameworkElement deleteButton ||
+            GetTemplateChild("BorderElement") is not FrameworkElement border ||
+            content.Parent is not Grid grid || placeholder.Parent != grid ||
+            deleteButton.Parent != grid || border.Parent != grid)
+        {
+            TemplateStatus = "Missing native part or unexpected parent: " + string.Join(", ",
+                new[] { "ContentElement", "PlaceholderTextContentPresenter", "DeleteButton", "BorderElement" }
+                    .Select(name => $"{name}={GetTemplateChild(name)?.GetType().Name ?? "null"}"));
+            Debug.WriteLine("[SearchTextBox] " + TemplateStatus);
+            return;
+        }
+
+        // Applying the same template twice must not add a second prefix column.
+        if (_searchButton?.Parent == grid)
+        {
+            TemplateStatus = "Reused prefix";
+            _searchButton.Click += OnSearchClick;
+            return;
+        }
+        _searchButton = null;
+        var inputColumn = Grid.GetColumn(content);
+        if (grid.ColumnDefinitions.Count < inputColumn + 2 ||
+            Grid.GetRow(placeholder) != Grid.GetRow(content) || Grid.GetRow(deleteButton) != Grid.GetRow(content) ||
+            Grid.GetRow(border) != Grid.GetRow(content) ||
+            Grid.GetColumn(placeholder) != inputColumn || Grid.GetColumnSpan(placeholder) != 2 ||
+            Grid.GetColumn(deleteButton) != inputColumn + 1 ||
+            Grid.GetColumn(border) != inputColumn || Grid.GetColumnSpan(border) != 2)
+        {
+            TemplateStatus = $"Unsupported columns: {grid.ColumnDefinitions.Count}; content={Grid.GetColumn(content)}; placeholder={Grid.GetColumn(placeholder)}/{Grid.GetColumnSpan(placeholder)}; delete={Grid.GetColumn(deleteButton)}; border={Grid.GetColumn(border)}/{Grid.GetColumnSpan(border)}";
+            Debug.WriteLine("[SearchTextBox] " + TemplateStatus);
+            return;
+        }
+
+        var children = grid.Children.OfType<FrameworkElement>().ToArray();
+        // Recent runtimes add validation columns around the editing area. Insert
+        // inside its existing chrome rather than assuming it begins at column 0.
+        grid.ColumnDefinitions.Insert(inputColumn, new ColumnDefinition { Width = GridLength.Auto });
+        foreach (var child in children)
+        {
+            var column = Grid.GetColumn(child);
+            var span = Grid.GetColumnSpan(child);
+            if (child != placeholder && child != content && column <= inputColumn &&
+                column + span > inputColumn && (column < inputColumn || span > 1))
+                Grid.SetColumnSpan(child, span + 1);
+            else if (column >= inputColumn)
+                Grid.SetColumn(child, column + 1);
+        }
+
+        _searchButton = new Button
+        {
+            Name = "SearchPrefixButton",
+            Width = 32,
+            MinHeight = 0,
+            Padding = new Thickness(0),
+            BorderThickness = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Content = new FontIcon { Glyph = "\uE721", FontSize = 16 },
+        };
+        // Keep native keyboard focus and button behavior, with no background or
+        // outline in any interaction state (including pointer over and pressed).
+        foreach (var key in new[] { "ButtonBackground", "ButtonBackgroundPointerOver", "ButtonBackgroundPressed",
+            "ButtonBackgroundDisabled", "ButtonBorderBrush", "ButtonBorderBrushPointerOver",
+            "ButtonBorderBrushPressed", "ButtonBorderBrushDisabled" })
+            _searchButton.Resources[key] = new SolidColorBrush(Colors.Transparent);
+        _searchButton.SetBinding(ForegroundProperty, new Binding { Source = this, Path = new PropertyPath(nameof(Foreground)) });
+        AutomationProperties.SetName(_searchButton, "搜索");
+        AutomationProperties.SetAutomationId(_searchButton, "SubmitSearchButton");
+        ToolTipService.SetToolTip(_searchButton, "搜索 (Enter)");
+        Grid.SetRow(_searchButton, Grid.GetRow(content));
+        Grid.SetColumn(_searchButton, inputColumn);
+        _searchButton.Click += OnSearchClick;
+        grid.Children.Add(_searchButton);
+        TemplateStatus = "Native prefix attached";
+    }
+
+    private void OnSearchClick(object sender, RoutedEventArgs e)
+    {
+        Focus(FocusState.Programmatic);
+        SearchRequested?.Invoke(this, e);
+    }
+
+}
