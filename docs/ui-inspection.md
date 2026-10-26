@@ -17,10 +17,11 @@ TextBlock baselines, resolved brushes, scroll offsets and visual states. Coordin
 are DIPs; `scale` records the display rasterization scale. Collapsed resident pages
 are excluded. `-CompareNative` also measures an untouched native TextBox with the
 same size, font, text and visual state, for vertical-layout comparisons.
-The search field keeps its native natural height, padding, placeholder and
-editor/caret vertical layout. A 32-DIP prefix button provides search without
-replacing the native template or introducing text-position compensation.
-No text layer has a RenderTransform or an optical padding override.
+The search field keeps its native natural height, padding and editor/caret
+vertical layout. A 32-DIP prefix button provides search without replacing the
+native template. Only the placeholder TextBlock's padding is adjusted: top -1 DIP,
+bottom +1 DIP, to align it optically with entered text while preserving its size.
+No text layer has a RenderTransform; the editor and caret have no optical offset.
 
 `-VisibleReference -HoldReference` displays an ordinary TextBox below the search
 field. `-FocusReference` actually focuses it; this can verify real editing behavior

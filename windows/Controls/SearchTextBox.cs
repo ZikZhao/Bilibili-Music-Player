@@ -25,8 +25,8 @@ public sealed class SearchTextBox : TextBox
         base.OnApplyTemplate();
 
         // Keep the SDK's text presenter, placeholder, clear button, bindings and
-        // visual states intact. Vertical layout and clipping belong entirely to
-        // the native text control; only horizontal column placement changes.
+        // visual states intact. Native editor/caret layout and clipping stay
+        // unchanged; the placeholder-only optical inset is applied below.
         if (GetTemplateChild("ContentElement") is not FrameworkElement content ||
             GetTemplateChild("PlaceholderTextContentPresenter") is not FrameworkElement placeholder ||
             GetTemplateChild("DeleteButton") is not FrameworkElement deleteButton ||
@@ -77,6 +77,17 @@ public sealed class SearchTextBox : TextBox
                 Grid.SetColumn(child, column + 1);
         }
 
+        // TextBlock placeholder metrics differ from the RichEdit editing layer.
+        // Move only placeholder text up 1 DIP, preserving its total padding and
+        // the control's natural height. Track future native/theme padding changes.
+        if (placeholder is TextBlock placeholderText)
+            placeholderText.SetBinding(TextBlock.PaddingProperty, new Binding
+            {
+                Source = this,
+                Path = new PropertyPath(nameof(Padding)),
+                Converter = new PlaceholderPaddingConverter(),
+            });
+
         _searchButton = new Button
         {
             Name = "SearchPrefixButton",
@@ -110,4 +121,16 @@ public sealed class SearchTextBox : TextBox
         SearchRequested?.Invoke(this, e);
     }
 
+    private sealed class PlaceholderPaddingConverter : IValueConverter
+    {
+        public object Convert(object value, System.Type targetType, object parameter, string language)
+        {
+            if (value is not Thickness padding) return value;
+            var offset = System.Math.Min(1, padding.Top);
+            return new Thickness(padding.Left, padding.Top - offset, padding.Right, padding.Bottom + offset);
+        }
+
+        public object ConvertBack(object value, System.Type targetType, object parameter, string language) =>
+            throw new System.NotSupportedException();
+    }
 }

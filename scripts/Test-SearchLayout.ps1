@@ -40,7 +40,12 @@ foreach ($theme in @('Light', 'Dark')) {
                 Assert-Layout (Close-Enough $current.bounds.height $native.bounds.height) "$label $name height differs"
                 Assert-Layout ($current.fontFamily -eq $native.fontFamily -and $current.fontSize -eq $native.fontSize) "$label font differs"
                 foreach ($edge in @('left','top','right','bottom')) {
-                    Assert-Layout (Close-Enough $current.padding[$edge] $native.padding[$edge]) "$label $name native padding differs"
+                    $adjustment = 0
+                    if ($name -eq 'PlaceholderTextContentPresenter') {
+                        if ($edge -eq 'top') { $adjustment = -1 }
+                        elseif ($edge -eq 'bottom') { $adjustment = 1 }
+                    }
+                    Assert-Layout (Close-Enough $current.padding[$edge] ($native.padding[$edge] + $adjustment)) "$label $name padding differs"
                 }
                 Assert-Layout (Close-Enough ($current.bounds.x - $native.bounds.x) 32) "$label $name horizontal prefix differs"
                 if ($name -eq 'PlaceholderTextContentPresenter') {
