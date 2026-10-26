@@ -32,7 +32,8 @@ public sealed partial class MainWindow
     private bool TryGoBack()
     {
         if (!TitleBackButton.IsEnabled) return false;
-        _searchViewModel.GoBack();
+        if (_tabs?.ActivePage is Pages.FavoritesPage) _libraryViewModel.GoBack();
+        else _searchViewModel.GoBack();
         return true;
     }
 

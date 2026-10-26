@@ -27,3 +27,7 @@ dotnet build windows/bilibili-music-player-windows.csproj -p:Platform=x64
 顶层 tab 由 `MainWindow.PageHost` 常驻托管，不使用 `Frame.Navigate`。播放中切到收藏再返回，应当直接显示同一个播放器的暂停画面，保留进度、缓冲、音量与倍速，不出现重新获取视频的加载圈。加载过程中切走也应继续准备媒体，完成后保持暂停。只有离开预览状态、换片、播放失败或真正退出应用时才释放对应媒体。
 
 还应检查候选词的鼠标选择、方向键选择、Enter 和放大镜提交、失败重试，以及窄窗口和明暗主题。候选文字应与原生编辑区域的左边缘对齐，窗口缩放、候选项回收及长查询横向滚动后也保持对齐；放大镜上鼠标应为普通箭头且无悬浮背景。搜索、收藏、设置的大标题前不应存在装饰竖线；侧栏选中指示条在明暗主题下都应为主题粉色。
+
+`LibraryTests.cs` 验证动态链接、混排顺序、去重、循环与深度限制、文件夹解散、音源全局移除、账号隔离、离线文件、冲突备份、丢失提交响应及迟到请求。`AccountTests.cs` 使用模拟 HTTP 验证邮箱密码、确认邮件响应、恢复密码、刷新令牌竞态和跨账号请求拒绝，不操作实际邮箱。云端数据库回归位于 `supabase/tests/music_library.sql`，事务结束时回滚全部夹具。
+
+收藏页操作使用独立 UI 夹具：`Inspect-Ui.ps1 -LibraryFixture sample -Tab favorites`，结束后 `-LibraryFixture restore`。注册、邮件确认和真实账号登录需要用户亲自验证，不应通过电脑控制工具输入用户凭证。

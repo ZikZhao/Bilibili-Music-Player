@@ -329,6 +329,8 @@
                             </StackPanel>
                         </Button>
                     </Grid>
+                    <TextBlock Text="{x:Bind ViewModel.FavoriteError, Mode=OneWay}" TextWrapping="Wrap"
+                               Visibility="{x:Bind ViewModel.FavoriteErrorVisibility, Mode=OneWay}" />
                     <mycontrols:VideoStatsBar ViewCount="{x:Bind ViewModel.PreviewViews, Mode=OneWay}"
                         LikeCount="{x:Bind ViewModel.PreviewLikes, Mode=OneWay}"
                         FavoriteCount="{x:Bind ViewModel.PreviewFavoriteCount, Mode=OneWay}"

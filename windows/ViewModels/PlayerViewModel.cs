@@ -118,10 +118,11 @@ namespace bilibili_music_player_windows.ViewModels
         /// 播放（如果已暂停则恢复）。
         /// </summary>
         [RelayCommand]
-        private void Play()
+        private async Task PlayAsync()
         {
             if (CurrentTrack is null)
             {
+                if (Playlist.Count > 0) await PlayFromQueueAsync(0);
                 return;
             }
 
@@ -168,6 +169,7 @@ namespace bilibili_music_player_windows.ViewModels
         {
             if (CurrentTrack is null)
             {
+                if (Playlist.Count > 0) await PlayFromQueueAsync(0);
                 return;
             }
 
@@ -316,7 +318,7 @@ namespace bilibili_music_player_windows.ViewModels
             try
             {
                 // 2. 检查缓存
-                var cachedPath = await _cacheService.GetAudioPathAsync(bvid);
+                var cachedPath = await _cacheService.GetAudioPathAsync(AudioSourceIdentity.CacheKey(bvid, video.Cid));
                 System.Diagnostics.Debug.WriteLine($"[PlayerVM] PlayVideoAsync bvid={bvid} cachedPath={cachedPath ?? "(null)"}");
 
                 // 3. 如果已被取消，静默退出
@@ -360,58 +362,70 @@ namespace bilibili_music_player_windows.ViewModels
                         return;
                     }
 
-                    PlayUrlInfo playUrlInfo;
-                    try
+                    var selectedCid = AudioSourceIdentity.ResolveCid(video.Cid, detailInfo.Cid);
+                    var cacheKey = AudioSourceIdentity.CacheKey(bvid, selectedCid);
+                    var resolvedCache = await _cacheService.GetAudioPathAsync(cacheKey);
+                    // Legacy caches contain the first part only. Never reuse
+                    // one for a different selected CID.
+                    if (resolvedCache is null && selectedCid == detailInfo.Cid)
+                        resolvedCache = await _cacheService.GetAudioPathAsync(bvid);
+                    if (resolvedCache is not null) playUrl = resolvedCache;
+                    else
                     {
-                        playUrlInfo = await _bilibiliClient.FetchPlayUrlAsync(bvid, detailInfo.Cid, audioOnly: true, ct);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        return;
-                    }
-                    catch (BilibiliApiException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine(
-                            $"[PlayerVM] FetchPlayUrlAsync failed for {bvid}: {ex.Message}");
-                        throw new BilibiliApiException($"获取播放地址失败：{ex.Message}", ex);
-                    }
+                        PlayUrlInfo playUrlInfo;
+                        try
+                        {
+                            playUrlInfo = await _bilibiliClient.FetchPlayUrlAsync(bvid, selectedCid, audioOnly: true, ct);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            return;
+                        }
+                        catch (BilibiliApiException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine(
+                                $"[PlayerVM] FetchPlayUrlAsync failed for {bvid}: {ex.Message}");
+                            throw new BilibiliApiException($"获取播放地址失败：{ex.Message}", ex);
+                        }
 
-                    if (ct.IsCancellationRequested)
-                    {
-                        return;
+                        if (ct.IsCancellationRequested)
+                        {
+                            return;
+                        }
+
+                        // 下载音频文件并等待完成，确保后续始终从本地缓存播放。
+                        // Bilibili CDN 要求特定 HTTP 头（Referer / User-Agent），
+                        // MediaPlayer 直接创建 MediaSource 时不携带这些头，因此必须先下载到本地。
+                        var networkUrl = playUrlInfo.Url;
+                        var downloadedPath = await _cacheService.DownloadAudioAsync(networkUrl, cacheKey, ct);
+
+                        if (downloadedPath is null)
+                        {
+                            throw new BilibiliApiException("下载音频文件失败，请检查网络连接后重试。");
+                        }
+
+                        playUrl = downloadedPath;
                     }
-
-                    // 下载音频文件并等待完成，确保后续始终从本地缓存播放。
-                    // Bilibili CDN 要求特定 HTTP 头（Referer / User-Agent），
-                    // MediaPlayer 直接创建 MediaSource 时不携带这些头，因此必须先下载到本地。
-                    var networkUrl = playUrlInfo.Url;
-                    var downloadedPath = await _cacheService.DownloadAudioAsync(networkUrl, bvid, ct);
-
-                    if (downloadedPath is null)
-                    {
-                        throw new BilibiliApiException("下载音频文件失败，请检查网络连接后重试。");
-                    }
-
-                    playUrl = downloadedPath;
 
                     // 更新 CurrentTrack 的 Cid 和时长信息
+                    ct.ThrowIfCancellationRequested();
                     if (CurrentTrack?.Bvid == bvid)
                     {
                         CurrentTrack = new VideoModel
                         {
                             Bvid = bvid,
                             Aid = detailInfo.Aid,
-                            Cid = detailInfo.Cid,
-                            Title = detailInfo.Title,
+                            Cid = selectedCid,
+                            Title = string.IsNullOrEmpty(video.Title) ? detailInfo.Title : video.Title,
                             Artist = detailInfo.Owner?.Name ?? video.Artist,
                             Mid = detailInfo.Owner?.Mid ?? 0,
                             Cover = detailInfo.Cover,
-                            Duration = detailInfo.FormattedDuration,
-                            DurationSeconds = detailInfo.Duration,
+                            Duration = selectedCid == detailInfo.Cid ? detailInfo.FormattedDuration : video.Duration,
+                            DurationSeconds = selectedCid == detailInfo.Cid ? detailInfo.Duration : video.DurationSeconds,
                             Views = CurrentTrack.Views,
                         };
                     }
@@ -499,6 +513,14 @@ namespace bilibili_music_player_windows.ViewModels
             ArgumentNullException.ThrowIfNull(video);
 
             Playlist.Add(video);
+            QueueCount = Playlist.Count;
+        }
+
+        /// <summary>Queue a snapshot; inserting several songs preserves their order.</summary>
+        public void Enqueue(IReadOnlyList<VideoModel> videos, bool next)
+        {
+            var index = next && CurrentIndex >= 0 ? Math.Min(CurrentIndex + 1, Playlist.Count) : Playlist.Count;
+            foreach (var video in videos) Playlist.Insert(index++, video);
             QueueCount = Playlist.Count;
         }
 

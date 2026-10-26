@@ -1,5 +1,6 @@
 param(
     [int]$AppProcessId,
+    [ValidateSet('empty', 'sample', 'restore')][string]$LibraryFixture,
     [ValidateSet('search', 'favorites', 'settings', 'nowplaying')][string]$Tab,
     [ValidateSet('Light', 'Dark', 'Default')][string]$Theme,
     [double]$Width,
@@ -9,6 +10,7 @@ param(
     [ValidateSet('Normal', 'PointerOver', 'Pressed', 'Focused', 'Disabled')][string]$State,
     [string]$Target,
     [switch]$CompareNative,
+    [switch]$CheckProtection,
     [switch]$Svg,
     [switch]$Activate,
     [switch]$Capture,
@@ -27,10 +29,11 @@ if (-not $AppProcessId) {
     $AppProcessId = $instances[0].Id
 }
 $request = @{}
-foreach ($key in @('Tab', 'Theme', 'Width', 'Height', 'Text', 'Focus', 'State', 'Target', 'SelectionStart', 'InputFont')) {
+foreach ($key in @('LibraryFixture', 'Tab', 'Theme', 'Width', 'Height', 'Text', 'Focus', 'State', 'Target', 'SelectionStart', 'InputFont')) {
     if ($PSBoundParameters.ContainsKey($key)) { $request[$key] = $PSBoundParameters[$key] }
 }
 if ($CompareNative) { $request.CompareNative = $true }
+if ($CheckProtection) { $request.CheckProtection = $true }
 if ($Activate) { $request.Activate = $true }
 if ($Capture) { $request.Capture = $true }
 if ($VisibleReference) { $request.VisibleReference = $true }

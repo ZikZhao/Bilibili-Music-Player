@@ -23,6 +23,7 @@ namespace bilibili_music_player_windows
         private readonly PlayerViewModel _playerViewModel;
         private readonly SettingsViewModel _settingsViewModel;
         private readonly SearchViewModel _searchViewModel;
+        private readonly LibraryViewModel _libraryViewModel;
         private readonly ResidentTabs<Page>? _tabs;
 
         /// <summary>暴露给 XAML x:Bind 的 PlayerViewModel。</summary>
@@ -32,12 +33,14 @@ namespace bilibili_music_player_windows
             MainViewModel mainViewModel,
             PlayerViewModel playerViewModel,
             SettingsViewModel settingsViewModel,
-            SearchViewModel searchViewModel)
+            SearchViewModel searchViewModel,
+            LibraryViewModel libraryViewModel)
         {
             _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
             _playerViewModel = playerViewModel ?? throw new ArgumentNullException(nameof(playerViewModel));
             _settingsViewModel = settingsViewModel ?? throw new ArgumentNullException(nameof(settingsViewModel));
             _searchViewModel = searchViewModel;
+            _libraryViewModel = libraryViewModel;
             PlayerViewModel = _playerViewModel;
             InitializeComponent();
             _tabs = new ResidentTabs<Page>(CreateTab, SetTabActive);
@@ -52,6 +55,10 @@ namespace bilibili_music_player_windows
             _searchViewModel.PropertyChanged += (_, args) =>
             {
                 if (args.PropertyName == nameof(SearchViewModel.CanGoBack)) UpdateBackButton();
+            };
+            _libraryViewModel.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(LibraryViewModel.CanGoBack)) UpdateBackButton();
             };
             var backShortcut = new KeyboardAccelerator
             {
@@ -156,8 +163,14 @@ namespace bilibili_music_player_windows
 
         private void UpdateBackButton()
         {
-            TitleBackButton.IsEnabled = _tabs?.ActivePage is SearchPage && _searchViewModel.CanGoBack;
-            var label = _searchViewModel.IsPreviewing ? "返回搜索结果" : "返回搜索历史";
+            TitleBackButton.IsEnabled = _tabs?.ActivePage switch
+            {
+                SearchPage => _searchViewModel.CanGoBack,
+                FavoritesPage => _libraryViewModel.CanGoBack,
+                _ => false,
+            };
+            var label = _tabs?.ActivePage is FavoritesPage ? "返回上一级" :
+                _searchViewModel.IsPreviewing ? "返回搜索结果" : "返回搜索历史";
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(TitleBackButton, label);
             ToolTipService.SetToolTip(TitleBackButton, $"{label} (Esc / Alt+←)");
         }

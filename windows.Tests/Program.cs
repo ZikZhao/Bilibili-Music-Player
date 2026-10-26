@@ -130,7 +130,7 @@ var tests = new (string Name, Func<Task> Run)[]
     }),
 };
 
-foreach (var (name, run) in tests.Concat(SearchSessionTests.All).Concat(ResidentTabsTests.All))
+foreach (var (name, run) in tests.Concat(SearchSessionTests.All).Concat(ResidentTabsTests.All).Concat(LibraryTests.All).Concat(AccountTests.All))
 {
     try
     {

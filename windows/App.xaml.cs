@@ -6,7 +6,6 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
-using Microsoft.UI.Xaml.Shapes;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -73,6 +72,11 @@ namespace bilibili_music_player_windows
             // Services
             services.AddSingleton<CacheService>();
             services.AddSingleton<AudioPlayerService>();
+            services.AddSingleton<SupabaseAccountService>();
+            services.AddSingleton<SupabaseAuthClient>(sp => sp.GetRequiredService<SupabaseAccountService>());
+            services.AddSingleton<ILibraryCloud, SupabaseLibraryCloud>();
+            services.AddSingleton(sp => new LibraryRepository(
+                Path.Combine(Windows.Storage.ApplicationData.Current.LocalFolder.Path, "library"), sp.GetRequiredService<ILibraryCloud>()));
 
             // ViewModels
             services.AddSingleton<MainViewModel>();

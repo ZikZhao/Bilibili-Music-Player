@@ -23,6 +23,7 @@ public partial class SearchViewModel : ObservableObject
     private readonly PlayerViewModel _player;
     private readonly LibraryViewModel _library;
     private VideoPreviewItem? _displayedPreview;
+    private VideoDetailInfo? _previewDetail;
     private const string SearchHistoryKey = "search_history";
 
     public SearchSession Session { get; }
@@ -72,12 +73,17 @@ public partial class SearchViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PreviewFavoriteText))]
     private bool _isPreviewFavorited;
     public string PreviewFavoriteText => IsPreviewFavorited ? "已收藏" : "加入收藏";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FavoriteErrorVisibility))]
+    private string _favoriteError = "";
+    public Visibility FavoriteErrorVisibility => Visible(!string.IsNullOrEmpty(FavoriteError));
 
     public SearchViewModel(BilibiliClient client, PlayerViewModel player, LibraryViewModel library)
     {
         _client = client;
         _player = player;
         _library = library;
+        _library.Favorites.CollectionChanged += (_, _) => RefreshPreviewFavorite();
         Session = new SearchSession(
             (query, page, ct) => _client.SearchVideosAsync(query, page, ct: ct),
             (query, ct) => _client.FetchSuggestionsAsync(query, ct));
@@ -93,6 +99,8 @@ public partial class SearchViewModel : ObservableObject
         if (!ReferenceEquals(_displayedPreview, CurrentPreviewItem))
         {
             _displayedPreview = CurrentPreviewItem;
+            _previewDetail = null;
+            FavoriteError = "";
             PreviewErrorMessage = null;
             IsPreviewLoading = IsPreviewing;
             if (CurrentPreviewItem is { } item)
@@ -136,7 +144,8 @@ public partial class SearchViewModel : ObservableObject
     }
 
     public void RefreshPreviewFavorite() =>
-        IsPreviewFavorited = CurrentPreviewItem is { } item && _library.Favorites.Any(f => f.Bvid == item.Bvid);
+        IsPreviewFavorited = CurrentPreviewItem is { } item && _library.Favorites.Any(f => f.Bvid == item.Bvid &&
+            (_previewDetail is null || f.Cid == 0 || f.Cid == _previewDetail.Cid));
 
     public async Task<Uri> LoadPreviewAsync(VideoPreviewItem item, CancellationToken ct)
     {
@@ -146,6 +155,8 @@ public partial class SearchViewModel : ObservableObject
         ct.ThrowIfCancellationRequested();
         if (IsPreviewing && ReferenceEquals(CurrentPreviewItem, item))
         {
+            _previewDetail = detail;
+            RefreshPreviewFavorite();
             PreviewTitle = detail.Title;
             PreviewAuthor = detail.Owner?.Name ?? item.Author;
             PreviewDescription = detail.Desc;
@@ -174,8 +185,19 @@ public partial class SearchViewModel : ObservableObject
     private async Task TogglePreviewFavoriteAsync()
     {
         if (CurrentPreviewItem is not { } item) return;
-        await _library.ToggleFavoriteCommand.ExecuteAsync(VideoModel.FromPreviewItem(item));
-        RefreshPreviewFavorite();
+        FavoriteError = "";
+        try
+        {
+            // Keep the selected video part's identity rather than saving CID=0.
+            var detail = _previewDetail is { } ready && ready.Bvid == item.Bvid ? ready : await _client.FetchVideoInfoAsync(item.Bvid);
+            if (!ReferenceEquals(CurrentPreviewItem, item)) return;
+            // Existing first-part legacy favorites keep their original identity.
+            var existing = _library.Favorites.FirstOrDefault(v => v.Bvid == item.Bvid && (v.Cid == detail.Cid || v.Cid == 0));
+            await _library.ToggleFavoriteCommand.ExecuteAsync(existing ?? VideoModel.FromDetailInfo(detail));
+            FavoriteError = _library.ErrorMessage;
+            RefreshPreviewFavorite();
+        }
+        catch (Exception) { FavoriteError = "暂时无法保存收藏，请稍后重试。"; }
     }
 
     [RelayCommand]

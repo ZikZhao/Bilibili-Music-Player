@@ -39,3 +39,19 @@ Theme changes through this channel are temporary and do not change saved setting
 Text updates may request the existing public search suggestions; they never submit
 a video search. `-State` verifies style states, not real pointer routing. Restore
 `-Theme Default`, text, dimensions and focus after an inspection session.
+
+Library QA uses an isolated local profile with cloud synchronization disabled:
+
+```powershell
+./scripts/Inspect-Ui.ps1 -Tab favorites -LibraryFixture sample
+./scripts/Inspect-Ui.ps1 -Width 470 -Height 800
+./scripts/Inspect-Ui.ps1 -LibraryFixture restore -Theme Default
+```
+
+The fixture does not edit the actual account or guest library. `library` metadata
+reports graph counts, current location and account/sync state without credentials.
+Unmeasured virtualized control metrics can be serialized as `"Infinity"` or `"NaN"`;
+do not use those metrics for visible-layout assertions.
+
+`-CheckProtection` round-trips a non-secret in-memory fixture through Windows
+`LOCAL=user` protection. It does not read or write the user's session file.

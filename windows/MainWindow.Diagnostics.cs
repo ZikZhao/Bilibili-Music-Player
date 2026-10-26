@@ -50,7 +50,8 @@ public sealed partial class MainWindow
                     var completion = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
                     if (!DispatcherQueue.TryEnqueue(async () =>
                     {
-                        try { completion.TrySetResult(JsonSerializer.Serialize(await InspectUiAsync(request))); }
+                        try { completion.TrySetResult(JsonSerializer.Serialize(await InspectUiAsync(request),
+                            new JsonSerializerOptions { NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals })); }
                         catch (Exception ex) { completion.TrySetResult(JsonSerializer.Serialize(new { error = ex.Message })); }
                     })) break;
                     await writer.WriteLineAsync(await completion.Task.WaitAsync(shutdown.Token));
@@ -64,6 +65,7 @@ public sealed partial class MainWindow
     private async Task<object> InspectUiAsync(UiInspectionRequest request)
     {
         if (request.Activate) ShowFromBackground();
+        if (request.LibraryFixture is not null) await _libraryViewModel.InspectFixtureAsync(request.LibraryFixture);
         var root = (FrameworkElement)Content;
         if (_inspectionReferenceOverlay is not null)
         {
@@ -119,6 +121,17 @@ public sealed partial class MainWindow
         }
         root.UpdateLayout();
         var snapshot = UiLayoutSnapshot.Capture(root);
+        bool? protectedSessionRoundTrip = null;
+        if (request.CheckProtection)
+        {
+            const string fixture = "BiliMusic session protection fixture";
+            var clear = Windows.Security.Cryptography.CryptographicBuffer.ConvertStringToBinary(fixture,
+                Windows.Security.Cryptography.BinaryStringEncoding.Utf8);
+            var encrypted = await new Windows.Security.Cryptography.DataProtection.DataProtectionProvider("LOCAL=user").ProtectAsync(clear);
+            var decrypted = await new Windows.Security.Cryptography.DataProtection.DataProtectionProvider().UnprotectAsync(encrypted);
+            protectedSessionRoundTrip = Windows.Security.Cryptography.CryptographicBuffer.ConvertBinaryToString(
+                Windows.Security.Cryptography.BinaryStringEncoding.Utf8, decrypted) == fixture;
+        }
         object? nativeComparison = null;
         Canvas? visibleOverlay = null;
         if ((request.CompareNative || request.VisibleReference) && search is not null)
@@ -206,9 +219,14 @@ public sealed partial class MainWindow
             }
             png = Convert.ToBase64String(encoded);
         }
-        return new { snapshot, nativeComparison, png, activation = _inspectionActivationState.ToString(), savedTheme = _settingsViewModel.ThemeMode,
+        return new { snapshot, nativeComparison, png, protectedSessionRoundTrip, activation = _inspectionActivationState.ToString(), savedTheme = _settingsViewModel.ThemeMode,
             lifetime = new { inBackground = _isInBackground, visible = AppWindow.IsVisible, trayAvailable = _tray?.IsAvailable,
                 activeTab = _tabs?.ActiveKey, backEnabled = TitleBackButton.IsEnabled, searchStage = _searchViewModel.Stage.ToString() },
+            library = new { ready = _libraryViewModel.IsReady, kind = _libraryViewModel.CurrentKind,
+                currentId = _libraryViewModel.CurrentId, nodes = _libraryViewModel.Document.Nodes.Count,
+                media = _libraryViewModel.Document.Media.Count, entries = _libraryViewModel.Document.Entries.Count,
+                likes = _libraryViewModel.Document.Likes.Count, canGoBack = _libraryViewModel.CanGoBack,
+                signedIn = _libraryViewModel.IsSignedIn, status = _libraryViewModel.SyncStatus },
             searchTextStart = search is null ? (double?)null : search.TransformToVisual(root).TransformPoint(new Point(search.TextStartOffset, 0)).X,
             requestedTheme = root.RequestedTheme.ToString(), windowSize = new { width = AppWindow.Size.Width, height = AppWindow.Size.Height } };
     }
@@ -216,6 +234,8 @@ public sealed partial class MainWindow
 
 internal sealed class UiInspectionRequest
 {
+    public string? LibraryFixture { get; set; }
+    public bool CheckProtection { get; set; }
     public string? Tab { get; set; }
     public string? Theme { get; set; }
     public double? Width { get; set; }
