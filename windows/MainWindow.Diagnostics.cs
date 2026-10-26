@@ -63,7 +63,7 @@ public sealed partial class MainWindow
 
     private async Task<object> InspectUiAsync(UiInspectionRequest request)
     {
-        if (request.Activate) Activate();
+        if (request.Activate) ShowFromBackground();
         var root = (FrameworkElement)Content;
         if (_inspectionReferenceOverlay is not null)
         {
@@ -207,6 +207,9 @@ public sealed partial class MainWindow
             png = Convert.ToBase64String(encoded);
         }
         return new { snapshot, nativeComparison, png, activation = _inspectionActivationState.ToString(), savedTheme = _settingsViewModel.ThemeMode,
+            lifetime = new { inBackground = _isInBackground, visible = AppWindow.IsVisible, trayAvailable = _tray?.IsAvailable,
+                activeTab = _tabs?.ActiveKey, backEnabled = TitleBackButton.IsEnabled, searchStage = _searchViewModel.Stage.ToString() },
+            searchTextStart = search is null ? (double?)null : search.TransformToVisual(root).TransformPoint(new Point(search.TextStartOffset, 0)).X,
             requestedTheme = root.RequestedTheme.ToString(), windowSize = new { width = AppWindow.Size.Width, height = AppWindow.Size.Height } };
     }
 }

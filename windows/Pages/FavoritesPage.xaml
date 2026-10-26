@@ -29,7 +29,6 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal" Spacing="12">
-                <Rectangle Width="4" Height="24" Fill="{ThemeResource Rose400}" VerticalAlignment="Center" RadiusX="2" RadiusY="2" />
                 <TextBlock Text="我的收藏" Style="{StaticResource TitleTextBlockStyle}" Foreground="{ThemeResource Slate800}" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">

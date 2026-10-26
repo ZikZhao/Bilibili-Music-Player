@@ -60,9 +60,10 @@ namespace bilibili_music_player_windows
             };
             backShortcut.Invoked += (_, args) =>
             {
-                if (TitleBackButton.IsEnabled) { _searchViewModel.GoBack(); args.Handled = true; }
+                args.Handled = TryGoBack();
             };
             ((FrameworkElement)Content).KeyboardAccelerators.Add(backShortcut);
+            InitializeWindowLifetime();
 
             // ST3: 订阅主题变化
             _settingsViewModel.ThemeChanged += OnThemeChanged;
@@ -148,6 +149,7 @@ namespace bilibili_music_player_windows
 
         private void OnWindowClosed(object sender, WindowEventArgs args)
         {
+            _tray?.Dispose();
             try { _tabs?.Dispose(); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Tabs] Window cleanup: {ex}"); }
         }
@@ -157,12 +159,12 @@ namespace bilibili_music_player_windows
             TitleBackButton.IsEnabled = _tabs?.ActivePage is SearchPage && _searchViewModel.CanGoBack;
             var label = _searchViewModel.IsPreviewing ? "返回搜索结果" : "返回搜索历史";
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(TitleBackButton, label);
-            ToolTipService.SetToolTip(TitleBackButton, $"{label} (Alt+←)");
+            ToolTipService.SetToolTip(TitleBackButton, $"{label} (Esc / Alt+←)");
         }
 
         private void OnTitleBackClick(object sender, RoutedEventArgs e)
         {
-            if (TitleBackButton.IsEnabled) _searchViewModel.GoBack();
+            TryGoBack();
         }
 
         /// <summary>导航到全屏播放器页面。</summary>

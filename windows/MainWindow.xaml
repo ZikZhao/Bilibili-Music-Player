@@ -52,6 +52,10 @@
                         SelectionChanged="OnNavSelectionChanged"
                         AutomationProperties.AutomationId="MainNavigationView">
 
+            <NavigationView.Resources>
+                <StaticResource x:Key="NavigationViewSelectionIndicatorForeground" ResourceKey="Rose400" />
+            </NavigationView.Resources>
+
             <!-- Main navigation items -->
             <NavigationView.MenuItems>
                 <NavigationViewItem Tag="nowplaying" Content="正在播放"

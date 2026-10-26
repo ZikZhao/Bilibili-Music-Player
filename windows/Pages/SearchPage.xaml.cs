@@ -137,6 +137,23 @@ namespace bilibili_music_player_windows.Pages
             Canvas.SetTop(SuggestionsBorder, anchor.Y);
             SuggestionsBorder.Width = SearchBox.ActualWidth;
             SuggestionsList.MaxHeight = Math.Max(60, Math.Min(300, SearchPageRoot.ActualHeight - anchor.Y - 16));
+            for (var index = 0; index < SuggestionsList.Items.Count; index++)
+                if (SuggestionsList.ContainerFromIndex(index) is ListViewItem { ContentTemplateRoot: TextBlock text })
+                    AlignSuggestionText(text);
+        }
+
+        private void OnSuggestionTextLoaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is TextBlock text) AlignSuggestionText(text);
+        }
+
+        private void AlignSuggestionText(TextBlock text)
+        {
+            // Measure the actual container inset instead of duplicating the
+            // native TextBox or ListViewItem template's padding constants.
+            var currentLeft = text.TransformToVisual(SuggestionsBorder).TransformPoint(new Windows.Foundation.Point()).X;
+            var inset = Math.Max(0, text.Margin.Left + SearchBox.TextStartOffset - currentLeft);
+            text.Margin = new Thickness(inset, 8, 12, 8);
         }
 
         private void OnPagePointerPressed(object sender, PointerRoutedEventArgs e)
@@ -243,7 +260,6 @@ namespace bilibili_music_player_windows.Pages
 
         private void OnSearchKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key == VirtualKey.Escape) { ViewModel.DismissSuggestions(); e.Handled = true; return; }
             if (e.Key is VirtualKey.Down or VirtualKey.Up && ViewModel.HasSuggestions)
             {
                 var step = e.Key == VirtualKey.Down ? 1 : -1;
@@ -271,12 +287,6 @@ namespace bilibili_music_player_windows.Pages
                 SearchBox.Text = item.Value;
                 ExecuteSearch(item.Value);
             }
-            else if (e.Key == VirtualKey.Escape)
-            {
-                ViewModel.DismissSuggestions();
-                SearchBox.Focus(FocusState.Keyboard);
-                e.Handled = true;
-            }
         }
 
         private void OnKeywordClick(object sender, RoutedEventArgs e)
@@ -290,6 +300,7 @@ namespace bilibili_music_player_windows.Pages
             ViewModel.DismissSuggestions();
             SearchBox.Focus(FocusState.Programmatic);
             SearchBox.SelectionStart = SearchBox.Text.Length;
+            ExecuteSearch(keyword);
         }
 
         /// <summary>

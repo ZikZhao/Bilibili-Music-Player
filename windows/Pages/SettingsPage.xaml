@@ -21,7 +21,6 @@
             </Grid.RowDefinitions>
 
             <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,0,0,32">
-                <Rectangle Width="4" Height="24" Fill="{ThemeResource Rose400}" VerticalAlignment="Center" RadiusX="2" RadiusY="2" />
                 <TextBlock Text="设置" Style="{StaticResource TitleTextBlockStyle}" Foreground="{ThemeResource Slate800}" />
             </StackPanel>
 

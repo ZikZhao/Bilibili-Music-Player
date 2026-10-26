@@ -41,7 +41,6 @@
                 <ColumnDefinition Width="3*" MaxWidth="640" />
             </Grid.ColumnDefinitions>
             <StackPanel x:Name="SearchHeading" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <Rectangle Width="4" Height="28" Fill="{ThemeResource Rose400}" RadiusX="2" RadiusY="2" />
                 <TextBlock Text="搜索音乐" FontSize="28" FontWeight="SemiBold" Foreground="{ThemeResource Slate800}" />
             </StackPanel>
             <Grid x:Name="SearchEntryContainer" Grid.Column="2">
@@ -342,13 +341,20 @@
                 Visibility="{x:Bind ViewModel.SuggestionsVisibility, Mode=OneWay}">
             <Border x:Name="SuggestionsBorder" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
                     BorderBrush="{ThemeResource Slate200}" BorderThickness="1" CornerRadius="10" Padding="4">
-                <ListView x:Name="SuggestionsList" MaxHeight="300"
+                <ListView x:Name="SuggestionsList" MaxHeight="300" Padding="0"
                           ItemsSource="{x:Bind ViewModel.Suggestions, Mode=OneWay}"
                           IsItemClickEnabled="True" SelectionMode="Single" ItemClick="OnSuggestionClick"
                           KeyDown="OnSuggestionsKeyDown" AutomationProperties.AutomationId="SuggestionsList">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:SuggestionModel">
-                            <TextBlock Text="{x:Bind Name}" Margin="12,8" Foreground="{ThemeResource Slate800}" />
+                            <TextBlock Text="{x:Bind Name}" Margin="0,8,12,8" Loaded="OnSuggestionTextLoaded"
+                                       Foreground="{ThemeResource Slate800}" />
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>

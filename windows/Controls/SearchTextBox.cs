@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Linq;
 using Microsoft.UI;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -18,6 +19,19 @@ public sealed class SearchTextBox : TextBox
     public event RoutedEventHandler? SearchRequested;
 
     public SearchTextBox() => DefaultStyleKey = typeof(TextBox);
+
+    /// <summary>The native editing surface's left edge, including its prefix and padding.</summary>
+    internal double TextStartOffset
+    {
+        get
+        {
+            if (GetTemplateChild("ContentElement") is not FrameworkElement content) return 0;
+            // Use the viewport inset, so scrolling a long query never shifts
+            // the candidate list's text origin.
+            var inset = content is Control control ? control.Padding.Left : Padding.Left;
+            return content.TransformToVisual(this).TransformPoint(new Windows.Foundation.Point()).X + inset;
+        }
+    }
 
     protected override void OnApplyTemplate()
     {
@@ -88,7 +102,7 @@ public sealed class SearchTextBox : TextBox
                 Converter = new PlaceholderPaddingConverter(),
             });
 
-        _searchButton = new Button
+        _searchButton = new SearchPrefixButton
         {
             Name = "SearchPrefixButton",
             Width = 32,
@@ -119,6 +133,12 @@ public sealed class SearchTextBox : TextBox
     {
         Focus(FocusState.Programmatic);
         SearchRequested?.Invoke(this, e);
+    }
+
+    private sealed class SearchPrefixButton : Button
+    {
+        // Override the parent TextBox's I-beam without changing button visuals.
+        public SearchPrefixButton() => ProtectedCursor = InputSystemCursor.Create(InputSystemCursorShape.Arrow);
     }
 
     private sealed class PlaceholderPaddingConverter : IValueConverter
