@@ -1,8 +1,8 @@
-# Regenerate Windows icon formats from the same original used by Android.
+# Regenerate Windows icon formats from the transparent cutout of the Android artwork.
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
-$sourcePath = Join-Path $PSScriptRoot '../mobile/assets/icon/app_icon.png'
 $assetRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../windows/Assets'))
+$sourcePath = Join-Path $assetRoot 'AppIcon.source.png'
 $source = [System.Drawing.Bitmap]::FromFile([System.IO.Path]::GetFullPath($sourcePath))
 
 function New-IconBitmap([int]$Width, [int]$Height, [int]$IconSize) {
@@ -45,7 +45,7 @@ try {
     }
 
     # ICO contains a separate PNG frame for each shell/tray size. No upscaling
-    # or icon redesign: every frame is resized directly from the 2048px source.
+    # or icon redesign: every frame is resized directly from the transparent source.
     $frames = foreach ($size in @(16, 20, 24, 32, 40, 48, 64, 96, 128, 256)) {
         $bitmap = New-IconBitmap $size $size $size
         $stream = [System.IO.MemoryStream]::new()
@@ -78,5 +78,5 @@ try {
         }
         foreach ($frame in $frames) { $writer.Write([byte[]]$frame.Bytes) }
     } finally { $writer.Dispose() }
-    Write-Output 'Windows package, executable and tray icons regenerated from mobile/assets/icon/app_icon.png.'
+    Write-Output 'Windows package, executable and tray icons regenerated from windows/Assets/AppIcon.source.png.'
 } finally { $source.Dispose() }
