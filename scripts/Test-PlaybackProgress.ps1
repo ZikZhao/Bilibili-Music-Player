@@ -22,7 +22,7 @@ function Fill($snapshot) {
     # Native template descendants follow the slider in the measured visual tree.
     $track = Slider $snapshot
     $snapshot.snapshot.nodes | Where-Object {
-        $_.name -eq 'HorizontalDecreaseRect' -and $_.id -gt $track.id
+        $_.name -eq 'CenteredProgressFill' -and $_.id -gt $track.id
     } | Select-Object -First 1
 }
 function CheckAdvancing {
