@@ -246,6 +246,7 @@ internal sealed class UiInspectionRequest
     public string? PlaybackAction { get; set; }
     public string? PlaybackBvid { get; set; }
     public double? PlaybackProgress { get; set; }
+    public double? PlaybackPreview { get; set; }
     public string? LibraryFixture { get; set; }
     public bool CheckProtection { get; set; }
     public string? Tab { get; set; }

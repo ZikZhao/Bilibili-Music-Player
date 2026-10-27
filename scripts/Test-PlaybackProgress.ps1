@@ -36,6 +36,32 @@ function CheckAdvancing {
     Check ($after.playback.engine.seeks -eq $before.playback.engine.seeks) 'Position notifications caused an unintended seek.'
     Check ($after.playback.engine.updates -notin @('Faulted', 'RanToCompletion', 'Canceled')) 'The native position update loop stopped.'
 }
+function CheckSeekGeometry {
+    $null = Snapshot @{ PlaybackAction = 'pause' }
+    foreach ($width in @(430, 1245)) {
+        foreach ($ratio in @(0, .25, .5, .75, 1)) {
+            $sample = Snapshot @{ Width = $width; Height = 780; PlaybackPreview = $ratio }
+            $slider = Slider $sample
+            $parts = @($sample.snapshot.nodes | Where-Object { $_.id -gt $slider.id })
+            $thumb = $parts | Where-Object { $_.name -eq 'HorizontalThumb' } | Select-Object -First 1
+            $container = $parts | Where-Object { $_.name -eq 'SliderContainer' } | Select-Object -First 1
+            $left = $slider.bounds.x
+            $right = $left + $slider.bounds.width
+            $expected = $left + $ratio * $slider.bounds.width
+            $fill = Fill $sample
+            $visibleEnd = [Math]::Clamp($fill.bounds.x + $fill.bounds.width, $left, $right)
+            Check ([Math]::Abs($slider.value - $ratio) -lt .00001) 'Seek preview did not reach its exact endpoint.'
+            Check ([Math]::Abs($thumb.bounds.x + $thumb.bounds.width / 2 - $expected) -lt .75) 'Thumb center does not span the entire rail.'
+            Check ([Math]::Abs($visibleEnd - $expected) -lt .75) 'Visible fill does not end at the thumb center.'
+            Check ([Math]::Abs($container.bounds.x + $container.clip.x - $left) -lt .75 -and
+                [Math]::Abs($container.clip.width - $slider.bounds.width) -lt .75) 'Seek viewport clipping changed its hit range.'
+            if ($ratio -eq 0 -or $ratio -eq 1) {
+                $visibleThumb = [Math]::Max(0, [Math]::Min($thumb.bounds.x + $thumb.bounds.width, $right) - [Math]::Max($thumb.bounds.x, $left))
+                Check ([Math]::Abs($visibleThumb - $thumb.bounds.width / 2) -lt .75) 'The two endpoints do not clip half of the thumb symmetrically.'
+            }
+        }
+    }
+}
 $initial = Snapshot
 Check ($initial.playback.count -eq 0) 'Run with an empty queue; existing playback is preserved.'
 $started = $false
@@ -62,10 +88,13 @@ try {
     CheckAdvancing
     $null = Snapshot @{ Tab = 'favorites' }
     CheckAdvancing
+    CheckSeekGeometry
 } finally {
     if ($started) {
         $restore = @{ PlaybackFixture = 'restore' }
         if ($initial.lifetime.activeTab) { $restore.Tab = $initial.lifetime.activeTab }
+        $restore.Width = $initial.windowSize.width / $initial.snapshot.scale
+        $restore.Height = $initial.windowSize.height / $initial.snapshot.scale
         $null = Snapshot $restore
     }
 }

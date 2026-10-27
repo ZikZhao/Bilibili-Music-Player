@@ -15,6 +15,7 @@
 
     <Page.Resources>
         <converters:StringToImageSourceConverter x:Key="StringToImageSourceConverter" />
+        <converters:VolumePercentConverter x:Key="VolumeTooltipConverter" />
     </Page.Resources>
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
@@ -141,7 +142,8 @@
                         <controls:Icon Grid.Column="0" Glyph="{StaticResource Icon_VolumeNotice}" FontSize="20" />
                         <Slider Grid.Column="1"
                                 Value="{x:Bind ViewModel.Volume, Mode=TwoWay}"
-                                Minimum="0" Maximum="1" StepFrequency="0.01"
+                                ThumbToolTipValueConverter="{StaticResource VolumeTooltipConverter}"
+                                Minimum="0" Maximum="1" StepFrequency="0.01" SmallChange="0.01" LargeChange="0.1"
                                 AutomationProperties.AutomationId="PlayerPageVolumeSlider"
                                 Margin="12,0" />
                         <TextBlock Grid.Column="2"

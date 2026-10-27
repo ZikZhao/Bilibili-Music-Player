@@ -42,7 +42,7 @@ namespace bilibili_music_player_windows.Pages
 
         /// <summary>音量百分比文本。</summary>
         public static string VolumePercent(double volume) =>
-            $"{(int)(Math.Clamp(volume, 0, 1) * 100)}%";
+            $"{VolumePercentConverter.Format(volume)}%";
 
         /// <summary>
         /// P8: 根据 PlayMode 枚举值返回对应图标可见性。

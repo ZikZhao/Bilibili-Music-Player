@@ -6,6 +6,7 @@
     xmlns:converters="using:bilibili_music_player_windows.Converters">
     <UserControl.Resources>
         <converters:StringToImageSourceConverter x:Key="TransportImageConverter" />
+        <converters:VolumePercentConverter x:Key="TransportVolumeConverter" />
         <StaticResource x:Key="SliderThumbBackground" ResourceKey="Rose400" />
         <StaticResource x:Key="SliderThumbBackgroundPointerOver" ResourceKey="Rose500" />
         <StaticResource x:Key="SliderThumbBackgroundPressed" ResourceKey="Rose400" />
@@ -125,8 +126,9 @@
                                   Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
                     </Grid>
                 </Button>
-                <Slider x:Name="VolumeSlider" Width="56" Minimum="0" Maximum="1" StepFrequency="0.01"
+                <Slider x:Name="VolumeSlider" Width="56" Minimum="0" Maximum="1" StepFrequency="0.01" SmallChange="0.01" LargeChange="0.1"
                         Value="{x:Bind ViewModel.Volume, Mode=TwoWay}"
+                        ThumbToolTipValueConverter="{StaticResource TransportVolumeConverter}"
                         AutomationProperties.Name="音量" AutomationProperties.AutomationId="VolumeSlider"
                         Foreground="{ThemeResource Rose400}" Background="{ThemeResource Slate200}" />
             </StackPanel>

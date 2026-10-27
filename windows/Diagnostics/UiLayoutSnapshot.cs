@@ -80,6 +80,8 @@ internal static class UiLayoutSnapshot
                 data["isEnabled"] = control.IsEnabled;
             }
             if (element is RangeBase range) data["value"] = range.Value;
+            if (element is Slider { ThumbToolTipValueConverter: { } converter } slider)
+                data["thumbToolTipText"] = converter.Convert(slider.Value, typeof(string), null!, "");
             if (element is TextBlock text)
             {
                 data["text"] = text.Text; data["fontFamily"] = text.FontFamily.Source;

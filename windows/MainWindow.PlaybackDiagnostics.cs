@@ -78,6 +78,15 @@ public sealed partial class MainWindow
             if (!double.IsFinite(progress) || progress is < 0 or > 1) throw new ArgumentException("Progress must be between 0 and 1.");
             _playerViewModel.SeekCommand.Execute(progress);
         }
+        if (request.PlaybackPreview is { } preview)
+        {
+            if (!_playbackFixtureActive) throw new InvalidOperationException("Seek preview inspection requires a playback fixture.");
+            if (!double.IsFinite(preview) || preview is < 0 or > 1) throw new ArgumentException("Preview must be between 0 and 1.");
+            // Inspect the exact endpoints without seeking the decoder to EOF
+            // (which may clamp its position or advance the queue).
+            _playerViewModel.BeginSeek();
+            _playerViewModel.PreviewSeek(preview);
+        }
     }
 }
 #endif
