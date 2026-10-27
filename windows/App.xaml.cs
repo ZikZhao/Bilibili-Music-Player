@@ -72,6 +72,8 @@ namespace bilibili_music_player_windows
             // Services
             services.AddSingleton<CacheService>();
             services.AddSingleton<AudioPlayerService>();
+            services.AddSingleton<IAudioPlaybackEngine>(sp => sp.GetRequiredService<AudioPlayerService>());
+            services.AddSingleton<IAudioSourceResolver, AudioSourceResolver>();
             services.AddSingleton<SupabaseAccountService>();
             services.AddSingleton<SupabaseAuthClient>(sp => sp.GetRequiredService<SupabaseAccountService>());
             services.AddSingleton<ILibraryCloud, SupabaseLibraryCloud>();
@@ -107,6 +109,8 @@ namespace bilibili_music_player_windows
                 return;
             }
             var dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+            System.Threading.SynchronizationContext.SetSynchronizationContext(
+                new Microsoft.UI.Dispatching.DispatcherQueueSynchronizationContext(dispatcher));
             _primaryInstance.Activated += (_, _) => dispatcher.TryEnqueue(() =>
                 (_window as MainWindow)?.ShowFromBackground());
             _window = _serviceProvider.GetRequiredService<MainWindow>();

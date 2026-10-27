@@ -6,6 +6,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <Compile Include="../windows/ViewModels/PlayerViewModel.cs" Link="PlayerViewModel.cs" />
+    <Compile Include="../windows/Services/AudioPlaybackContracts.cs" Link="AudioPlaybackContracts.cs" />
+    <Compile Include="../windows/Models/VideoModel.cs" Link="VideoModel.cs" />
+    <Compile Include="../windows/Models/VideoDetailInfo.cs" Link="VideoDetailInfo.cs" />
+    <Compile Include="../windows/Models/OwnerInfo.cs" Link="OwnerInfo.cs" />
+    <Compile Include="../windows/Models/VideoStat.cs" Link="VideoStat.cs" />
+    <Compile Include="../windows/Models/PlayMode.cs" Link="PlayMode.cs" />
     <Compile Include="../windows/Api/HttpRangeStream.cs" Link="HttpRangeStream.cs" />
     <Compile Include="../windows/Services/SearchSession.cs" Link="SearchSession.cs" />
     <Compile Include="../windows/Services/ResidentTabs.cs" Link="ResidentTabs.cs" />

@@ -20,6 +20,7 @@ namespace bilibili_music_player_windows.Pages
     public sealed partial class AudioPlayerPage : Page
     {
         public PlayerViewModel ViewModel { get; }
+        private Controls.PlaybackSeekBinding? _seekBinding;
 
         public AudioPlayerPage()
         {
@@ -27,16 +28,6 @@ namespace bilibili_music_player_windows.Pages
             DataContext = ViewModel;
             InitializeComponent();
 
-            // 创建并绑定 ThumbToolTip 值转换器（绕过 XAML 资源树的逻辑树断裂）
-            var timeConverter = new ProgressToTimeConverter();
-            var durationBinding = new Binding
-            {
-                Source = ViewModel,
-                Path = new PropertyPath(nameof(PlayerViewModel.Duration)),
-                Mode = BindingMode.OneWay,
-            };
-            BindingOperations.SetBinding(timeConverter, ProgressToTimeConverter.TotalDurationProperty, durationBinding);
-            PlayerPageProgressSlider.ThumbToolTipValueConverter = timeConverter;
         }
 
         // ── P7: 切换播放列表面板 ──
@@ -62,33 +53,10 @@ namespace bilibili_music_player_windows.Pages
             return (int)mode == modeValue ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        /// <summary>绕过 Slider 内部 Thumb 的事件截获，监听底层指针事件。</summary>
         private void OnPlayerPageLoaded(object sender, RoutedEventArgs e)
         {
-            PlayerPageProgressSlider.AddHandler(
-                UIElement.PointerPressedEvent,
-                new PointerEventHandler(OnProgressSliderPointerPressed),
-                handledEventsToo: true);
-
-            PlayerPageProgressSlider.AddHandler(
-                UIElement.PointerCaptureLostEvent,
-                new PointerEventHandler(OnProgressSliderPointerCaptureLost),
-                handledEventsToo: true);
-        }
-
-        private void OnProgressSliderPointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            ViewModel.IsUserSeeking = true;
-        }
-
-        private void OnProgressSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Slider slider)
-            {
-                ViewModel.SeekCommand.Execute(slider.Value);
-            }
-
-            ViewModel.IsUserSeeking = false;
+            _seekBinding?.Dispose();
+            _seekBinding = new Controls.PlaybackSeekBinding(PlayerPageProgressSlider, ViewModel);
         }
     }
 }

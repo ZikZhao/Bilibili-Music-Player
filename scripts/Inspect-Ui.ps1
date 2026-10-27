@@ -1,5 +1,9 @@
 param(
     [int]$AppProcessId,
+    [ValidateSet('sample', 'online', 'restore')][string]$PlaybackFixture,
+    [ValidateSet('play', 'pause', 'next', 'previous', 'mute')][string]$PlaybackAction,
+    [string]$PlaybackBvid,
+    [double]$PlaybackProgress,
     [ValidateSet('empty', 'sample', 'restore')][string]$LibraryFixture,
     [ValidateSet('search', 'favorites', 'settings', 'nowplaying')][string]$Tab,
     [ValidateSet('Light', 'Dark', 'Default')][string]$Theme,
@@ -29,7 +33,7 @@ if (-not $AppProcessId) {
     $AppProcessId = $instances[0].Id
 }
 $request = @{}
-foreach ($key in @('LibraryFixture', 'Tab', 'Theme', 'Width', 'Height', 'Text', 'Focus', 'State', 'Target', 'SelectionStart', 'InputFont')) {
+foreach ($key in @('PlaybackFixture', 'PlaybackAction', 'PlaybackBvid', 'PlaybackProgress', 'LibraryFixture', 'Tab', 'Theme', 'Width', 'Height', 'Text', 'Focus', 'State', 'Target', 'SelectionStart', 'InputFont')) {
     if ($PSBoundParameters.ContainsKey($key)) { $request[$key] = $PSBoundParameters[$key] }
 }
 if ($CompareNative) { $request.CompareNative = $true }

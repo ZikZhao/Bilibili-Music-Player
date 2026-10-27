@@ -1,0 +1,156 @@
+<UserControl x:Class="bilibili_music_player_windows.Controls.NowPlayingBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:bilibili_music_player_windows.Controls"
+    xmlns:helpers="using:bilibili_music_player_windows"
+    xmlns:converters="using:bilibili_music_player_windows.Converters">
+    <UserControl.Resources>
+        <converters:StringToImageSourceConverter x:Key="TransportImageConverter" />
+        <StaticResource x:Key="SliderThumbBackground" ResourceKey="Rose400" />
+        <StaticResource x:Key="SliderThumbBackgroundPointerOver" ResourceKey="Rose500" />
+        <StaticResource x:Key="SliderThumbBackgroundPressed" ResourceKey="Rose400" />
+        <StaticResource x:Key="SliderTrackValueFillPointerOver" ResourceKey="Rose400" />
+        <StaticResource x:Key="SliderTrackValueFillPressed" ResourceKey="Rose400" />
+    </UserControl.Resources>
+    <!-- The seek rail sits on the bar's upper edge; its native hit area straddles it. -->
+    <Grid x:Name="TransportRoot" Height="84" Background="Transparent"
+          AutomationProperties.AutomationId="NowPlayingBar">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="WideTransport">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="900" /></VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="TransportBody.Margin" Value="24,12" />
+                        <Setter Target="CoverFrame.Visibility" Value="Visible" />
+                        <Setter Target="NowPlayingDetailsLayout.ColumnSpacing" Value="12" />
+                        <Setter Target="TransportTime.Visibility" Value="Visible" />
+                        <Setter Target="CompactTransportTime.Visibility" Value="Collapsed" />
+                        <Setter Target="TransportButtons.Spacing" Value="12" />
+                        <Setter Target="VolumeSlider.Width" Value="96" />
+                        <Setter Target="VolumeControls.Margin" Value="24,0,0,0" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="MediumTransport">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="600" /></VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="CoverFrame.Visibility" Value="Visible" />
+                        <Setter Target="NowPlayingDetailsLayout.ColumnSpacing" Value="12" />
+                        <Setter Target="VolumeSlider.Width" Value="80" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="CompactTransport">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="0" /></VisualState.StateTriggers>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <Grid x:Name="TransportBody" Margin="16,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="NowPlayingDetails" Grid.Column="0" Padding="0" BorderThickness="0"
+                    Background="Transparent" HorizontalContentAlignment="Stretch" VerticalAlignment="Center"
+                    HorizontalAlignment="Stretch" Click="OnNowPlayingClick"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.TrackTitle, Mode=OneWay}"
+                    AutomationProperties.AutomationId="NowPlayingButton">
+                <Grid x:Name="NowPlayingDetailsLayout" ColumnSpacing="0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <Border x:Name="CoverFrame" Width="48" Height="48" CornerRadius="4"
+                            Background="{ThemeResource Slate200}" Visibility="Collapsed">
+                        <Grid>
+                            <FontIcon Glyph="&#xE8D6;" FontSize="20" Foreground="{ThemeResource Slate500}" />
+                            <Image Stretch="UniformToFill" DataContext="{x:Bind ViewModel}"
+                                   Source="{Binding CurrentTrack.Cover, Converter={StaticResource TransportImageConverter}}" />
+                            <ProgressRing Width="20" Height="20" Foreground="{ThemeResource Rose400}"
+                                          IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                                          Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsBusy), Mode=OneWay}" />
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="{x:Bind ViewModel.TrackTitle, Mode=OneWay}"
+                                   Foreground="{ThemeResource Slate800}" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{x:Bind ViewModel.TrackSubtitle, Mode=OneWay}"
+                                   Foreground="{ThemeResource Slate500}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="CompactTransportTime" FontFamily="Consolas" FontSize="11"
+                                   Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
+                                   Foreground="{ThemeResource Slate500}" />
+                    </StackPanel>
+                </Grid>
+            </Button>
+            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0" FontFamily="Consolas" FontSize="12"
+                       VerticalAlignment="Center" Foreground="{ThemeResource Slate500}" Visibility="Collapsed"
+                       Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
+                       AutomationProperties.AutomationId="TransportTime" />
+            <StackPanel x:Name="TransportButtons" Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                        VerticalAlignment="Center" Margin="12,0,0,0">
+                <Button Width="32" Height="32" Padding="0" Style="{StaticResource SubtleButtonStyle}"
+                        Command="{x:Bind ViewModel.PreviousCommand}" ToolTipService.ToolTip="上一首"
+                        AutomationProperties.Name="上一首" AutomationProperties.AutomationId="PreviousButton">
+                    <controls:Icon Glyph="{StaticResource Icon_GoStart}" />
+                </Button>
+                <Button Width="40" Height="40" Padding="0" CornerRadius="20" Background="{ThemeResource Rose400}"
+                        Command="{x:Bind ViewModel.TogglePlayCommand}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.PlayPauseLabel, Mode=OneWay}"
+                        AutomationProperties.Name="{x:Bind ViewModel.PlayPauseLabel, Mode=OneWay}"
+                        AutomationProperties.AutomationId="PlayPauseButton">
+                    <Button.Resources>
+                        <StaticResource x:Key="ButtonBackgroundPointerOver" ResourceKey="Rose500" />
+                        <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="Rose400" />
+                    </Button.Resources>
+                    <Grid Width="24" Height="24">
+                        <controls:Icon Glyph="{StaticResource Icon_PlayOne}" FontSize="24"
+                                       Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.ShowPause), Mode=OneWay}" />
+                        <controls:Icon Glyph="{StaticResource Icon_Pause}" FontSize="24"
+                                       Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.ShowPause), Mode=OneWay}" />
+                    </Grid>
+                </Button>
+                <Button Width="32" Height="32" Padding="0" Style="{StaticResource SubtleButtonStyle}"
+                        Command="{x:Bind ViewModel.NextCommand}" ToolTipService.ToolTip="下一首"
+                        AutomationProperties.Name="下一首" AutomationProperties.AutomationId="NextButton">
+                    <controls:Icon Glyph="{StaticResource Icon_GoEnd}" />
+                </Button>
+            </StackPanel>
+            <StackPanel x:Name="VolumeControls" Grid.Column="3" Orientation="Horizontal" Spacing="8"
+                        VerticalAlignment="Center" Margin="12,0,0,0">
+                <Button Width="28" Height="32" Padding="0" Style="{StaticResource SubtleButtonStyle}"
+                        Command="{x:Bind ViewModel.ToggleMuteCommand}" ToolTipService.ToolTip="静音 / 恢复音量"
+                        AutomationProperties.Name="静音或恢复音量" AutomationProperties.AutomationId="MuteButton">
+                    <Grid Width="20" Height="20">
+                        <controls:Icon Glyph="{StaticResource Icon_VolumeNotice}" FontSize="20"
+                                       Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
+                        <FontIcon Glyph="&#xE74F;" FontSize="18"
+                                  Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
+                    </Grid>
+                </Button>
+                <Slider x:Name="VolumeSlider" Width="56" Minimum="0" Maximum="1" StepFrequency="0.01"
+                        Value="{x:Bind ViewModel.Volume, Mode=TwoWay}"
+                        AutomationProperties.Name="音量" AutomationProperties.AutomationId="VolumeSlider"
+                        Foreground="{ThemeResource Rose400}" Background="{ThemeResource Slate200}" />
+            </StackPanel>
+        </Grid>
+        <Slider x:Name="ProgressSlider" Height="20" VerticalAlignment="Top" Margin="0,-10,0,0"
+                Canvas.ZIndex="1" Value="{x:Bind ViewModel.Progress, Mode=OneWay}"
+                IsEnabled="{x:Bind ViewModel.CanSeek, Mode=OneWay}"
+                Minimum="0" Maximum="1" StepFrequency="0.001" SmallChange="0.01" LargeChange="0.1"
+                IsThumbToolTipEnabled="True" Loaded="OnProgressSliderLoaded"
+                AutomationProperties.Name="播放进度" AutomationProperties.AutomationId="ProgressSlider"
+                Foreground="{ThemeResource Rose400}" Background="{ThemeResource Slate200}">
+            <Slider.Resources>
+                <x:Double x:Key="SliderHorizontalHeight">20</x:Double>
+                <x:Double x:Key="SliderPreContentMargin">8</x:Double>
+                <x:Double x:Key="SliderPostContentMargin">8</x:Double>
+                <x:Double x:Key="SliderTrackThemeHeight">4</x:Double>
+                <x:Double x:Key="SliderHorizontalThumbHeight">12</x:Double>
+                <x:Double x:Key="SliderHorizontalThumbWidth">12</x:Double>
+                <StaticResource x:Key="SliderThumbBackground" ResourceKey="Rose400" />
+                <StaticResource x:Key="SliderThumbBackgroundPointerOver" ResourceKey="Rose500" />
+                <StaticResource x:Key="SliderThumbBackgroundPressed" ResourceKey="Rose400" />
+                <StaticResource x:Key="SliderTrackValueFillPointerOver" ResourceKey="Rose400" />
+                <StaticResource x:Key="SliderTrackValueFillPressed" ResourceKey="Rose400" />
+            </Slider.Resources>
+        </Slider>
+    </Grid>
+</UserControl>

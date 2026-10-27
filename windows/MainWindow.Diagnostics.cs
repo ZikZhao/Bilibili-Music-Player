@@ -66,6 +66,7 @@ public sealed partial class MainWindow
     {
         if (request.Activate) ShowFromBackground();
         if (request.LibraryFixture is not null) await _libraryViewModel.InspectFixtureAsync(request.LibraryFixture);
+        await InspectPlaybackAsync(request);
         var root = (FrameworkElement)Content;
         if (_inspectionReferenceOverlay is not null)
         {
@@ -185,7 +186,7 @@ public sealed partial class MainWindow
             finally { if (!keepForCapture) host.Children.Remove(overlay); }
         }
         string? png = null;
-        if (request.Capture && search is not null)
+        if (request.Capture)
         {
             var bitmap = new RenderTargetBitmap();
             var previousClip = root.Clip;
@@ -222,6 +223,12 @@ public sealed partial class MainWindow
         return new { snapshot, nativeComparison, png, protectedSessionRoundTrip, activation = _inspectionActivationState.ToString(), savedTheme = _settingsViewModel.ThemeMode,
             lifetime = new { inBackground = _isInBackground, visible = AppWindow.IsVisible, trayAvailable = _tray?.IsAvailable,
                 activeTab = _tabs?.ActiveKey, backEnabled = TitleBackButton.IsEnabled, searchStage = _searchViewModel.Stage.ToString() },
+            playback = new { title = _playerViewModel.TrackTitle, bvid = _playerViewModel.CurrentTrack?.Bvid,
+                playing = _playerViewModel.IsPlaying, loading = _playerViewModel.IsLoading, buffering = _playerViewModel.IsBuffering,
+                position = _playerViewModel.Position.TotalSeconds, duration = _playerViewModel.Duration.TotalSeconds,
+                progress = _playerViewModel.Progress, canSeek = _playerViewModel.CanSeek, error = _playerViewModel.ErrorMessage,
+                index = _playerViewModel.CurrentIndex, count = _playerViewModel.QueueCount, volume = _playerViewModel.Volume,
+                time = _playerViewModel.TimeText },
             library = new { ready = _libraryViewModel.IsReady, kind = _libraryViewModel.CurrentKind,
                 currentId = _libraryViewModel.CurrentId, nodes = _libraryViewModel.Document.Nodes.Count,
                 media = _libraryViewModel.Document.Media.Count, entries = _libraryViewModel.Document.Entries.Count,
@@ -234,6 +241,10 @@ public sealed partial class MainWindow
 
 internal sealed class UiInspectionRequest
 {
+    public string? PlaybackFixture { get; set; }
+    public string? PlaybackAction { get; set; }
+    public string? PlaybackBvid { get; set; }
+    public double? PlaybackProgress { get; set; }
     public string? LibraryFixture { get; set; }
     public bool CheckProtection { get; set; }
     public string? Tab { get; set; }

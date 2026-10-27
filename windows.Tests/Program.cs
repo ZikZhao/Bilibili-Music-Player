@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using bilibili_music_player_windows.Api;
 
-// Dependency-free regression runner: dotnet run --project windows.Tests
+// Portable regression runner: dotnet run --project windows.Tests
 var payload = Enumerable.Range(0, 8192).Select(i => (byte)(i % 251)).ToArray();
 var uri = new Uri("https://media.example.test/video.mp4");
 var tests = new (string Name, Func<Task> Run)[]
@@ -130,7 +130,7 @@ var tests = new (string Name, Func<Task> Run)[]
     }),
 };
 
-foreach (var (name, run) in tests.Concat(SearchSessionTests.All).Concat(ResidentTabsTests.All).Concat(LibraryTests.All).Concat(AccountTests.All))
+foreach (var (name, run) in tests.Concat(SearchSessionTests.All).Concat(ResidentTabsTests.All).Concat(LibraryTests.All).Concat(AccountTests.All).Concat(PlayerTests.All))
 {
     try
     {

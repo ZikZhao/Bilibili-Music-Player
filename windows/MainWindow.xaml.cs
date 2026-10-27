@@ -186,45 +186,5 @@ namespace bilibili_music_player_windows
             NavigateTo("nowplaying");
         }
 
-        /// <summary>绕过 Slider 内部 Thumb 的事件截获，监听底层指针事件。</summary>
-        private void OnProgressSliderLoaded(object sender, RoutedEventArgs e)
-        {
-            // 创建并绑定 ThumbToolTip 值转换器（绕过 XAML 资源树的逻辑树断裂）
-            var timeConverter = new Converters.ProgressToTimeConverter();
-            var durationBinding = new Microsoft.UI.Xaml.Data.Binding
-            {
-                Source = _playerViewModel,
-                Path = new PropertyPath(nameof(PlayerViewModel.Duration)),
-                Mode = Microsoft.UI.Xaml.Data.BindingMode.OneWay,
-            };
-            Microsoft.UI.Xaml.Data.BindingOperations.SetBinding(
-                timeConverter, Converters.ProgressToTimeConverter.TotalDurationProperty, durationBinding);
-            ProgressSlider.ThumbToolTipValueConverter = timeConverter;
-
-            ProgressSlider.AddHandler(
-                UIElement.PointerPressedEvent,
-                new PointerEventHandler(OnProgressSliderPointerPressed),
-                handledEventsToo: true);
-
-            ProgressSlider.AddHandler(
-                UIElement.PointerCaptureLostEvent,
-                new PointerEventHandler(OnProgressSliderPointerCaptureLost),
-                handledEventsToo: true);
-        }
-
-        private void OnProgressSliderPointerPressed(object sender, PointerRoutedEventArgs e)
-        {
-            _playerViewModel.IsUserSeeking = true;
-        }
-
-        private void OnProgressSliderPointerCaptureLost(object sender, PointerRoutedEventArgs e)
-        {
-            if (sender is Slider slider)
-            {
-                _playerViewModel.SeekCommand.Execute(slider.Value);
-            }
-
-            _playerViewModel.IsUserSeeking = false;
-        }
     }
 }
