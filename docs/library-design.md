@@ -34,17 +34,21 @@ Windows Release 暂时关闭 IL 裁剪，保留原生绑定与现有 JSON 模型
 - 服务端独立检查 JSON 格式、ID/源标识去重、悬空关系、循环与深度，不信任客户端验证。
 - `supabase/migrations/` 与远端迁移历史版本一致；`supabase/tests/music_library.sql` 在回滚事务里验证隔离、权限和图约束，没有遗留测试账号。
 
-## 邮箱密码登录
+## 邮箱验证码登录
 
-邮箱认证、注册、邮箱确认、密码重设和自动刷新令牌均使用 Supabase Auth。不会自行保存密码散列，也不把密码写入本机文件。会话令牌由 Windows `DataProtectionProvider("LOCAL=user")` 加密保存。
+Windows 只提供邮箱验证码登录，不提供密码、单独注册、找回密码或链接登录入口。向 `/auth/v1/otp` 请求验证码，`create_user: true` 使首次验证与已有账号登录使用同一流程；向 `/auth/v1/verify` 提交邮箱、6 位数字和 `type: email`。发送邮件不会建立本机会话，验证成功且返回邮箱匹配后才保存令牌。
 
-此项目已启用邮箱注册和邮箱确认。注册后可将确认邮件的验证码或尚未打开的原始链接粘贴回应用，直接完成邮箱确认；也可通过邮件确认后回来登录。原生确认方式不依赖网站回调或商店上架。找回密码同样支持邮件验证码或原始重置链接；验证后更新密码，恢复用的临时会话不会替换当前账号。
+验证码 10 分钟有效，每个邮箱至少间隔 60 秒重发。客户端在账户服务中按邮箱记录倒计时，重开对话框不会清零；重复点击不会重复发信。网络超时可能发生在服务器已经发信之后，因此不会自动重试，仍保留倒计时。服务器返回 Retry-After 时尊重更长的等待时间。修改邮箱会清空输入的验证码，失败响应不能替换已登录账户。
 
-建议将 Supabase 的 Reset Password 邮件模板加入 `{{ .Token }}`，使用户直接输入邮件验证码，无需复制链接。使用默认链接时，应用也提供链接输入方式。
+会话令牌继续由 Windows `DataProtectionProvider("LOCAL=user")` 加密保存和自动刷新；验证码及 SMTP 凭据不写入本机账户文件。账户弹窗也不进入 Debug UI 诊断导出。客户端只持有 publishable key。
 
-[默认发信服务](https://supabase.com/docs/guides/auth/auth-smtp)仅发给项目团队邮箱，当前限额 2 封/小时。先用项目团队邮箱验证个人使用；向其他用户开放前配置自有 SMTP。没有关闭邮箱确认，也没有改变发信或注册安全配置。
+Supabase 自定义 SMTP 使用 QQ 邮箱，通过 `smtp.qq.com:465` 的 TLS 连接发信。SMTP 授权码仅保存在 Supabase 服务端，不进入源码、安装包或日志。邮件由 Supabase Auth 生成 MIME 和 UTF-8 编码，QQ SMTP 负责投递，不经过第三方转发 API。首次注册与后续登录均使用 `supabase/templates/email-otp.html`，只包含 `{{ .Token }}`，不包含登录链接。
 
-第三方登录不等于必须先上架应用商店。[Google 的开发配置](https://supabase.com/docs/guides/auth/social-sign-in/auth-google)支持本地测试，审核取决于提供方、用户范围、品牌与申请的权限。本期采用已选定的邮箱密码方案。
+服务端私有 `music_auth.enforce_email_otp` 作为 Custom Access Token Hook，仅允许邮箱 OTP、首次邮箱验证及其会话刷新签发令牌。密码、恢复密码以及没有 OTP 验证记录的旧会话刷新均被拒绝；原有账户和收藏不删除。已签发的访问令牌仍遵循原到期时间。函数采用 SECURITY INVOKER，保持原有 claims，不查询用户表，匿名及客户端角色没有 schema/function 访问权限。
+
+当前在 Supabase 设置整个项目每小时 30 封邮件、同一用户 60 秒间隔。这是本项目的 Supabase 限额，不代表 QQ 邮箱保证的额度。普通 QQ 邮箱仍可能受反垃圾和发送频率控制，不把网上未经官方确认的“每日 100/500 封”等数字作为承诺。部署字段、邮件模板与 Hook 设置见 [Supabase 配置](../supabase/README.md)。
+
+官方参考：[邮箱 OTP](https://supabase.com/docs/guides/auth/auth-email-passwordless)、[自定义 SMTP](https://supabase.com/docs/guides/auth/auth-smtp)、[限流](https://supabase.com/docs/guides/auth/rate-limits)、[Access Token Hook](https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook)。Supabase 的[密码泄露检测提示](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)针对密码认证；本项目不接受密码登录会话。
 
 ## 调研边界
 
@@ -61,3 +65,5 @@ Windows Release 暂时关闭 IL 裁剪，保留原生绑定与现有 JSON 模型
 `dotnet run --project windows.Tests/PlaybackRegressionTests.csproj --no-restore` 覆盖媒体流、搜索、常驻页面、动态图、持久化、同步冲突、账号切换及 Auth 协议。认证协议测试使用内存令牌存储和模拟 HTTP，不发送邮件或操作真实账号。
 
 Debug 检查支持 `Inspect-Ui.ps1 -LibraryFixture sample`，使用独立的随机本机测试档案并禁用云同步；`-LibraryFixture restore` 返回实际账号或本机库。Release 没有这个入口。
+
+2026-10-27 验证：62 项本地回归通过，Debug/Release 编译通过，私有 Auth Hook 的 SQL 回归通过。实际请求 OTP 经 Supabase → QQ SMTP 投递，用户确认 QQ 网页版和 Outlook 的中文与数字均正常；在应用中实际验证登录后完成云同步，更新并重启应用仍保持登录和同步状态，Windows 受保护会话往返检查通过。

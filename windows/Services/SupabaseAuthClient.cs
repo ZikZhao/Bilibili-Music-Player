@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Net.Mail;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,22 +21,33 @@ public interface IAccountSessionStore
     Task WriteAsync(AccountSession? session);
 }
 
-/// <summary>Public-client Auth. Only encrypted session tokens are persisted, never passwords.</summary>
+public sealed class EmailCodeRateLimitException(string message, TimeSpan retryAfter) : InvalidOperationException(message)
+{
+    public TimeSpan RetryAfter { get; } = retryAfter;
+}
+
+/// <summary>Email OTP Auth. Only encrypted session tokens are persisted; codes stay in memory.</summary>
 public class SupabaseAuthClient : IDisposable
 {
     internal const string ProjectUrl = "https://ybprifopdwcorrweanjq.supabase.co";
     internal const string PublishableKey = "sb_publishable_auLuqtCJV4pQ3W1hn2q5KA_xOwJBJtk";
     private readonly HttpClient _http;
     private readonly SemaphoreSlim _refresh = new(1, 1);
+    private readonly SemaphoreSlim _sendCode = new(1, 1);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _emailRetryAt = new(StringComparer.OrdinalIgnoreCase);
+    private readonly TimeProvider _time;
     private readonly IAccountSessionStore _store;
+    public const int EmailCodeLength = 6;
+    public static readonly TimeSpan EmailCodeResendDelay = TimeSpan.FromSeconds(60);
     private bool _disposed;
     public AccountSession? Session { get; private set; }
     public event EventHandler? Changed;
     public Task Initialization { get; }
 
-    public SupabaseAuthClient(IAccountSessionStore store, HttpMessageHandler? handler = null)
+    public SupabaseAuthClient(IAccountSessionStore store, HttpMessageHandler? handler = null, TimeProvider? time = null)
     {
         _store = store;
+        _time = time ?? TimeProvider.System;
         _http = handler is null ? new HttpClient() : new HttpClient(handler);
         _http.BaseAddress = new Uri(ProjectUrl); _http.Timeout = TimeSpan.FromSeconds(20);
         _http.DefaultRequestHeaders.Add("apikey", PublishableKey);
@@ -51,89 +64,73 @@ public class SupabaseAuthClient : IDisposable
         catch { Session = null; }
     }
 
-    public async Task SignInAsync(string email, string password)
+    public TimeSpan GetEmailCodeRetryAfter(string email)
     {
-        await Initialization;
-        await _refresh.WaitAsync();
-        try
-        {
-            using var json = await SendAuthAsync("/auth/v1/token?grant_type=password", new { email = email.Trim(), password });
-            await SetSessionAsync(ParseSession(json.RootElement));
-        }
-        finally { _refresh.Release(); }
+        if (!_emailRetryAt.TryGetValue(email.Trim(), out var retryAt)) return TimeSpan.Zero;
+        var remaining = retryAt - _time.GetUtcNow();
+        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
     }
 
-    public async Task<bool> SignUpAsync(string email, string password)
+    public async Task RequestEmailCodeAsync(string email, CancellationToken ct = default)
     {
+        email = NormalizeEmail(email);
         await Initialization;
-        await _refresh.WaitAsync();
+        await _sendCode.WaitAsync(ct);
         try
         {
-            using var json = await SendAuthAsync("/auth/v1/signup", new { email = email.Trim(), password });
-            if (!json.RootElement.TryGetProperty("access_token", out var token) || token.ValueKind != JsonValueKind.String) return false;
-            await SetSessionAsync(ParseSession(json.RootElement));
-            return true;
+            var remaining = GetEmailCodeRetryAfter(email);
+            if (remaining > TimeSpan.Zero)
+                throw new EmailCodeRateLimitException($"请在 {Math.Ceiling(remaining.TotalSeconds):0} 秒后重新获取验证码。", remaining);
+            foreach (var item in _emailRetryAt)
+                if (item.Value <= _time.GetUtcNow()) _emailRetryAt.TryRemove(item.Key, out _);
+            // Keep the cooldown after a timeout too: the server may already have sent the email.
+            _emailRetryAt[email] = _time.GetUtcNow() + EmailCodeResendDelay;
+            try
+            {
+                using var result = await SendAuthAsync("/auth/v1/otp", new { email, create_user = true }, ct);
+                _emailRetryAt[email] = _time.GetUtcNow() + EmailCodeResendDelay;
+            }
+            catch (EmailCodeRateLimitException ex)
+            {
+                _emailRetryAt[email] = _time.GetUtcNow() + ex.RetryAfter;
+                throw;
+            }
         }
-        finally { _refresh.Release(); }
+        finally { _sendCode.Release(); }
     }
 
-    public async Task SendRecoveryAsync(string email) { using var result = await SendAuthAsync("/auth/v1/recover", new { email = email.Trim() }); }
-
-    public async Task ConfirmEmailAsync(string email, string codeOrLink)
+    public async Task VerifyEmailCodeAsync(string email, string code, CancellationToken ct = default)
     {
-        object verification;
-        if (Uri.TryCreate(codeOrLink.Trim(), UriKind.Absolute, out var link))
-        {
-            var query = ParseQuery(link.Query);
-            if (link.Scheme != Uri.UriSchemeHttps || link.Host != new Uri(ProjectUrl).Host || link.AbsolutePath != "/auth/v1/verify" ||
-                !query.TryGetValue("token", out var token) || !query.TryGetValue("type", out var type) || type is not ("signup" or "email"))
-                throw new InvalidOperationException("请粘贴本应用注册确认邮件中的原始链接。");
-            verification = new { token_hash = token, type };
-        }
-        else verification = new { email = email.Trim(), token = codeOrLink.Trim(), type = "email" };
+        email = NormalizeEmail(email);
+        code = code.Trim();
+        if (!IsEmailCode(code)) throw new InvalidOperationException("请输入邮件中的 6 位数字验证码。");
         await Initialization;
-        await _refresh.WaitAsync();
+        await _refresh.WaitAsync(ct);
         try
         {
-            using var result = await SendAuthAsync("/auth/v1/verify", verification);
+            using var result = await SendAuthAsync("/auth/v1/verify", new { email, token = code, type = "email" }, ct);
             var session = ParseSession(result.RootElement);
-            if (!string.Equals(session.Email, email.Trim(), StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("确认信息与邮箱不匹配。");
+            if (!string.Equals(session.Email, email, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("验证信息与邮箱不匹配，请重新获取验证码。");
+            ct.ThrowIfCancellationRequested();
             await SetSessionAsync(session);
         }
         finally { _refresh.Release(); }
     }
 
-    public async Task ResetPasswordAsync(string email, string codeOrLink, string password)
+    public static bool IsEmailCode(string code)
     {
-        object verification;
-        if (Uri.TryCreate(codeOrLink.Trim(), UriKind.Absolute, out var link))
-        {
-            if (link.Host != new Uri(ProjectUrl).Host || link.AbsolutePath != "/auth/v1/verify")
-                throw new InvalidOperationException("请粘贴本应用重置邮件中的原始确认链接。");
-            var query = ParseQuery(link.Query);
-            if (!query.TryGetValue("token", out var token) || !query.TryGetValue("type", out var type) || type != "recovery")
-                throw new InvalidOperationException("这不是密码重置链接。");
-            verification = new { token_hash = token, type = "recovery" };
-        }
-        else verification = new { email = email.Trim(), token = codeOrLink.Trim(), type = "recovery" };
-        using var response = await SendAuthAsync("/auth/v1/verify", verification);
-        var temporary = ParseSession(response.RootElement);
-        if (!string.Equals(temporary.Email, email.Trim(), StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("验证信息与邮箱不匹配。");
-        using var request = new HttpRequestMessage(HttpMethod.Put, "/auth/v1/user") { Content = JsonContent.Create(new { password }) };
-        request.Headers.Authorization = new("Bearer", temporary.AccessToken);
-        using var result = await _http.SendAsync(request);
-        await CheckResponseAsync(result);
-        // A recovery token never replaces the currently signed-in account.
+        if (code.Length != EmailCodeLength) return false;
+        foreach (var character in code) if (character is < '0' or > '9') return false;
+        return true;
     }
 
-    private static System.Collections.Generic.Dictionary<string, string> ParseQuery(string query)
+    private static string NormalizeEmail(string email)
     {
-        var result = new System.Collections.Generic.Dictionary<string, string>();
-        foreach (var pair in query.TrimStart('?').Split('&'))
-        { var parts = pair.Split('=', 2); if (parts.Length == 2) result[Uri.UnescapeDataString(parts[0])] = Uri.UnescapeDataString(parts[1]); }
-        return result;
+        email = email.Trim();
+        if (!MailAddress.TryCreate(email, out var address) || address.Address != email)
+            throw new InvalidOperationException("请输入有效邮箱。");
+        return email;
     }
 
     public async Task<string> GetAccessTokenAsync(CancellationToken ct)
@@ -198,17 +195,23 @@ public class SupabaseAuthClient : IDisposable
         try { using var json = JsonDocument.Parse(text); if (json.RootElement.TryGetProperty("error_code", out var c) || json.RootElement.TryGetProperty("code", out c)) code = c.ValueKind == JsonValueKind.String ? c.GetString() : c.GetRawText(); }
         catch (JsonException) { }
         if (code == "40001") throw new LibraryConflictException();
+        if (code is "over_email_send_rate_limit" or "over_request_rate_limit" || (int)response.StatusCode == 429)
+        {
+            var retry = response.Headers.RetryAfter?.Delta ??
+                (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow) ?? EmailCodeResendDelay;
+            if (retry <= TimeSpan.Zero) retry = EmailCodeResendDelay;
+            throw new EmailCodeRateLimitException(code == "over_email_send_rate_limit"
+                ? "邮件发送已达限额，请稍后重试。" : "操作过于频繁，请稍后再试。", retry);
+        }
         throw new InvalidOperationException(code switch
         {
-            "invalid_credentials" => "邮箱或密码不正确。",
-            "email_not_confirmed" => "请先通过邮件确认邮箱，再返回登录。",
-            "email_address_not_authorized" => "项目尚未配置对外邮件服务，目前请使用项目团队邮箱注册。",
-            "over_email_send_rate_limit" or "over_request_rate_limit" => "操作过于频繁，请稍后再试。",
-            "user_already_exists" => "该邮箱已经注册，请直接登录。",
-            "otp_expired" => "验证信息已过期或已使用，请重新发送邮件。",
+            "invalid_credentials" or "otp_expired" => "验证码不正确、已过期或已使用，请重新获取验证码。",
+            "email_address_invalid" or "validation_failed" => "邮箱格式不正确，请检查后重试。",
+            "email_not_confirmed" => "请重新获取邮箱验证码完成验证。",
+            "email_address_not_authorized" or "email_provider_disabled" => "邮件服务暂不可用，请稍后重试。",
+            "signup_disabled" or "otp_disabled" => "暂时无法发送验证码，请稍后重试。",
             "refresh_token_not_found" or "refresh_token_already_used" or "session_not_found" or "bad_jwt" => "登录已过期，请重新登录。",
             _ when response.StatusCode == HttpStatusCode.Unauthorized => "登录已过期，请重新登录。",
-            _ when (int)response.StatusCode == 429 => "操作过于频繁，请稍后再试。",
             _ => $"请求未完成（{(int)response.StatusCode}），请稍后重试。",
         });
     }
@@ -221,7 +224,7 @@ public class SupabaseAuthClient : IDisposable
             DateTimeOffset.UtcNow.AddSeconds(root.GetProperty("expires_in").GetInt64()));
     }
 
-    public void Dispose() { if (_disposed) return; _disposed = true; _http.Dispose(); _refresh.Dispose(); }
+    public void Dispose() { if (_disposed) return; _disposed = true; _http.Dispose(); _refresh.Dispose(); _sendCode.Dispose(); }
 }
 
 public sealed class SupabaseLibraryCloud : ILibraryCloud, IDisposable

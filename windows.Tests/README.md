@@ -28,6 +28,6 @@ dotnet build windows/bilibili-music-player-windows.csproj -p:Platform=x64
 
 还应检查候选词的鼠标选择、方向键选择、Enter 和放大镜提交、失败重试，以及窄窗口和明暗主题。候选文字应与原生编辑区域的左边缘对齐，窗口缩放、候选项回收及长查询横向滚动后也保持对齐；放大镜上鼠标应为普通箭头且无悬浮背景。搜索、收藏、设置的大标题前不应存在装饰竖线；侧栏选中指示条在明暗主题下都应为主题粉色。
 
-`LibraryTests.cs` 验证动态链接、混排顺序、去重、循环与深度限制、文件夹解散、音源全局移除、账号隔离、离线文件、冲突备份、丢失提交响应及迟到请求。`AccountTests.cs` 使用模拟 HTTP 验证邮箱密码、确认邮件响应、恢复密码、刷新令牌竞态和跨账号请求拒绝，不操作实际邮箱。云端数据库回归位于 `supabase/tests/music_library.sql`，事务结束时回滚全部夹具。
+`LibraryTests.cs` 验证动态链接、混排顺序、去重、循环与深度限制、文件夹解散、音源全局移除、账号隔离、离线文件、冲突备份、丢失提交响应及迟到请求。`AccountTests.cs` 使用模拟 HTTP 验证邮箱 OTP、首次自动注册、6 位验证码验证、邮箱归属校验、并发重发防护、倒计时、Retry-After、超时不自动重发、取消验证、刷新令牌竞态和跨账号请求拒绝，不操作实际邮箱。云端数据库回归位于 `supabase/tests/music_library.sql` 和 `supabase/tests/email_otp.sql`，事务结束时回滚。
 
-收藏页操作使用独立 UI 夹具：`Inspect-Ui.ps1 -LibraryFixture sample -Tab favorites`，结束后 `-LibraryFixture restore`。注册、邮件确认和真实账号登录需要用户亲自验证，不应通过电脑控制工具输入用户凭证。
+收藏页操作使用独立 UI 夹具：`Inspect-Ui.ps1 -LibraryFixture sample -Tab favorites`，结束后 `-LibraryFixture restore`。真实验证码由用户亲自输入：获取后应看到 60 秒重发倒计时，输入错误或过期验证码后仍停留在对话框，输入有效验证码后关闭对话框并切换到对应账户库。重新打开对话框不应绕过重发倒计时。SMTP 投递和邮件在 QQ/Outlook 的显示另行实际验证，不应通过电脑控制工具代填用户验证码。

@@ -56,7 +56,7 @@ public partial class LibraryViewModel : ObservableObject
     public bool IsSignedIn => Account.Session is not null;
     public bool HasConflict => Repository.HasConflict;
     public string AccountLabel => Account.Session?.Email ?? "未登录";
-    public string AccountButtonLabel => IsSignedIn ? "账户" : "登录 / 注册";
+    public string AccountButtonLabel => IsSignedIn ? "账户" : "邮箱登录";
     public string SyncStatus => Repository.Status;
     public LibraryDocument Document => Repository.State.Document;
     public ObservableCollection<LibraryNavItem> Roots { get; } = new();

@@ -46,6 +46,8 @@ internal static class UiLayoutSnapshot
     {
         if (node is FrameworkElement element)
         {
+            // Authentication input must never appear in diagnostic JSON exports.
+            if (element is bilibili_music_player_windows.Controls.AccountDialog) return;
             visible &= element.Visibility == Visibility.Visible;
             if (!visible) return; // Hidden resident pages retain stale geometry.
             Rect bounds;
