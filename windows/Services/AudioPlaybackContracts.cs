@@ -7,7 +7,7 @@ namespace bilibili_music_player_windows.Services;
 
 public sealed record ResolvedAudioSource(VideoModel Track, Uri Uri, string? CacheKey = null);
 public sealed record AudioPlaybackSnapshot(long SourceId, TimeSpan Position, TimeSpan Duration,
-    bool IsPlaying, bool IsBuffering, bool CanSeek, double BufferingProgress = 0,
+    bool IsPlaying, bool IsBuffering, bool CanSeek,
     bool Ended = false, string? Error = null);
 
 public interface IAudioSourceResolver

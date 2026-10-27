@@ -131,14 +131,15 @@
                         Foreground="{ThemeResource Rose400}" Background="{ThemeResource Slate200}" />
             </StackPanel>
         </Grid>
-        <Slider x:Name="ProgressSlider" Height="20" VerticalAlignment="Top" Margin="0,-10,0,0"
+        <controls:TransportSeekSlider x:Name="ProgressSlider" Height="20" VerticalAlignment="Top" Margin="0,-10,0,0"
+                Style="{StaticResource DefaultSliderStyle}"
                 Canvas.ZIndex="1" Value="{x:Bind ViewModel.Progress, Mode=OneWay}"
                 IsEnabled="{x:Bind ViewModel.CanSeek, Mode=OneWay}"
                 Minimum="0" Maximum="1" StepFrequency="0.001" SmallChange="0.01" LargeChange="0.1"
                 IsThumbToolTipEnabled="True" Loaded="OnProgressSliderLoaded"
                 AutomationProperties.Name="播放进度" AutomationProperties.AutomationId="ProgressSlider"
                 Foreground="{ThemeResource Rose400}" Background="{ThemeResource Slate200}">
-            <Slider.Resources>
+            <controls:TransportSeekSlider.Resources>
                 <x:Double x:Key="SliderHorizontalHeight">20</x:Double>
                 <x:Double x:Key="SliderPreContentMargin">8</x:Double>
                 <x:Double x:Key="SliderPostContentMargin">8</x:Double>
@@ -150,7 +151,7 @@
                 <StaticResource x:Key="SliderThumbBackgroundPressed" ResourceKey="Rose400" />
                 <StaticResource x:Key="SliderTrackValueFillPointerOver" ResourceKey="Rose400" />
                 <StaticResource x:Key="SliderTrackValueFillPressed" ResourceKey="Rose400" />
-            </Slider.Resources>
-        </Slider>
+            </controls:TransportSeekSlider.Resources>
+        </controls:TransportSeekSlider>
     </Grid>
 </UserControl>

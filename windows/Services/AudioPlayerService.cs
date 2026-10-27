@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using bilibili_music_player_windows.Api;
@@ -19,6 +20,17 @@ public sealed class AudioPlayerService : IAudioPlaybackEngine, IDisposable
     private readonly object _gate = new();
     private readonly CancellationTokenSource _lifetime = new();
     private readonly PeriodicTimer _timer = new(TimeSpan.FromMilliseconds(250));
+    private readonly Task _positionUpdates;
+#if DEBUG
+    private long _seekCount;
+    internal object Inspect()
+    {
+        lock (_gate)
+            return new { position = _current?.Player.PlaybackSession.Position.TotalSeconds,
+                state = _current?.Player.PlaybackSession.PlaybackState.ToString(),
+                updates = _positionUpdates.Status.ToString(), error = _positionUpdates.Exception?.ToString(), seeks = _seekCount };
+    }
+#endif
     private Session? _current;
     private CancellationTokenSource? _fade;
     private long _version;
@@ -27,7 +39,7 @@ public sealed class AudioPlayerService : IAudioPlaybackEngine, IDisposable
     public event EventHandler<AudioPlaybackSnapshot>? Changed;
 
     public AudioPlayerService(HttpClient http)
-    { _http = http; _ = UpdatePositionAsync(); }
+    { _http = http; _positionUpdates = UpdatePositionAsync(); }
 
     public double Volume
     {
@@ -73,6 +85,8 @@ public sealed class AudioPlayerService : IAudioPlaybackEngine, IDisposable
             session.Player.MediaEnded += session.EndedHandler = (_, _) => Publish(session, ended: true);
             session.Player.PlaybackSession.PlaybackStateChanged += session.StateHandler = (_, _) => Publish(session);
             session.Player.PlaybackSession.NaturalDurationChanged += session.DurationHandler = (_, _) => Publish(session);
+            session.Player.PlaybackSession.PositionChanged += session.PositionHandler = (_, _) => Publish(session);
+            session.Player.PlaybackSession.SeekCompleted += session.SeekHandler = (_, _) => Publish(session);
             Session? previous;
             lock (_gate)
             {
@@ -99,6 +113,9 @@ public sealed class AudioPlayerService : IAudioPlaybackEngine, IDisposable
         {
             session = _current;
             if (session is null || !session.Player.PlaybackSession.CanSeek) return;
+#if DEBUG
+            _seekCount++;
+#endif
             var duration = session.Player.PlaybackSession.NaturalDuration;
             session.Player.PlaybackSession.Position = TimeSpan.FromTicks(Math.Clamp(position.Ticks, 0, duration.Ticks));
         }
@@ -161,7 +178,6 @@ public sealed class AudioPlayerService : IAudioPlaybackEngine, IDisposable
             }
         }
         catch (OperationCanceledException) { }
-        catch (ObjectDisposedException) { }
     }
     private void Publish(Session session, bool ended = false, string? error = null)
     {
@@ -172,11 +188,24 @@ public sealed class AudioPlayerService : IAudioPlaybackEngine, IDisposable
             if (error is not null) snapshot = new(session.Id, TimeSpan.Zero, TimeSpan.Zero, false, false, false, Error: error);
             else
             {
-                var state = session.Player.PlaybackSession;
-                snapshot = new(session.Id, state.Position, state.NaturalDuration,
-                    state.PlaybackState == MediaPlaybackState.Playing,
-                    state.PlaybackState is MediaPlaybackState.Opening or MediaPlaybackState.Buffering,
-                    state.CanSeek, state.BufferingProgress, Ended: ended);
+                try
+                {
+                    var state = session.Player.PlaybackSession;
+                    var playbackState = state.PlaybackState;
+                    // BufferingProgress is unsupported by some stream-backed
+                    // sessions (E_NOINTERFACE/InvalidCastException). Buffering
+                    // UI needs only PlaybackState; never poll that optional API.
+                    snapshot = new(session.Id, state.Position, state.NaturalDuration,
+                        playbackState == MediaPlaybackState.Playing,
+                        playbackState is MediaPlaybackState.Opening or MediaPlaybackState.Buffering,
+                        state.CanSeek, Ended: ended);
+                }
+                // The native session can reject a read during a transition.
+                // Skip this sample, rather than losing all subsequent updates
+                // or throwing out of a native PositionChanged callback.
+                catch (ObjectDisposedException) { return; }
+                catch (COMException ex) { Debug.WriteLine($"[Audio position] {ex.Message}"); return; }
+                catch (InvalidCastException ex) { Debug.WriteLine($"[Audio position] {ex.Message}"); return; }
             }
         }
         Changed?.Invoke(this, snapshot);
@@ -198,7 +227,7 @@ public sealed class AudioPlayerService : IAudioPlaybackEngine, IDisposable
         public IRandomAccessStream? RandomAccess;
         public Windows.Foundation.TypedEventHandler<MediaPlayer, object>? OpenedHandler, EndedHandler;
         public Windows.Foundation.TypedEventHandler<MediaPlayer, MediaPlayerFailedEventArgs>? FailedHandler;
-        public Windows.Foundation.TypedEventHandler<MediaPlaybackSession, object>? StateHandler, DurationHandler;
+        public Windows.Foundation.TypedEventHandler<MediaPlaybackSession, object>? StateHandler, DurationHandler, PositionHandler, SeekHandler;
         private int _disposed;
         public void Dispose()
         {
@@ -206,6 +235,8 @@ public sealed class AudioPlayerService : IAudioPlaybackEngine, IDisposable
             Player.MediaOpened -= OpenedHandler; Player.MediaEnded -= EndedHandler; Player.MediaFailed -= FailedHandler;
             Player.PlaybackSession.PlaybackStateChanged -= StateHandler;
             Player.PlaybackSession.NaturalDurationChanged -= DurationHandler;
+            Player.PlaybackSession.PositionChanged -= PositionHandler;
+            Player.PlaybackSession.SeekCompleted -= SeekHandler;
             Opened.TrySetCanceled();
             Player.Pause(); Player.Source = null; Player.Dispose();
             Source?.Dispose(); RandomAccess?.Dispose(); Stream?.Dispose();

@@ -77,7 +77,9 @@ internal static class UiLayoutSnapshot
                 data["borderBrush"] = Paint(control.BorderBrush);
                 data["borderThickness"] = Insets(control.BorderThickness);
                 data["focusState"] = control.FocusState.ToString();
+                data["isEnabled"] = control.IsEnabled;
             }
+            if (element is RangeBase range) data["value"] = range.Value;
             if (element is TextBlock text)
             {
                 data["text"] = text.Text; data["fontFamily"] = text.FontFamily.Source;

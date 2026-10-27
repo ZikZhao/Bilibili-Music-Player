@@ -35,7 +35,6 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
     [ObservableProperty] private TimeSpan _position;
     [ObservableProperty] private TimeSpan _duration;
     [ObservableProperty] private double _progress;
-    [ObservableProperty] private double _bufferingProgress;
     [ObservableProperty] private double _volume = .8;
     [ObservableProperty] private int _currentIndex = -1;
     [ObservableProperty] private int _queueCount;
@@ -280,7 +279,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
         if (snapshot.Error is { } error) { Fail(error); return; }
         IsPlaying = snapshot.IsPlaying; IsBuffering = snapshot.IsBuffering;
         Duration = snapshot.Duration; Position = snapshot.Position;
-        _canSeek = snapshot.CanSeek; BufferingProgress = snapshot.BufferingProgress;
+        _canSeek = snapshot.CanSeek;
         if (!IsUserSeeking) Progress = Duration > TimeSpan.Zero ? Math.Clamp(Position.TotalSeconds / Duration.TotalSeconds, 0, 1) : 0;
         if (!IsLoading && !_transitioning && !IsBuffering) _wantsPlay = IsPlaying;
         RefreshControls();
