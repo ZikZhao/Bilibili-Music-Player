@@ -13,6 +13,9 @@ public sealed partial class NowPlayingBar : UserControl
     {
         ViewModel = App.Current.GetService<PlayerViewModel>();
         InitializeComponent();
+#if DEBUG
+        InitializeTypographyBounds();
+#endif
     }
     private void OnNowPlayingClick(object sender, RoutedEventArgs e) => DetailsRequested?.Invoke(this, e);
     private void OnProgressSliderLoaded(object sender, RoutedEventArgs e)

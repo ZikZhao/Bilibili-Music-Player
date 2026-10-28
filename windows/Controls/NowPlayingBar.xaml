@@ -75,26 +75,22 @@
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{x:Bind ViewModel.TrackSubtitle, Mode=OneWay}"
                                    Foreground="{ThemeResource Slate500}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="CompactTransportTime" FontFamily="{StaticResource AppFontFamily}" FontSize="13"
+                        <TextBlock x:Name="CompactTransportTime" FontFamily="Arial" FontSize="13"
                                    Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
                                    Foreground="{ThemeResource Slate500}" />
                     </StackPanel>
                 </Grid>
             </Button>
-            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0,19,0" FontFamily="{StaticResource AppFontFamily}" FontSize="14"
+            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0,19,0" FontFamily="Arial" FontSize="14"
                        VerticalAlignment="Center" Foreground="{ThemeResource Slate500}" Visibility="Collapsed"
                        Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
-                       AutomationProperties.AutomationId="TransportTime">
-                <TextBlock.RenderTransform>
-                    <TranslateTransform Y="-2" />
-                </TextBlock.RenderTransform>
-            </TextBlock>
+                       AutomationProperties.AutomationId="TransportTime" />
             <StackPanel x:Name="TransportButtons" Grid.Column="2" Orientation="Horizontal" Spacing="8"
                         VerticalAlignment="Center" Margin="12,0,0,0">
                 <Button Width="32" Height="32" Padding="0" Style="{StaticResource SubtleButtonStyle}"
                         Command="{x:Bind ViewModel.PreviousCommand}" ToolTipService.ToolTip="上一首"
                         AutomationProperties.Name="上一首" AutomationProperties.AutomationId="PreviousButton">
-                    <controls:Icon Glyph="{StaticResource Icon_GoStart}" />
+                    <controls:Icon x:Name="PreviousTransportIcon" Glyph="{StaticResource Icon_GoStart}" />
                 </Button>
                 <Button Width="40" Height="40" Padding="0" CornerRadius="20" Background="{ThemeResource Rose400}"
                         Command="{x:Bind ViewModel.TogglePlayCommand}"
@@ -106,16 +102,16 @@
                         <StaticResource x:Key="ButtonBackgroundPressed" ResourceKey="Rose400" />
                     </Button.Resources>
                     <Grid Width="24" Height="24">
-                        <controls:Icon Glyph="{StaticResource Icon_PlayOne}" FontSize="24"
+                        <controls:Icon x:Name="PlayTransportIcon" Glyph="{StaticResource Icon_PlayOne}" FontSize="24"
                                        Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.ShowPause), Mode=OneWay}" />
-                        <controls:Icon Glyph="{StaticResource Icon_Pause}" FontSize="24"
+                        <controls:Icon x:Name="PauseTransportIcon" Glyph="{StaticResource Icon_Pause}" FontSize="24"
                                        Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.ShowPause), Mode=OneWay}" />
                     </Grid>
                 </Button>
                 <Button Width="32" Height="32" Padding="0" Style="{StaticResource SubtleButtonStyle}"
                         Command="{x:Bind ViewModel.NextCommand}" ToolTipService.ToolTip="下一首"
                         AutomationProperties.Name="下一首" AutomationProperties.AutomationId="NextButton">
-                    <controls:Icon Glyph="{StaticResource Icon_GoEnd}" />
+                    <controls:Icon x:Name="NextTransportIcon" Glyph="{StaticResource Icon_GoEnd}" />
                 </Button>
             </StackPanel>
             <StackPanel x:Name="VolumeControls" Grid.Column="3" Orientation="Horizontal" Spacing="8"
@@ -124,9 +120,9 @@
                         Command="{x:Bind ViewModel.ToggleMuteCommand}" ToolTipService.ToolTip="静音 / 恢复音量"
                         AutomationProperties.Name="静音或恢复音量" AutomationProperties.AutomationId="MuteButton">
                     <Grid Width="20" Height="20">
-                        <controls:Icon Glyph="{StaticResource Icon_VolumeNotice}" FontSize="18"
+                        <controls:Icon x:Name="AudibleTransportIcon" Glyph="{StaticResource Icon_VolumeNotice}" FontSize="18"
                                        Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
-                        <controls:Icon Glyph="{StaticResource Icon_VolumeMute}" FontSize="18"
+                        <controls:Icon x:Name="MutedTransportIcon" Glyph="{StaticResource Icon_VolumeMute}" FontSize="18"
                                        Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
                     </Grid>
                 </Button>
