@@ -97,6 +97,18 @@ public sealed partial class MainWindow
         }
         root.UpdateLayout();
         await Task.Delay(100);
+        if (UiLayoutSnapshot.Find(root, "TransportTime") is TextBlock time)
+        {
+            if (request.TimeLineBounds is { } lineBounds)
+                time.TextLineBounds = lineBounds switch
+                {
+                    "Full" => TextLineBounds.Full,
+                    "TrimToCapHeight" => TextLineBounds.TrimToCapHeight,
+                    "TrimToBaseline" => TextLineBounds.TrimToBaseline,
+                    "Tight" => TextLineBounds.Tight,
+                    _ => throw new ArgumentException("Unsupported time text line bounds."),
+                };
+        }
         var search = UiLayoutSnapshot.Find(root, "SearchTextBox") as SearchTextBox;
         if (request.InputFont is not null && search is not null)
         {
@@ -242,6 +254,7 @@ public sealed partial class MainWindow
 
 internal sealed class UiInspectionRequest
 {
+    public string? TimeLineBounds { get; set; }
     public string? PlaybackFixture { get; set; }
     public string? PlaybackAction { get; set; }
     public string? PlaybackBvid { get; set; }

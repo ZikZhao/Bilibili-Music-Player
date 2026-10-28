@@ -88,6 +88,7 @@ internal static class UiLayoutSnapshot
                 data["fontSize"] = text.FontSize; data["fontWeight"] = text.FontWeight.Weight;
                 data["foreground"] = Paint(text.Foreground); data["padding"] = Insets(text.Padding);
                 data["baselineOffset"] = text.BaselineOffset; data["baselineY"] = bounds.Y + text.BaselineOffset;
+                data["textLineBounds"] = text.TextLineBounds.ToString();
             }
             if (element is TextBox input)
             {
