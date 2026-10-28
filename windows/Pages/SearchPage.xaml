@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="bilibili_music_player_windows.Pages.SearchPage"
+    Style="{StaticResource AppPageStyle}"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:bilibili_music_player_windows.Models"
     xmlns:mycontrols="using:bilibili_music_player_windows.Controls"
     xmlns:helpers="using:bilibili_music_player_windows">
 
-    <Grid x:Name="SearchPageRoot">
+    <Grid x:Name="SearchPageRoot" Margin="{StaticResource PageContentMargin}">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup>
                 <VisualState x:Name="NarrowSearchHeader">
@@ -29,7 +30,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid x:Name="SearchHeader" Margin="28,20,28,20"
+        <Grid x:Name="SearchHeader" Style="{StaticResource PageHeaderStyle}"
               SizeChanged="OnSearchHeaderSizeChanged">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
@@ -40,9 +41,7 @@
                 <ColumnDefinition Width="*" MinWidth="48" />
                 <ColumnDefinition Width="3*" MaxWidth="640" />
             </Grid.ColumnDefinitions>
-            <StackPanel x:Name="SearchHeading" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <TextBlock Text="搜索音乐" FontSize="28" FontWeight="SemiBold" Foreground="{ThemeResource Slate800}" />
-            </StackPanel>
+            <TextBlock x:Name="PageTitle" Text="搜索音乐" Style="{StaticResource PageTitleTextBlockStyle}" AutomationProperties.AutomationId="PageTitle" />
             <Grid x:Name="SearchEntryContainer" Grid.Column="2">
                 <!-- Keep the native natural height instead of stretching to the larger heading. -->
                 <mycontrols:SearchTextBox x:Name="SearchBox"
@@ -57,7 +56,7 @@
 
         <ScrollViewer Grid.Row="1" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled"
                       Visibility="{x:Bind ViewModel.LandingVisibility, Mode=OneWay}">
-            <StackPanel Margin="28,4,28,28" Spacing="14">
+            <StackPanel Spacing="14">
                 <StackPanel Orientation="Horizontal" Spacing="16">
                     <TextBlock Text="搜索历史" FontSize="16" FontWeight="SemiBold"
                                Foreground="{ThemeResource Slate600}" VerticalAlignment="Center" />
@@ -95,9 +94,9 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <TextBlock Text="{x:Bind ViewModel.ResultSummary, Mode=OneWay}" Margin="28,0,28,16"
+            <TextBlock Text="{x:Bind ViewModel.ResultSummary, Mode=OneWay}" Margin="0,0,0,16"
                        Foreground="{ThemeResource Slate500}" TextTrimming="CharacterEllipsis" />
-            <ScrollViewer x:Name="MainScrollViewer" Grid.Row="1" Padding="28,0,12,24">
+            <ScrollViewer x:Name="MainScrollViewer" Grid.Row="1" Padding="0">
                 <StackPanel Spacing="12">
                     <GridView x:Name="SearchResultsGrid" ItemsSource="{x:Bind ViewModel.SearchVideos, Mode=OneWay}"
                               SelectionMode="None" IsItemClickEnabled="True" ItemClick="OnVideoClick"
@@ -172,7 +171,7 @@
             <TextBlock Text="正在搜索…" Foreground="{ThemeResource Slate500}" />
         </StackPanel>
 
-        <Border Grid.Row="1" Visibility="{x:Bind ViewModel.ErrorMessageVisibility, Mode=OneWay}" Margin="28"
+        <Border Grid.Row="1" Visibility="{x:Bind ViewModel.ErrorMessageVisibility, Mode=OneWay}"
                 Padding="28" CornerRadius="12" Background="{ThemeResource Slate50}"
                 MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center">
             <StackPanel Spacing="16">
@@ -184,7 +183,7 @@
             </StackPanel>
         </Border>
 
-        <Grid x:Name="PreviewLayout" Grid.Row="1" Margin="20,0,24,20" ColumnSpacing="20" RowSpacing="16"
+        <Grid x:Name="PreviewLayout" Grid.Row="1" ColumnSpacing="20" RowSpacing="16"
               Visibility="{x:Bind ViewModel.PreviewModeVisibility, Mode=OneWay}" SizeChanged="OnPreviewLayoutSizeChanged">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="PreviewListColumn" Width="360" />

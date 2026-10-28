@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="bilibili_music_player_windows.Pages.AudioPlayerPage"
+    Style="{StaticResource AppPageStyle}"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:bilibili_music_player_windows.Controls"
@@ -18,19 +19,22 @@
         <converters:VolumePercentConverter x:Key="VolumeTooltipConverter" />
     </Page.Resources>
 
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid Margin="{StaticResource PageContentMargin}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <ScrollViewer Grid.Row="0" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel HorizontalAlignment="Center" Margin="32" Spacing="32" MaxWidth="600">
+        <Grid Style="{StaticResource PageHeaderStyle}">
+            <TextBlock x:Name="PageTitle" Text="正在播放" Style="{StaticResource PageTitleTextBlockStyle}" AutomationProperties.AutomationId="PageTitle" />
+        </Grid>
+        <ScrollViewer Grid.Row="1" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel HorizontalAlignment="Center" Spacing="32" MaxWidth="600">
 
                 <!-- 封面图 -->
-                <controls:AspectRatioPanel Width="320"
+                <controls:AspectRatioPanel MaxWidth="320"
                         AutomationProperties.AutomationId="AudioPlayerCover"
-                        HorizontalAlignment="Center">
+                        HorizontalAlignment="Stretch">
                     <Border CornerRadius="16" Background="{ThemeResource Slate200}" />
                     <Border CornerRadius="16"><Border.Background>
                         <ImageBrush ImageSource="{x:Bind ViewModel.CurrentTrack.Cover, Converter={StaticResource StringToImageSourceConverter}, Mode=OneWay}"

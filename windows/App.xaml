@@ -8,6 +8,12 @@
     <Application.Resources>
         <ResourceDictionary>
             <FontFamily x:Key="AppFontFamily">Microsoft YaHei</FontFamily>
+            <Thickness x:Key="PageContentMargin">32</Thickness>
+            <Thickness x:Key="PageHeaderMargin">0,0,0,32</Thickness>
+            <Style x:Key="AppPageStyle" TargetType="Page">
+                <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+                <Setter Property="Foreground" Value="{ThemeResource Slate800}" />
+            </Style>
             <Style TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
             </Style>
@@ -20,6 +26,13 @@
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
                 <Setter Property="FontSize" Value="{StaticResource TitleTextBlockFontSize}" />
                 <Setter Property="OpticalMarginAlignment" Value="TrimSideBearings" />
+            </Style>
+            <Style x:Key="PageTitleTextBlockStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}">
+                <Setter Property="Foreground" Value="{ThemeResource Slate800}" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+            <Style x:Key="PageHeaderStyle" TargetType="Grid">
+                <Setter Property="Margin" Value="{StaticResource PageHeaderMargin}" />
             </Style>
             <FontFamily x:Key="IconParkFontFamily">ms-appx:///Assets/IconPark.ttf#IconPark</FontFamily>
             <Style TargetType="controls:Icon">

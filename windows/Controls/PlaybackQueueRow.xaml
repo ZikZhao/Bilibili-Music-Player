@@ -39,7 +39,7 @@
             <Border CornerRadius="4"><Border.Background><ImageBrush Stretch="UniformToFill" ImageSource="{Binding Track.Cover, Converter={StaticResource QueueCoverConverter}, Mode=OneWay}" /></Border.Background></Border>
         </controls:AspectRatioPanel>
         <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="3">
-            <TextBlock Text="{Binding Track.Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Track.Title, Mode=OneWay}" />
+            <TextBlock Text="{Binding Track.Title, Mode=OneWay}" Foreground="{ThemeResource Slate800}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Track.Title, Mode=OneWay}" />
             <TextBlock x:Name="CompactArtistText" Text="{Binding Track.Artist, Mode=OneWay}" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource Slate500}" />
         </StackPanel>
         <TextBlock x:Name="ArtistText" Grid.Column="3" Text="{Binding Track.Artist, Mode=OneWay}" Visibility="Collapsed"
