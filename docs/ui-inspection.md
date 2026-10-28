@@ -76,3 +76,11 @@ inspection requests wait for the transition to settle before exporting geometry.
 `settings` reports non-secret preference values without changing them. The settings
 layout regression checks both themes at 430, 760 and 1245 DIP; native UI selection
 followed by a complete process restart verifies LocalSettings restoration.
+
+`-ProbeTabPresentation settings|playlist|search` observes the pending page before
+its first reveal: opacity, previous-page visibility, render-pass count, theme,
+and final replacement. Run `Test-TabPresentation.ps1 -Theme Dark` or `-Theme Light`
+immediately after a fresh app start so all three target tabs are still cold.
+The presenter keeps the paused previous page visible while the next page inherits
+its theme and completes a hidden render pass; prepared resident pages switch
+immediately. Ordinary diagnostics wait for pending presentation to settle.

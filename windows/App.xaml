@@ -11,6 +11,7 @@
             <Thickness x:Key="PageContentMargin">32</Thickness>
             <Thickness x:Key="PageHeaderMargin">0,0,0,32</Thickness>
             <Style x:Key="AppPageStyle" TargetType="Page">
+                <Setter Property="Background" Value="Transparent" />
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
                 <Setter Property="Foreground" Value="{ThemeResource Slate800}" />
             </Style>

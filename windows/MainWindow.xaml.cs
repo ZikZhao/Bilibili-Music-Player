@@ -31,6 +31,7 @@ namespace bilibili_music_player_windows
         private string? _navigationTarget;
         private Page? _playerUnderlay;
         private PlayerSheetTransition? _playerTransition;
+        private ResidentPagePresenter? _pagePresenter;
 
         /// <summary>暴露给 XAML x:Bind 的 PlayerViewModel。</summary>
         public PlayerViewModel PlayerViewModel { get; }
@@ -49,6 +50,7 @@ namespace bilibili_music_player_windows
             _libraryViewModel = libraryViewModel;
             PlayerViewModel = _playerViewModel;
             InitializeComponent();
+            _pagePresenter = new ResidentPagePresenter(PageHost);
             _playerTransition = new PlayerSheetTransition(PlayerOverlayHost, ShellContent, () => _settingsViewModel.EnableAnimations, open =>
             {
                 SharedTransport.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
@@ -182,26 +184,26 @@ namespace bilibili_music_player_windows
                 _playerTransition?.SetOpen(active);
                 return;
             }
-            if (active && _playerUnderlay is { } underlay)
-            {
-                if (!ReferenceEquals(page, underlay)) underlay.Visibility = Visibility.Collapsed;
-                _playerUnderlay = null;
-            }
+            if (active) _playerUnderlay = null;
             // Pause before hiding. The page stays parented, so neither Loaded nor
             // Unloaded is used as the tab activation signal.
-            if (active) page.Visibility = Visibility.Visible;
             (page as IResidentTab)?.SetTabActive(active);
-            page.IsHitTestVisible = active;
-            if (!active && _navigationTarget == "nowplaying") _playerUnderlay = page;
-            else if (!active) page.Visibility = Visibility.Collapsed;
+            if (active) _pagePresenter?.Show(page);
+            else if (_navigationTarget == "nowplaying")
+            {
+                _pagePresenter?.Suspend();
+                _playerUnderlay = _pagePresenter?.Current ?? page;
+            }
+            else _pagePresenter?.Deactivate(page);
         }
 
         private void OnWindowClosed(object sender, WindowEventArgs args)
         {
             _tray?.Dispose();
-            _playerTransition?.Dispose();
             try { _tabs?.Dispose(); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Tabs] Window cleanup: {ex}"); }
+            _playerTransition?.Dispose();
+            _pagePresenter?.Dispose();
         }
 
         private void UpdateBackButton()

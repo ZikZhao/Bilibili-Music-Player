@@ -98,23 +98,53 @@ public sealed partial class MainWindow
         }
         root.UpdateLayout();
         await Task.Delay(100);
+        object? tabPresentationProbe = null;
+        if (request.ProbeTabPresentation is { } coldTab)
+        {
+            if (coldTab is not ("search" or "settings" or "playlist" or "favorites")) throw new ArgumentException("Unknown resident page.");
+            var previous = _pagePresenter!.Current;
+            NavigateTo(coldTab);
+            var next = _tabs!.ActivePage!;
+            var preparing = ReferenceEquals(_pagePresenter.Pending, next);
+            var previousVisible = previous?.Visibility == Visibility.Visible;
+            var nextOpacity = next.Opacity;
+            for (var frame = 0; _pagePresenter.Pending is not null && frame < 60; frame++) await Task.Delay(20);
+            tabPresentationProbe = new { preparing, previousVisible, nextOpacity,
+                settled = ReferenceEquals(_pagePresenter.Current, next) && _pagePresenter.Pending is null,
+                frames = _pagePresenter.LastPreparationFrames, gap = _pagePresenter.LastPreparationHadGap,
+                themeMatches = next.ActualTheme == PageHost.ActualTheme,
+                previousCollapsed = ReferenceEquals(previous, next) || previous?.Visibility == Visibility.Collapsed };
+        }
         object? transitionProbe = null;
         if (request.ProbePlayerTransition)
         {
+            async Task SettleAsync()
+            {
+                for (var frame = 0; (_playerTransition!.IsAnimating || _pagePresenter?.Pending is not null) && frame < 90; frame++)
+                    await Task.Delay(20);
+                if (_playerTransition!.IsAnimating || _pagePresenter?.Pending is not null)
+                    throw new TimeoutException("Player presentation did not settle.");
+            }
+            async Task WaitForMovementAsync(double start)
+            {
+                for (var frame = 0; _playerTransition!.IsAnimating &&
+                    Math.Abs(_playerTransition.VisibleFraction - start) < .0001 && frame < 90; frame++)
+                    await Task.Delay(10);
+            }
             var origin = _tabs?.ActiveKey == "nowplaying" ? _playerReturnTab : _tabs?.ActiveKey ?? "playlist";
-            NavigateTo(origin); await Task.Delay(400);
-            NavigateTo("nowplaying"); await Task.Delay(140);
+            NavigateTo(origin); await SettleAsync();
+            NavigateTo("nowplaying"); await WaitForMovementAsync(0);
             var opening = _playerTransition!.VisibleFraction;
             NavigateTo(origin);
             var closeStart = _playerTransition.VisibleFraction;
-            await Task.Delay(45);
+            await WaitForMovementAsync(closeStart);
             var closing = _playerTransition.VisibleFraction;
             NavigateTo("nowplaying");
             var reopenStart = _playerTransition.VisibleFraction;
-            await Task.Delay(400);
+            await SettleAsync();
             var reopened = _playerTransition.VisibleFraction;
             var openVisible = PlayerOverlayHost.Visibility == Visibility.Visible;
-            NavigateTo(origin); await Task.Delay(400);
+            NavigateTo(origin); await SettleAsync();
             transitionProbe = new { opening, closeStart, closing, reopenStart, reopened, openVisible,
                 closed = _playerTransition.VisibleFraction, closedHidden = PlayerOverlayHost.Visibility == Visibility.Collapsed };
         }
@@ -122,6 +152,7 @@ public sealed partial class MainWindow
         // the only request that samples an animation while it is in flight.
         for (var frame = 0; _playerTransition?.IsAnimating == true && frame < 30; frame++)
             await Task.Delay(20);
+        for (var frame = 0; _pagePresenter?.Pending is not null && frame < 60; frame++) await Task.Delay(20);
         if (UiLayoutSnapshot.Find(root, "TransportTime") is TextBlock time)
         {
             if (request.TimeLineBounds is { } lineBounds)
@@ -259,7 +290,7 @@ public sealed partial class MainWindow
             png = Convert.ToBase64String(encoded);
         }
         return new { snapshot, nativeComparison, png, protectedSessionRoundTrip, activation = _inspectionActivationState.ToString(), savedTheme = _settingsViewModel.ThemeMode,
-            transitionProbe, playerTransition = new { open = _playerTransition?.IsOpen, animating = _playerTransition?.IsAnimating,
+            tabPresentationProbe, transitionProbe, playerTransition = new { open = _playerTransition?.IsOpen, animating = _playerTransition?.IsAnimating,
                 fraction = _playerTransition?.VisibleFraction, enabled = _playerTransition?.MotionEnabled },
             settings = new { _settingsViewModel.ThemeIndex, _settingsViewModel.EnableFade, _settingsViewModel.EnableAutoPlay,
                 _settingsViewModel.QuickPlayGesture, _settingsViewModel.QuickPlayScope, _settingsViewModel.QuickPlayDestination,
@@ -289,6 +320,7 @@ public sealed partial class MainWindow
 
 internal sealed class UiInspectionRequest
 {
+    public string? ProbeTabPresentation { get; set; }
     public bool ProbePlayerTransition { get; set; }
     public bool Back { get; set; }
     public string? TimeLineBounds { get; set; }
