@@ -98,6 +98,30 @@ public sealed partial class MainWindow
         }
         root.UpdateLayout();
         await Task.Delay(100);
+        object? transitionProbe = null;
+        if (request.ProbePlayerTransition)
+        {
+            var origin = _tabs?.ActiveKey == "nowplaying" ? _playerReturnTab : _tabs?.ActiveKey ?? "playlist";
+            NavigateTo(origin); await Task.Delay(400);
+            NavigateTo("nowplaying"); await Task.Delay(140);
+            var opening = _playerTransition!.VisibleFraction;
+            NavigateTo(origin);
+            var closeStart = _playerTransition.VisibleFraction;
+            await Task.Delay(45);
+            var closing = _playerTransition.VisibleFraction;
+            NavigateTo("nowplaying");
+            var reopenStart = _playerTransition.VisibleFraction;
+            await Task.Delay(400);
+            var reopened = _playerTransition.VisibleFraction;
+            var openVisible = PlayerOverlayHost.Visibility == Visibility.Visible;
+            NavigateTo(origin); await Task.Delay(400);
+            transitionProbe = new { opening, closeStart, closing, reopenStart, reopened, openVisible,
+                closed = _playerTransition.VisibleFraction, closedHidden = PlayerOverlayHost.Visibility == Visibility.Collapsed };
+        }
+        // Geometry exports describe settled layout. The explicit probe above is
+        // the only request that samples an animation while it is in flight.
+        for (var frame = 0; _playerTransition?.IsAnimating == true && frame < 30; frame++)
+            await Task.Delay(20);
         if (UiLayoutSnapshot.Find(root, "TransportTime") is TextBlock time)
         {
             if (request.TimeLineBounds is { } lineBounds)
@@ -235,6 +259,11 @@ public sealed partial class MainWindow
             png = Convert.ToBase64String(encoded);
         }
         return new { snapshot, nativeComparison, png, protectedSessionRoundTrip, activation = _inspectionActivationState.ToString(), savedTheme = _settingsViewModel.ThemeMode,
+            transitionProbe, playerTransition = new { open = _playerTransition?.IsOpen, animating = _playerTransition?.IsAnimating,
+                fraction = _playerTransition?.VisibleFraction, enabled = _playerTransition?.MotionEnabled },
+            settings = new { _settingsViewModel.ThemeIndex, _settingsViewModel.EnableFade, _settingsViewModel.EnableAutoPlay,
+                _settingsViewModel.QuickPlayGesture, _settingsViewModel.QuickPlayScope, _settingsViewModel.QuickPlayDestination,
+                _settingsViewModel.EnableAnimations, _settingsViewModel.CloseBehavior, _settingsViewModel.PauseInBackground, _settingsViewModel.EnableAudioCache },
             playerBackground = (_tabs?.ActivePage as Pages.AudioPlayerPage)?.InspectBackground(),
             lifetime = new { inBackground = _isInBackground, visible = AppWindow.IsVisible, trayAvailable = _tray?.IsAvailable,
                 activeTab = _tabs?.ActiveKey, backEnabled = TitleBackButton.IsEnabled, searchStage = _searchViewModel.Stage.ToString() },
@@ -260,6 +289,7 @@ public sealed partial class MainWindow
 
 internal sealed class UiInspectionRequest
 {
+    public bool ProbePlayerTransition { get; set; }
     public bool Back { get; set; }
     public string? TimeLineBounds { get; set; }
     public string? PlaybackFixture { get; set; }

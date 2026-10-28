@@ -42,6 +42,7 @@ public sealed record LibraryChoice(Guid? Id, string Name)
 public partial class LibraryViewModel : ObservableObject
 {
     private readonly PlayerViewModel _player;
+    private readonly SettingsViewModel _settings;
     public LibraryRepository Repository { get; }
     public SupabaseAccountService Account { get; }
     public Task Initialization { get; }
@@ -101,9 +102,9 @@ public partial class LibraryViewModel : ObservableObject
     }
 #endif
 
-    public LibraryViewModel(PlayerViewModel player, LibraryRepository repository, SupabaseAccountService account)
+    public LibraryViewModel(PlayerViewModel player, LibraryRepository repository, SupabaseAccountService account, SettingsViewModel settings)
     {
-        _player = player; Repository = repository; Account = account;
+        _player = player; Repository = repository; Account = account; _settings = settings;
         Repository.Changed += (_, _) => Rebuild();
         Account.Changed += OnAccountChanged;
         Initialization = InitializeAsync();
@@ -243,6 +244,16 @@ public partial class LibraryViewModel : ObservableObject
         var tracks = CurrentTracks();
         var index = start?.MediaId is { } id ? Math.Max(0, tracks.FindIndex(m => m.Id == id)) : 0;
         if (tracks.Count > 0) await _player.SetPlaylistAsync(tracks.Select(ToVideo).ToList(), index);
+    }
+    public async Task QuickPlayAsync(LibraryDisplayRow row)
+    {
+        if (row.MediaId is not { } id) return;
+        var tracks = _settings.QuickPlayScope == 1
+            ? Document.Media.Where(m => m.Id == id).ToList() : CurrentTracks();
+        var index = tracks.FindIndex(m => m.Id == id);
+        if (index < 0) return;
+        await _player.QuickPlayAsync(tracks.Select(ToVideo).ToList(), index,
+            _settings.QuickPlayDestination, _settings.EnableAutoPlay);
     }
     public void Queue(bool next, LibraryDisplayRow? row = null)
     {

@@ -51,9 +51,13 @@ namespace bilibili_music_player_windows.ViewModels
         [ObservableProperty]
         private bool _enableAutoPlay = true;
 
-        /// <summary>音频质量（当前为只读显示）。</summary>
-        [ObservableProperty]
-        private string _audioQuality = "高 (192K)";
+        [ObservableProperty] private int _quickPlayGesture;
+        [ObservableProperty] private int _quickPlayScope;
+        [ObservableProperty] private int _quickPlayDestination;
+        [ObservableProperty] private bool _enableAnimations = true;
+        [ObservableProperty] private int _closeBehavior;
+        [ObservableProperty] private bool _pauseInBackground;
+        [ObservableProperty] private bool _enableAudioCache = true;
 
         /// <summary>缓存大小（格式化字符串，如 "42.9 MB"）。</summary>
         [ObservableProperty]
@@ -65,13 +69,8 @@ namespace bilibili_music_player_windows.ViewModels
         {
             _cacheService = cacheService ?? throw new ArgumentNullException(nameof(cacheService));
             _playerViewModel = playerViewModel ?? throw new ArgumentNullException(nameof(playerViewModel));
-            _ = InitializeAsync();
-        }
-
-        private async Task InitializeAsync()
-        {
             LoadSettings();
-            await RefreshCacheSizeAsync();
+            _ = RefreshCacheSizeAsync();
         }
 
         // ── 属性变化处理 ──
@@ -98,14 +97,6 @@ namespace bilibili_music_player_windows.ViewModels
         }
 
         /// <summary>
-        /// 设置主题（由外观分段控件的 Click 事件调用）。
-        /// </summary>
-        public void SetTheme(int index)
-        {
-            ThemeIndex = index;
-        }
-
-        /// <summary>
         /// 渐变开关变化时持久化并同步到 PlayerViewModel。
         /// </summary>
         partial void OnEnableFadeChanged(bool value)
@@ -121,6 +112,15 @@ namespace bilibili_music_player_windows.ViewModels
         {
             SaveSetting(EnableAutoPlayKey, value);
         }
+
+        partial void OnEnableAudioCacheChanged(bool value)
+        { SaveSetting(nameof(EnableAudioCache), value); _playerViewModel.EnableAudioCache = value; }
+        partial void OnQuickPlayGestureChanged(int value) => SaveSetting(nameof(QuickPlayGesture), value);
+        partial void OnQuickPlayScopeChanged(int value) => SaveSetting(nameof(QuickPlayScope), value);
+        partial void OnQuickPlayDestinationChanged(int value) => SaveSetting(nameof(QuickPlayDestination), value);
+        partial void OnEnableAnimationsChanged(bool value) => SaveSetting(nameof(EnableAnimations), value);
+        partial void OnCloseBehaviorChanged(int value) => SaveSetting(nameof(CloseBehavior), value);
+        partial void OnPauseInBackgroundChanged(bool value) => SaveSetting(nameof(PauseInBackground), value);
 
         // ── 命令 ──
 
@@ -144,8 +144,8 @@ namespace bilibili_music_player_windows.ViewModels
             var settings = ApplicationData.Current.LocalSettings;
 
             // 读取主题
-            var savedTheme = (string?)settings.Values[ThemeModeKey];
-            _themeMode = savedTheme ?? "System";
+            var savedTheme = settings.Values[ThemeModeKey] as string;
+            _themeMode = savedTheme is "Light" or "Dark" ? savedTheme : "System";
             _themeIndex = _themeMode switch
             {
                 "Light" => 1,
@@ -154,11 +154,21 @@ namespace bilibili_music_player_windows.ViewModels
             };
 
             // 读取其他设置
-            _enableFade = (bool?)(settings.Values[EnableFadeKey] ?? true) ?? true;
-            _enableAutoPlay = (bool?)(settings.Values[EnableAutoPlayKey] ?? true) ?? true;
+            bool ReadBool(string key, bool fallback) => settings.Values.TryGetValue(key, out var value) && value is bool flag ? flag : fallback;
+            int ReadIndex(string key, int max) => settings.Values.TryGetValue(key, out var value) && value is int index && index >= 0 && index <= max ? index : 0;
+            _enableFade = ReadBool(EnableFadeKey, true);
+            _enableAutoPlay = ReadBool(EnableAutoPlayKey, true);
+            _quickPlayGesture = ReadIndex(nameof(QuickPlayGesture), 2);
+            _quickPlayScope = ReadIndex(nameof(QuickPlayScope), 1);
+            _quickPlayDestination = ReadIndex(nameof(QuickPlayDestination), 2);
+            _enableAnimations = ReadBool(nameof(EnableAnimations), true);
+            _closeBehavior = ReadIndex(nameof(CloseBehavior), 1);
+            _pauseInBackground = ReadBool(nameof(PauseInBackground), false);
+            _enableAudioCache = ReadBool(nameof(EnableAudioCache), true);
 
             // 同步到 PlayerViewModel
             _playerViewModel.EnableFade = EnableFade;
+            _playerViewModel.EnableAudioCache = EnableAudioCache;
         }
 
         /// <summary>
@@ -172,7 +182,7 @@ namespace bilibili_music_player_windows.ViewModels
         /// <summary>
         /// 刷新缓存大小显示。
         /// </summary>
-        private async Task RefreshCacheSizeAsync()
+        public async Task RefreshCacheSizeAsync()
         {
             try
             {

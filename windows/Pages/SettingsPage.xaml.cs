@@ -1,60 +1,43 @@
+using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
+using bilibili_music_player_windows.Controls;
+using bilibili_music_player_windows.Services;
 using bilibili_music_player_windows.ViewModels;
-using Windows.UI;
 
-namespace bilibili_music_player_windows.Pages
+namespace bilibili_music_player_windows.Pages;
+
+public sealed partial class SettingsPage : Page, IResidentTab
 {
-    public sealed partial class SettingsPage : Page
+    public SettingsViewModel ViewModel { get; } = App.Current.GetService<SettingsViewModel>();
+    public LibraryViewModel Library { get; } = App.Current.GetService<LibraryViewModel>();
+    public SettingsPage() => InitializeComponent();
+    public void SetTabActive(bool active) { if (active) _ = ViewModel.RefreshCacheSizeAsync(); }
+    private async void OnSyncClick(object sender, RoutedEventArgs e) => await Library.Repository.SyncAsync();
+
+    private async void OnAccountClick(object sender, RoutedEventArgs e)
     {
-        public SettingsViewModel ViewModel { get; }
-
-        private static readonly SolidColorBrush RoseBrush = new(Color.FromArgb(0xFF, 0xFB, 0x71, 0x85));
-        private static readonly SolidColorBrush WhiteBrush = new(Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF));
-        private static readonly SolidColorBrush TransparentBrush = new(Color.FromArgb(0x00, 0x00, 0x00, 0x00));
-        private static readonly SolidColorBrush Slate600Brush = new(Color.FromArgb(0xFF, 0x47, 0x55, 0x69));
-
-        public SettingsPage()
+        if (!Library.IsSignedIn) { await new AccountDialog { XamlRoot = XamlRoot }.ShowAsync(); return; }
+        var menu = new MenuFlyout();
+        void Add(string title, Func<System.Threading.Tasks.Task> action)
         {
-            ViewModel = App.Current.GetService<SettingsViewModel>();
-            DataContext = ViewModel;
-            InitializeComponent();
-
-            // Apply the initial theme visual state
-            UpdateThemeVisual();
+            var item = new MenuFlyoutItem { Text = title };
+            item.Click += async (_, _) => await action();
+            menu.Items.Add(item);
         }
-
-        private void OnThemeAutoClick(object sender, RoutedEventArgs e)
+        Add("重新登录", async () => await new AccountDialog { XamlRoot = XamlRoot }.ShowAsync());
+        Add("导入本机收藏", () => Library.RunAsync(Library.Repository.ImportLocalAsync));
+        Add("退出登录", async () =>
         {
-            ViewModel.SetTheme(0);
-            UpdateThemeVisual();
-        }
-
-        private void OnThemeLightClick(object sender, RoutedEventArgs e)
-        {
-            ViewModel.SetTheme(1);
-            UpdateThemeVisual();
-        }
-
-        private void OnThemeDarkClick(object sender, RoutedEventArgs e)
-        {
-            ViewModel.SetTheme(2);
-            UpdateThemeVisual();
-        }
-
-        private void UpdateThemeVisual()
-        {
-            var index = ViewModel.ThemeIndex;
-
-            ThemeAutoBg.Background = index == 0 ? RoseBrush : TransparentBrush;
-            ThemeAutoText.Foreground = index == 0 ? WhiteBrush : Slate600Brush;
-
-            ThemeLightBg.Background = index == 1 ? RoseBrush : TransparentBrush;
-            ThemeLightText.Foreground = index == 1 ? WhiteBrush : Slate600Brush;
-
-            ThemeDarkBg.Background = index == 2 ? RoseBrush : TransparentBrush;
-            ThemeDarkText.Foreground = index == 2 ? WhiteBrush : Slate600Brush;
-        }
+            var dialog = new ContentDialog
+            {
+                XamlRoot = XamlRoot, Title = "退出登录",
+                Content = "账号的本机收藏和未同步修改会保留，退出后显示独立的本机收藏库。",
+                PrimaryButtonText = "退出登录", CloseButtonText = "取消", DefaultButton = ContentDialogButton.Close,
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                await Library.RunAsync(Library.Account.SignOutAsync);
+        });
+        menu.ShowAt((FrameworkElement)sender);
     }
 }

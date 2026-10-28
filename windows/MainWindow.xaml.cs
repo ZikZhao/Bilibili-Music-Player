@@ -8,6 +8,7 @@ using System.Linq;
 using bilibili_music_player_windows.Services;
 using bilibili_music_player_windows.Pages;
 using bilibili_music_player_windows.ViewModels;
+using bilibili_music_player_windows.Controls;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -27,6 +28,9 @@ namespace bilibili_music_player_windows
         private readonly LibraryViewModel _libraryViewModel;
         private readonly ResidentTabs<Page>? _tabs;
         private string _playerReturnTab = "playlist";
+        private string? _navigationTarget;
+        private Page? _playerUnderlay;
+        private PlayerSheetTransition? _playerTransition;
 
         /// <summary>暴露给 XAML x:Bind 的 PlayerViewModel。</summary>
         public PlayerViewModel PlayerViewModel { get; }
@@ -45,6 +49,13 @@ namespace bilibili_music_player_windows
             _libraryViewModel = libraryViewModel;
             PlayerViewModel = _playerViewModel;
             InitializeComponent();
+            _playerTransition = new PlayerSheetTransition(PlayerOverlayHost, ShellContent, () => _settingsViewModel.EnableAnimations, open =>
+            {
+                SharedTransport.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+                if (open && _playerUnderlay is { } underlay) underlay.Visibility = Visibility.Collapsed;
+                if (!open && PlayerOverlayHost.Children.FirstOrDefault() is Page player)
+                    player.Visibility = Visibility.Collapsed;
+            });
             _tabs = new ResidentTabs<Page>(CreateTab, SetTabActive);
             Closed += OnWindowClosed;
 
@@ -126,6 +137,7 @@ namespace bilibili_music_player_windows
             if (_tabs is null || target is not ("search" or "favorites" or "settings" or "nowplaying" or "playlist")) return;
             if (target == "nowplaying" && _tabs.ActiveKey is { } previous && previous != "nowplaying")
                 _playerReturnTab = previous;
+            _navigationTarget = target;
             _tabs.Select(target);
             foreach (var entry in NavView.MenuItems.Concat(NavView.FooterMenuItems))
                 if (entry is NavigationViewItem item && item.Tag?.ToString() == target &&
@@ -158,21 +170,36 @@ namespace bilibili_music_player_windows
         {
             if (page is AudioPlayerPage)
             {
-                PlayerOverlayHost.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+                page.Visibility = Visibility.Visible;
+                page.IsHitTestVisible = active;
                 if (active) SharedTransport.ResetDetailsHover();
-                SharedTransport.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
+                else
+                {
+                    SharedTransport.Visibility = Visibility.Visible;
+                    if (_playerUnderlay is { } closingUnderlay) closingUnderlay.Visibility = Visibility.Visible;
+                }
+                (page as IResidentTab)?.SetTabActive(active);
+                _playerTransition?.SetOpen(active);
+                return;
+            }
+            if (active && _playerUnderlay is { } underlay)
+            {
+                if (!ReferenceEquals(page, underlay)) underlay.Visibility = Visibility.Collapsed;
+                _playerUnderlay = null;
             }
             // Pause before hiding. The page stays parented, so neither Loaded nor
             // Unloaded is used as the tab activation signal.
             if (active) page.Visibility = Visibility.Visible;
             (page as IResidentTab)?.SetTabActive(active);
             page.IsHitTestVisible = active;
-            if (!active) page.Visibility = Visibility.Collapsed;
+            if (!active && _navigationTarget == "nowplaying") _playerUnderlay = page;
+            else if (!active) page.Visibility = Visibility.Collapsed;
         }
 
         private void OnWindowClosed(object sender, WindowEventArgs args)
         {
             _tray?.Dispose();
+            _playerTransition?.Dispose();
             try { _tabs?.Dispose(); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Tabs] Window cleanup: {ex}"); }
         }

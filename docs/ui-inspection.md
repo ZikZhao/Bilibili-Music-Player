@@ -68,3 +68,11 @@ do not use those metrics for visible-layout assertions.
 
 `-CheckProtection` round-trips a non-secret in-memory fixture through Windows
 `LOCAL=user` protection. It does not read or write the user's session file.
+
+`-ProbePlayerTransition` samples a native player sheet opening, closing midway,
+and reopening midway, then returns to its starting tab. `transitionProbe` records
+the values on both sides of each reversal and the final visibility. Ordinary
+inspection requests wait for the transition to settle before exporting geometry.
+`settings` reports non-secret preference values without changing them. The settings
+layout regression checks both themes at 430, 760 and 1245 DIP; native UI selection
+followed by a complete process restart verifies LocalSettings restoration.

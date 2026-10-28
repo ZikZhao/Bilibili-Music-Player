@@ -37,15 +37,12 @@
         <Grid ColumnSpacing="16" Style="{StaticResource PageHeaderStyle}">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <TextBlock x:Name="PageTitle" Text="我的收藏" Style="{StaticResource PageTitleTextBlockStyle}" AutomationProperties.AutomationId="PageTitle" />
-            <Button Grid.Column="1" Content="{x:Bind ViewModel.AccountButtonLabel, Mode=OneWay}" Click="OnAccountClick"
-                    VerticalAlignment="Center" IsEnabled="{x:Bind ViewModel.IsReady, Mode=OneWay}" AutomationProperties.AutomationId="LibraryAccountButton" />
         </Grid>
         <Grid Grid.Row="1" RowSpacing="12">
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
         <Grid ColumnSpacing="12">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock Text="{x:Bind ViewModel.AccountLabel, Mode=OneWay}" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource Slate600}" />
                 <TextBlock Text="{x:Bind ViewModel.SyncStatus, Mode=OneWay}" TextWrapping="Wrap" Foreground="{ThemeResource Slate500}" FontSize="12"
                            AutomationProperties.AutomationId="LibrarySyncStatus" />
             </StackPanel>
@@ -153,7 +150,8 @@
                     </Style></ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="vm:LibraryDisplayRow">
-                            <Grid Padding="8,10" ColumnSpacing="12">
+                            <Grid Padding="8,10" ColumnSpacing="12" Background="Transparent"
+                                  DoubleTapped="OnRowDoubleTapped">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="64" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="32" /></Grid.ColumnDefinitions>
                                 <controls:AspectRatioPanel Width="64" VerticalAlignment="Center">
                                     <FontIcon Glyph="{x:Bind Glyph}" FontSize="22" Foreground="{ThemeResource Slate500}" />

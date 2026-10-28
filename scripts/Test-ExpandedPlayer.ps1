@@ -9,7 +9,16 @@ function Snapshot([hashtable]$request = @{}) {
     $script:sampleIndex++
     $samplePath = "$output-$script:sampleIndex"
     & $inspect @request -OutputPath $samplePath | Out-Null
-    Get-Content -LiteralPath "$samplePath.json" -Raw | ConvertFrom-Json -AsHashtable
+    $state = Get-Content -LiteralPath "$samplePath.json" -Raw | ConvertFrom-Json -AsHashtable
+    for ($attempt = 0; $state.playerTransition.animating -and $attempt -lt 12; $attempt++) {
+        Start-Sleep -Milliseconds 50
+        $poll = @{ OutputPath = $samplePath }
+        if ($AppProcessId) { $poll.AppProcessId = $AppProcessId }
+        & $inspect @poll | Out-Null
+        $state = Get-Content -LiteralPath "$samplePath.json" -Raw | ConvertFrom-Json -AsHashtable
+    }
+    Check (-not $state.playerTransition.animating) 'Player transition did not settle.'
+    $state
 }
 function Check([bool]$condition, [string]$message) {
     if (-not $condition) { throw $message }
@@ -28,7 +37,18 @@ Check ($initial.playback.count -eq 0) 'Run with an empty queue; existing playbac
 $started = $false
 try {
     $started = $true
-    $null = Snapshot @{ PlaybackFixture = 'backdrop'; PlaybackAction = 'pause'; Tab = 'favorites' }
+    $fixture = Snapshot @{ PlaybackFixture = 'backdrop'; PlaybackAction = 'pause'; Tab = 'favorites' }
+    $probe = Snapshot @{ ProbePlayerTransition = $true }
+    $motion = $probe.transitionProbe
+    if ($probe.playerTransition.enabled) {
+        Check ($motion.opening -gt 0 -and $motion.opening -lt 1) 'Opening did not animate from the bottom.'
+        Check ([Math]::Abs($motion.opening - $motion.closeStart) -lt .002) 'Reversing to close jumped to an endpoint.'
+        Check ($motion.closing -lt $motion.closeStart -and $motion.closing -gt 0) 'Midway close did not travel down.'
+        Check ([Math]::Abs($motion.closing - $motion.reopenStart) -lt .002) 'Reopening during close jumped to an endpoint.'
+    }
+    Check ($motion.reopened -eq 1 -and $motion.openVisible) 'A stale close completion hid the reopened player.'
+    Check ($motion.closed -eq 0 -and $motion.closedHidden) 'The closed player remained visible.'
+    Check ($probe.playback.sourceId -eq $fixture.playback.sourceId) 'Animation replaced the audio source.'
     $normal = Snapshot @{ Target = 'NowPlayingDetails'; State = 'Normal'; Focus = 'navigation' }
     $hover = Snapshot @{ Target = 'NowPlayingDetails'; State = 'PointerOver' }
     $shade = $hover.snapshot.nodes | Where-Object { $_.name -eq 'CoverActivationLayer' } | Select-Object -First 1

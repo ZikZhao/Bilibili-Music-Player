@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using bilibili_music_player_windows.Controls;
 using bilibili_music_player_windows.Models;
 using bilibili_music_player_windows.Services;
@@ -13,10 +14,12 @@ namespace bilibili_music_player_windows.Pages;
 public sealed partial class FavoritesPage : Page, IResidentTab
 {
     public LibraryViewModel ViewModel { get; } = App.Current.GetService<LibraryViewModel>();
+    private readonly SettingsViewModel _settings = App.Current.GetService<SettingsViewModel>();
     private bool _updatingNavigation;
     public FavoritesPage()
     {
         InitializeComponent();
+        LibraryRows.AddHandler(KeyDownEvent, new KeyEventHandler(OnRowKeyDown), true);
         Loaded += (_, _) => UpdateTreeSelection();
         ViewModel.LibraryChanged += (_, _) => UpdateTreeSelection();
     }
@@ -54,7 +57,32 @@ public sealed partial class FavoritesPage : Page, IResidentTab
         if (e.ClickedItem is not LibraryDisplayRow row) return;
         if (row.NodeId is { } node)
             ViewModel.Open(node, ViewModel.Document.Nodes.Single(n => n.Id == node).Kind);
-        else await ViewModel.RunAsync(() => ViewModel.PlayAsync(row));
+        else if (_settings.QuickPlayGesture == 0) await ViewModel.RunAsync(() => ViewModel.QuickPlayAsync(row));
+    }
+    private async void OnRowDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (_settings.QuickPlayGesture != 1 || sender is not FrameworkElement { DataContext: LibraryDisplayRow row } || row.MediaId is null) return;
+        if (FromRowButton(e.OriginalSource, (FrameworkElement)sender)) return;
+        e.Handled = true;
+        await ViewModel.RunAsync(() => ViewModel.QuickPlayAsync(row));
+    }
+    private async void OnRowKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Enter || _settings.QuickPlayGesture != 1) return;
+        var source = e.OriginalSource as DependencyObject;
+        while (source is not null && source is not ListViewItem && !ReferenceEquals(source, LibraryRows))
+            source = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(source);
+        if (source is not ListViewItem { Content: LibraryDisplayRow { MediaId: not null } row } container) return;
+        if (FromRowButton(e.OriginalSource, container)) return;
+        e.Handled = true;
+        await ViewModel.RunAsync(() => ViewModel.QuickPlayAsync(row));
+    }
+    private static bool FromRowButton(object originalSource, FrameworkElement row)
+    {
+        for (var source = originalSource as DependencyObject; source is not null && !ReferenceEquals(source, row);
+            source = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(source))
+            if (source is Button) return true;
+        return false;
     }
     private async void OnPlayAllClick(object sender, RoutedEventArgs e) => await ViewModel.RunAsync(() => ViewModel.PlayAsync());
     private void OnAppendAllClick(object sender, RoutedEventArgs e) => ViewModel.Queue(false);
@@ -66,20 +94,6 @@ public sealed partial class FavoritesPage : Page, IResidentTab
     {
         if (await ConfirmAsync("解决同步冲突", local ? "使用本机版本覆盖当前云端版本？" : "使用云端版本替换当前显示的收藏？本机版本会保存在冲突备份中。"))
             await ViewModel.Repository.SyncAsync(local);
-    }
-
-    private async void OnAccountClick(object sender, RoutedEventArgs e)
-    {
-        if (!ViewModel.IsSignedIn) { await new AccountDialog { XamlRoot = XamlRoot }.ShowAsync(); return; }
-        var menu = new MenuFlyout();
-        Add(menu, "重新登录", async () => await new AccountDialog { XamlRoot = XamlRoot }.ShowAsync());
-        Add(menu, "导入本机收藏", async () => await ViewModel.RunAsync(ViewModel.Repository.ImportLocalAsync));
-        Add(menu, "退出登录", async () =>
-        {
-            if (await ConfirmAsync("退出登录", "账号的本机收藏会保留，退出后显示独立的本机收藏库。未同步修改也会保留。"))
-                await ViewModel.RunAsync(ViewModel.Account.SignOutAsync);
-        });
-        menu.ShowAt((FrameworkElement)sender);
     }
 
     private async void OnCreateClick(object sender, RoutedEventArgs e)

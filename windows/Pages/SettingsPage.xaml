@@ -1,154 +1,155 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Page
-    x:Class="bilibili_music_player_windows.Pages.SettingsPage"
-    Style="{StaticResource AppPageStyle}"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
-    NavigationCacheMode="Enabled">
-
-    <ScrollViewer>
-        <Grid x:Name="SettingsPageRoot" Margin="{StaticResource PageContentMargin}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-
-            <Grid Style="{StaticResource PageHeaderStyle}">
+<Page x:Class="bilibili_music_player_windows.Pages.SettingsPage" Style="{StaticResource AppPageStyle}" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:bilibili_music_player_windows.Controls">
+    <Page.Resources>
+        <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#FFFB7185" />
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#FFFB7185" Opacity="0.9" />
+        <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#FFFB7185" Opacity="0.8" />
+        <StaticResource x:Key="ToggleSwitchStrokeOn" ResourceKey="ToggleSwitchFillOn" />
+        <StaticResource x:Key="ToggleSwitchStrokeOnPointerOver" ResourceKey="ToggleSwitchFillOnPointerOver" />
+        <StaticResource x:Key="ToggleSwitchStrokeOnPressed" ResourceKey="ToggleSwitchFillOnPressed" />
+        <Style x:Key="SettingsSectionHeading" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{ThemeResource Slate800}" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+        <Style x:Key="SettingsRowStyle" TargetType="controls:SettingsRow">
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="controls:SettingsRow">
+                        <Grid x:Name="RowLayout" Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" ColumnSpacing="24" RowSpacing="12" MinHeight="76">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup>
+                                    <VisualState x:Name="CompactRow">
+                                        <VisualState.StateTriggers>
+                                            <AdaptiveTrigger MinWindowWidth="0" />
+                                        </VisualState.StateTriggers>
+                                    </VisualState>
+                                    <VisualState x:Name="WideRow">
+                                        <VisualState.StateTriggers>
+                                            <AdaptiveTrigger MinWindowWidth="760" />
+                                        </VisualState.StateTriggers>
+                                        <VisualState.Setters>
+                                            <Setter Target="RowLayout.RowSpacing" Value="0" />
+                                            <Setter Target="RowLabel.(Grid.ColumnSpan)" Value="1" />
+                                            <Setter Target="RowControl.(Grid.Row)" Value="0" />
+                                            <Setter Target="RowControl.(Grid.Column)" Value="1" />
+                                            <Setter Target="RowControl.(Grid.ColumnSpan)" Value="1" />
+                                            <Setter Target="RowControl.HorizontalAlignment" Value="Right" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <StackPanel x:Name="RowLabel" Grid.ColumnSpan="2" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Text="{TemplateBinding Title}" Foreground="{ThemeResource Slate800}" TextWrapping="Wrap" />
+                                <TextBlock Text="{TemplateBinding Description}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ContentPresenter x:Name="RowControl" Grid.Row="1" Grid.ColumnSpan="2" HorizontalAlignment="Left" VerticalAlignment="Center" Content="{TemplateBinding Content}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Page.Resources>
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" HorizontalScrollMode="Disabled">
+        <StackPanel x:Name="SettingsPageRoot" Margin="{StaticResource PageContentMargin}" Spacing="28">
+            <Grid Margin="0,0,0,4">
                 <TextBlock x:Name="PageTitle" Text="设置" Style="{StaticResource PageTitleTextBlockStyle}" AutomationProperties.AutomationId="PageTitle" />
             </Grid>
-
-            <TextBlock Grid.Row="1" Text="播放" Foreground="{ThemeResource Rose400}" FontWeight="SemiBold" Margin="0,0,0,16" />
-            <Border Grid.Row="2" BorderBrush="{ThemeResource Slate100}" BorderThickness="1" CornerRadius="16">
-                <StackPanel>
-                    <Grid Padding="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="32" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border Width="32" Height="32" Background="{ThemeResource Slate100}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="HQ" Foreground="{ThemeResource Slate600}" FontWeight="SemiBold" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="音频质量" Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" />
-                            <TextBlock Text="{x:Bind ViewModel.AudioQuality, Mode=OneWay}" Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}" />
-                        </StackPanel>
-                        <!-- <ImageIcon Grid.Column="3" Source="ms-appx:///Assets/Icons/forward.svg" Width="16" Height="16" VerticalAlignment="Center" /> -->
-                    </Grid>
-                    <Border BorderBrush="{ThemeResource Slate50}" BorderThickness="0,1,0,0" />
-                    <Grid Padding="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="32" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border Width="32" Height="32" Background="{ThemeResource Slate100}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <!-- <ImageIcon Source="ms-appx:///Assets/Icons/audio.svg" Width="18" Height="18" /> -->
-                        </Border>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="渐变播放" Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" />
-                            <TextBlock Text="暂停或开始时音量淡入淡出" Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}" />
-                        </StackPanel>
-                        <ToggleSwitch Grid.Column="3"
-                                      IsOn="{x:Bind ViewModel.EnableFade, Mode=TwoWay}"
-                                      AutomationProperties.AutomationId="FadeToggle" />
-                    </Grid>
-                    <Border BorderBrush="{ThemeResource Slate50}" BorderThickness="0,1,0,0" />
-                    <Grid Padding="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="32" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border Width="32" Height="32" Background="{ThemeResource Slate100}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <!-- <ImageIcon Source="ms-appx:///Assets/Icons/play-sl.svg" Width="18" Height="18" /> -->
-                        </Border>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="自动播放" Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" />
-                            <TextBlock Text="收藏列表点击后自动开始播放" Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}" />
-                        </StackPanel>
-                        <ToggleSwitch Grid.Column="3"
-                                      IsOn="{x:Bind ViewModel.EnableAutoPlay, Mode=TwoWay}"
-                                      AutomationProperties.AutomationId="AutoPlayToggle" />
-                    </Grid>
+            <StackPanel>
+                <TextBlock Text="账户与收藏" Style="{StaticResource SettingsSectionHeading}" />
+                <StackPanel Spacing="4">
+                    <controls:SettingsRow Title="邮箱账户" Description="{x:Bind Library.AccountLabel, Mode=OneWay}" Style="{StaticResource SettingsRowStyle}">
+                        <Button Content="{x:Bind Library.AccountButtonLabel, Mode=OneWay}" Click="OnAccountClick" IsEnabled="{x:Bind Library.IsReady, Mode=OneWay}" AutomationProperties.AutomationId="SettingsAccountButton" />
+                    </controls:SettingsRow>
+                    <controls:SettingsRow Title="收藏同步" Description="{x:Bind Library.SyncStatus, Mode=OneWay}" Style="{StaticResource SettingsRowStyle}">
+                        <Button Content="立即同步" Click="OnSyncClick" IsEnabled="{x:Bind Library.IsSignedIn, Mode=OneWay}" AutomationProperties.AutomationId="SettingsSyncButton" />
+                    </controls:SettingsRow>
+                    <InfoBar IsOpen="True" IsClosable="False" Severity="Error" Message="{x:Bind Library.ErrorMessage, Mode=OneWay}" Visibility="{x:Bind Library.ErrorVisibility, Mode=OneWay}" Margin="0,8,0,0" />
                 </StackPanel>
-            </Border>
-
-            <TextBlock Grid.Row="3" Text="外观" Foreground="{ThemeResource Rose400}" FontWeight="SemiBold" Margin="0,40,0,16" />
-            <Border Grid.Row="4" BorderBrush="{ThemeResource Slate200}" BorderThickness="1" CornerRadius="32" Padding="4"
-                    AutomationProperties.AutomationId="ThemeModeSelector">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Border x:Name="ThemeAutoBg" Grid.Column="0" CornerRadius="24" Padding="0,8"
-                            Background="{ThemeResource Rose400}">
-                        <TextBlock x:Name="ThemeAutoText" Text="自动" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" Foreground="White" />
-                    </Border>
-                    <Border x:Name="ThemeLightBg" Grid.Column="1" CornerRadius="24" Padding="0,8"
-                            Background="Transparent">
-                        <TextBlock x:Name="ThemeLightText" Text="亮色" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" Foreground="{ThemeResource Slate600}" />
-                    </Border>
-                    <Border x:Name="ThemeDarkBg" Grid.Column="2" CornerRadius="24" Padding="0,8"
-                            Background="Transparent">
-                        <TextBlock x:Name="ThemeDarkText" Text="深色" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" Foreground="{ThemeResource Slate600}" />
-                    </Border>
-                    <!-- Transparent click overlays -->
-                    <Button Grid.Column="0" Click="OnThemeAutoClick"
-                            Background="Transparent" BorderThickness="0" Padding="0"
-                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            AutomationProperties.AutomationId="ThemeAutoButton" />
-                    <Button Grid.Column="1" Click="OnThemeLightClick"
-                            Background="Transparent" BorderThickness="0" Padding="0"
-                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            AutomationProperties.AutomationId="ThemeLightButton" />
-                    <Button Grid.Column="2" Click="OnThemeDarkClick"
-                            Background="Transparent" BorderThickness="0" Padding="0"
-                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            AutomationProperties.AutomationId="ThemeDarkButton" />
-                </Grid>
-            </Border>
-
-            <TextBlock Grid.Row="5" Text="数据与存储" Foreground="{ThemeResource Rose400}" FontWeight="SemiBold" Margin="0,40,0,16" />
-            <Border Grid.Row="6" BorderBrush="{ThemeResource Slate100}" BorderThickness="1" CornerRadius="16">
-                <Button x:Name="ClearCacheButton" Command="{x:Bind ViewModel.ClearCacheCommand}"
-                        Background="Transparent" BorderThickness="0" Padding="0"
-                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                        AutomationProperties.AutomationId="ClearCacheButton">
-                    <Grid Padding="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="32" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border Width="32" Height="32" Background="{ThemeResource Slate100}" CornerRadius="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <!-- <ImageIcon Source="ms-appx:///Assets/Icons/folder.svg" Width="18" Height="18" /> -->
-                        </Border>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="清除缓存" Foreground="{ThemeResource Slate800}" FontWeight="SemiBold" />
-                            <TextBlock Text="{x:Bind ViewModel.CacheSize, Mode=OneWay}" Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}" />
-                        </StackPanel>
-                        <!-- <ImageIcon Grid.Column="3" Source="ms-appx:///Assets/Icons/delete.svg" Width="20" Height="20" VerticalAlignment="Center" /> -->
-                    </Grid>
-                </Button>
-            </Border>
-        </Grid>
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Text="收藏快速播放" Style="{StaticResource SettingsSectionHeading}" />
+                <StackPanel Spacing="4">
+                    <controls:SettingsRow Title="触发方式" Description="仅控制歌曲条目，文件夹和歌单仍单击打开。" Style="{StaticResource SettingsRowStyle}">
+                        <ComboBox SelectedIndex="{x:Bind ViewModel.QuickPlayGesture, Mode=TwoWay}" MinWidth="180" AutomationProperties.AutomationId="QuickPlayGesture" AutomationProperties.Name="快速播放触发方式">
+                            <x:String>单击</x:String>
+                            <x:String>双击</x:String>
+                            <x:String>关闭快速播放</x:String>
+                        </ComboBox>
+                    </controls:SettingsRow>
+                    <controls:SettingsRow Title="加入范围" Description="整张列表按当前收藏夹的显示顺序加入，从点击的歌曲开始。" Style="{StaticResource SettingsRowStyle}">
+                        <ComboBox SelectedIndex="{x:Bind ViewModel.QuickPlayScope, Mode=TwoWay}" MinWidth="180" AutomationProperties.AutomationId="QuickPlayScope" AutomationProperties.Name="快速播放加入范围">
+                            <x:String>当前收藏夹全部歌曲</x:String>
+                            <x:String>仅点击的歌曲</x:String>
+                        </ComboBox>
+                    </controls:SettingsRow>
+                    <controls:SettingsRow Title="播放列表操作" Description="选择替换列表、追加到末尾，或放在当前歌曲之后。" Style="{StaticResource SettingsRowStyle}">
+                        <ComboBox SelectedIndex="{x:Bind ViewModel.QuickPlayDestination, Mode=TwoWay}" MinWidth="180" AutomationProperties.AutomationId="QuickPlayDestination" AutomationProperties.Name="快速播放列表操作">
+                            <x:String>覆盖播放列表</x:String>
+                            <x:String>追加到队尾</x:String>
+                            <x:String>插入到下一首</x:String>
+                        </ComboBox>
+                    </controls:SettingsRow>
+                    <controls:SettingsRow Title="加入后立即播放" Description="开启后切换到点击的歌曲；关闭时追加或插入不会打断当前播放。" Style="{StaticResource SettingsRowStyle}">
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.EnableAutoPlay, Mode=TwoWay}" OnContent="开" OffContent="关" AutomationProperties.AutomationId="AutoPlayToggle" AutomationProperties.Name="加入后立即播放" />
+                    </controls:SettingsRow>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Text="播放" Style="{StaticResource SettingsSectionHeading}" />
+                <StackPanel Spacing="4">
+                    <controls:SettingsRow Title="淡入淡出" Description="开始和暂停时平滑改变音量。音频始终选择可获取的最高质量。" Style="{StaticResource SettingsRowStyle}">
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.EnableFade, Mode=TwoWay}" OnContent="开" OffContent="关" AutomationProperties.AutomationId="FadeToggle" AutomationProperties.Name="淡入淡出" />
+                    </controls:SettingsRow>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Text="外观与窗口" Style="{StaticResource SettingsSectionHeading}" />
+                <StackPanel Spacing="4">
+                    <controls:SettingsRow Title="主题" Description="选择应用的浅色或深色外观。" Style="{StaticResource SettingsRowStyle}">
+                        <ComboBox SelectedIndex="{x:Bind ViewModel.ThemeIndex, Mode=TwoWay}" MinWidth="180" AutomationProperties.AutomationId="ThemeIndex" AutomationProperties.Name="主题">
+                            <x:String>跟随系统</x:String>
+                            <x:String>浅色</x:String>
+                            <x:String>深色</x:String>
+                        </ComboBox>
+                    </controls:SettingsRow>
+                    <controls:SettingsRow Title="界面动画" Description="正在播放页以缓动曲线滑入和收起，同时遵循系统的动画设置。" Style="{StaticResource SettingsRowStyle}">
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.EnableAnimations, Mode=TwoWay}" OnContent="开" OffContent="关" AutomationProperties.AutomationId="AnimationsToggle" AutomationProperties.Name="界面动画" />
+                    </controls:SettingsRow>
+                    <controls:SettingsRow Title="关闭窗口时" Description="Esc 在顶级页面始终隐藏到后台，托盘菜单可彻底退出。" Style="{StaticResource SettingsRowStyle}">
+                        <ComboBox SelectedIndex="{x:Bind ViewModel.CloseBehavior, Mode=TwoWay}" MinWidth="180" AutomationProperties.AutomationId="CloseBehavior" AutomationProperties.Name="关闭窗口时">
+                            <x:String>留在后台</x:String>
+                            <x:String>退出应用</x:String>
+                        </ComboBox>
+                    </controls:SettingsRow>
+                    <controls:SettingsRow Title="隐藏到后台时暂停" Description="关闭或隐藏窗口后暂停音频，返回时保持暂停。" Style="{StaticResource SettingsRowStyle}">
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.PauseInBackground, Mode=TwoWay}" OnContent="开" OffContent="关" AutomationProperties.AutomationId="PauseInBackgroundToggle" AutomationProperties.Name="隐藏到后台时暂停" />
+                    </controls:SettingsRow>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel>
+                <TextBlock Text="缓存与存储" Style="{StaticResource SettingsSectionHeading}" />
+                <StackPanel Spacing="4">
+                    <controls:SettingsRow Title="缓存已播放的音频" Description="已缓存的歌曲可直接读取；关闭后不再下载新的音频缓存。" Style="{StaticResource SettingsRowStyle}">
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.EnableAudioCache, Mode=TwoWay}" OnContent="开" OffContent="关" AutomationProperties.AutomationId="AudioCacheToggle" AutomationProperties.Name="缓存已播放的音频" />
+                    </controls:SettingsRow>
+                    <controls:SettingsRow Title="音频缓存" Description="{x:Bind ViewModel.CacheSize, Mode=OneWay}" Style="{StaticResource SettingsRowStyle}">
+                        <Button Content="清除缓存" Command="{x:Bind ViewModel.ClearCacheCommand}" AutomationProperties.AutomationId="ClearCacheButton" />
+                    </controls:SettingsRow>
+                </StackPanel>
+            </StackPanel>
+            <TextBlock Text="设置保存在这台电脑上，账户仅同步收藏。" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
     </ScrollViewer>
 </Page>

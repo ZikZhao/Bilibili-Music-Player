@@ -201,6 +201,40 @@ internal static class PlayerTests
             QueueIs(rig.Vm, "a", "d", "e", "b", "c");
             Check(rig.Engine.OpenCount == 1);
         }),
+        ("quick play replaces from the chosen occurrence and can prepare without autoplay", async () =>
+        {
+            using var rig = new Rig(); await rig.Vm.PlayVideoAsync(Track("old"));
+            await rig.Vm.QuickPlayAsync(new[] { Track("a"), Track("b"), Track("c") }, 1, 0, false);
+            QueueIs(rig.Vm, "b", "c", "a");
+            Check(!rig.Vm.IsPlaying && rig.Engine.OpenCount == 2);
+        }),
+        ("quick play append and insert do not interrupt current audio when immediate playback is off", async () =>
+        {
+            using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(new[] { Track("old"), Track("tail") });
+            var source = rig.Engine.SourceId; var current = rig.Vm.Playlist[0];
+            await rig.Vm.QuickPlayAsync(new[] { Track("a"), Track("b") }, 1, 1, false);
+            QueueIs(rig.Vm, "old", "tail", "b", "a");
+            await rig.Vm.QuickPlayAsync(new[] { Track("c"), Track("d") }, 0, 2, false);
+            QueueIs(rig.Vm, "old", "c", "d", "tail", "b", "a");
+            Check(rig.Engine.SourceId == source && rig.Engine.OpenCount == 1 && ReferenceEquals(current, rig.Vm.Playlist[0]) && rig.Vm.IsPlaying);
+        }),
+        ("quick play starts the new occurrence even for a duplicate video and keeps cyclic queue order", async () =>
+        {
+            using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(new[] { Track("a"), Track("tail") });
+            var old = rig.Vm.Playlist[0];
+            await rig.Vm.QuickPlayAsync(new[] { Track("a"), Track("b") }, 0, 1, true);
+            QueueIs(rig.Vm, "a", "b", "a", "tail");
+            Check(!ReferenceEquals(old, rig.Vm.Playlist[0]) && ReferenceEquals(old, rig.Vm.Playlist[2]) && rig.Vm.IsPlaying);
+        }),
+        ("quick play can prepare an empty queue and safely ignores empty incoming batches", async () =>
+        {
+            using var rig = new Rig();
+            await rig.Vm.QuickPlayAsync(new[] { Track("a"), Track("b") }, 1, 2, false);
+            QueueIs(rig.Vm, "b", "a");
+            Check(!rig.Vm.IsPlaying && rig.Engine.OpenCount == 1);
+            await rig.Vm.QuickPlayAsync(Array.Empty<VideoModel>(), 0, 0, true);
+            QueueIs(rig.Vm, "b", "a");
+        }),
         ("direct playback joins the shared queue and a one-track queue can repeat and go backwards", async () =>
         {
             using var rig = new Rig(); await rig.Vm.PlayVideoAsync(Track("a"));

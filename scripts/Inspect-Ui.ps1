@@ -20,6 +20,7 @@ param(
     [switch]$Svg,
     [switch]$Activate,
     [switch]$Back,
+    [switch]$ProbePlayerTransition,
     [switch]$Capture,
     [int]$SelectionStart,
     [switch]$VisibleReference,
@@ -43,6 +44,7 @@ if ($CompareNative) { $request.CompareNative = $true }
 if ($CheckProtection) { $request.CheckProtection = $true }
 if ($Activate) { $request.Activate = $true }
 if ($Back) { $request.Back = $true }
+if ($ProbePlayerTransition) { $request.ProbePlayerTransition = $true }
 if ($Capture) { $request.Capture = $true }
 if ($VisibleReference) { $request.VisibleReference = $true }
 if ($FocusReference) { $request.FocusReference = $true }

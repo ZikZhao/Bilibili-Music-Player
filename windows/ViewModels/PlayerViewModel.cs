@@ -174,7 +174,7 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
             _ready = true; IsLoading = false;
             RefreshControls();
             await SetTransportAsync(_wantsPlay);
-            if (id == _sourceId)
+            if (id == _sourceId && EnableAudioCache)
             {
                 var cacheToken = lifetime.Token;
                 _ = Task.Run(() => CacheSafelyAsync(resolved, cacheToken));
@@ -255,14 +255,28 @@ public partial class PlayerViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ToggleMute() => Volume = IsMuted ? _audibleVolume : 0;
 
-    public async Task SetPlaylistAsync(IList<VideoModel> tracks, int startIndex = 0)
+    public bool EnableAudioCache { get; set; } = true;
+
+    public async Task SetPlaylistAsync(IList<VideoModel> tracks, int startIndex = 0, bool autoPlay = true)
     {
         var snapshot = tracks.ToArray();
         if (snapshot.Length == 0) { ClearPlaylist(); return; }
         _currentEntry = null;
         _queue.Clear(); foreach (var track in snapshot) _queue.Add(new(track));
         RotateTo(Math.Clamp(startIndex, 0, Playlist.Count - 1));
-        await LoadQueueAsync(true);
+        await LoadQueueAsync(autoPlay);
+    }
+    public async Task QuickPlayAsync(IList<VideoModel> tracks, int startIndex, int destination, bool immediate)
+    {
+        if (tracks.Count == 0) return;
+        if (destination == 0) { await SetPlaylistAsync(tracks, startIndex, immediate); return; }
+        startIndex = Math.Clamp(startIndex, 0, tracks.Count - 1);
+        // Rotate only the incoming batch. Existing occurrences keep their order.
+        var incoming = tracks.Skip(startIndex).Concat(tracks.Take(startIndex)).Select(t => new PlaybackQueueEntry(t)).ToArray();
+        var index = destination == 2 ? (_currentEntry is null ? 0 : 1) : _queue.Count;
+        foreach (var entry in incoming) _queue.Insert(index++, entry);
+        if (immediate) await PlayQueueEntryAsync(incoming[0]);
+        else if (_currentEntry is null) await LoadQueueAsync(false);
     }
     public void AddToPlaylist(VideoModel track) => _queue.Add(new(track));
     public void Enqueue(IReadOnlyList<VideoModel> tracks, bool next)

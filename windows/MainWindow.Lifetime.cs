@@ -48,6 +48,7 @@ public sealed partial class MainWindow
             return;
         }
         (_tabs?.ActivePage as IResidentTab)?.SetTabActive(false);
+        if (_settingsViewModel.PauseInBackground) _ = _playerViewModel.PauseCommand.ExecuteAsync(null);
         _isInBackground = true;
         AppWindow.Hide();
     }
@@ -69,6 +70,7 @@ public sealed partial class MainWindow
     private void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
         if (_isExiting) return;
+        if (_settingsViewModel.CloseBehavior == 1) { _isExiting = true; return; }
         args.Cancel = true;
         HideToBackground();
     }
