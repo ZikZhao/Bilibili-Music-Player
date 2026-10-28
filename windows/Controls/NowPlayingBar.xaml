@@ -75,13 +75,13 @@
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{x:Bind ViewModel.TrackSubtitle, Mode=OneWay}"
                                    Foreground="{ThemeResource Slate500}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="CompactTransportTime" FontFamily="Consolas" FontSize="11"
+                        <TextBlock x:Name="CompactTransportTime" FontFamily="Consolas" FontSize="13"
                                    Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
                                    Foreground="{ThemeResource Slate500}" />
                     </StackPanel>
                 </Grid>
             </Button>
-            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0" FontFamily="Consolas" FontSize="12"
+            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0" FontFamily="Consolas" FontSize="14"
                        VerticalAlignment="Center" Foreground="{ThemeResource Slate500}" Visibility="Collapsed"
                        Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
                        AutomationProperties.AutomationId="TransportTime" />
@@ -120,7 +120,7 @@
                         Command="{x:Bind ViewModel.ToggleMuteCommand}" ToolTipService.ToolTip="静音 / 恢复音量"
                         AutomationProperties.Name="静音或恢复音量" AutomationProperties.AutomationId="MuteButton">
                     <Grid Width="20" Height="20">
-                        <controls:Icon Glyph="{StaticResource Icon_VolumeNotice}" FontSize="20"
+                        <controls:Icon Glyph="{StaticResource Icon_VolumeNotice}" FontSize="18"
                                        Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
                         <FontIcon Glyph="&#xE74F;" FontSize="18"
                                   Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
