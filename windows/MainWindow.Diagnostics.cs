@@ -87,6 +87,7 @@ public sealed partial class MainWindow
                 "Default" => ElementTheme.Default,
                 _ => throw new ArgumentException("Unknown temporary theme."),
             };
+        if (request.Back) TryGoBack();
         if (request.Width is { } width && request.Height is { } height)
         {
             if (width is < 320 or > 3840 || height is < 320 or > 2160)
@@ -131,6 +132,7 @@ public sealed partial class MainWindow
                 ?? throw new ArgumentException("Visual state target not found.");
             if (!VisualStateManager.GoToState(target, request.State, false))
                 throw new InvalidOperationException("Target has no requested visual state.");
+            await Task.Delay(50);
         }
         root.UpdateLayout();
         var snapshot = UiLayoutSnapshot.Capture(root);
@@ -233,6 +235,7 @@ public sealed partial class MainWindow
             png = Convert.ToBase64String(encoded);
         }
         return new { snapshot, nativeComparison, png, protectedSessionRoundTrip, activation = _inspectionActivationState.ToString(), savedTheme = _settingsViewModel.ThemeMode,
+            playerBackground = (_tabs?.ActivePage as Pages.AudioPlayerPage)?.InspectBackground(),
             lifetime = new { inBackground = _isInBackground, visible = AppWindow.IsVisible, trayAvailable = _tray?.IsAvailable,
                 activeTab = _tabs?.ActiveKey, backEnabled = TitleBackButton.IsEnabled, searchStage = _searchViewModel.Stage.ToString() },
             playback = new { title = _playerViewModel.TrackTitle, bvid = _playerViewModel.CurrentTrack?.Bvid,
@@ -257,6 +260,7 @@ public sealed partial class MainWindow
 
 internal sealed class UiInspectionRequest
 {
+    public bool Back { get; set; }
     public string? TimeLineBounds { get; set; }
     public string? PlaybackFixture { get; set; }
     public string? PlaybackAction { get; set; }

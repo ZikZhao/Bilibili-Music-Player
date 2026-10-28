@@ -26,6 +26,7 @@ namespace bilibili_music_player_windows
         private readonly SearchViewModel _searchViewModel;
         private readonly LibraryViewModel _libraryViewModel;
         private readonly ResidentTabs<Page>? _tabs;
+        private string _playerReturnTab = "playlist";
 
         /// <summary>暴露给 XAML x:Bind 的 PlayerViewModel。</summary>
         public PlayerViewModel PlayerViewModel { get; }
@@ -123,11 +124,16 @@ namespace bilibili_music_player_windows
         private void NavigateTo(string? target)
         {
             if (_tabs is null || target is not ("search" or "favorites" or "settings" or "nowplaying" or "playlist")) return;
+            if (target == "nowplaying" && _tabs.ActiveKey is { } previous && previous != "nowplaying")
+                _playerReturnTab = previous;
             _tabs.Select(target);
             foreach (var entry in NavView.MenuItems.Concat(NavView.FooterMenuItems))
                 if (entry is NavigationViewItem item && item.Tag?.ToString() == target &&
                     !ReferenceEquals(NavView.SelectedItem, item)) NavView.SelectedItem = item;
             UpdateBackButton();
+            // The transport button that opened this view is now hidden. Keep
+            // keyboard focus in the visible tree so Esc/Alt+Left still route.
+            if (target == "nowplaying") TitleBackButton.Focus(FocusState.Programmatic);
         }
 
         private Page CreateTab(string key)
@@ -143,12 +149,19 @@ namespace bilibili_music_player_windows
             };
             if (page is AudioPlayerPage playerPage) playerPage.PlaylistRequested += (_, _) => NavigateTo("playlist");
             page.Visibility = Visibility.Collapsed;
-            PageHost.Children.Add(page);
+            if (page is AudioPlayerPage) PlayerOverlayHost.Children.Add(page);
+            else PageHost.Children.Add(page);
             return page;
         }
 
-        private static void SetTabActive(Page page, bool active)
+        private void SetTabActive(Page page, bool active)
         {
+            if (page is AudioPlayerPage)
+            {
+                PlayerOverlayHost.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+                if (active) SharedTransport.ResetDetailsHover();
+                SharedTransport.Visibility = active ? Visibility.Collapsed : Visibility.Visible;
+            }
             // Pause before hiding. The page stays parented, so neither Loaded nor
             // Unloaded is used as the tab activation signal.
             if (active) page.Visibility = Visibility.Visible;
@@ -170,9 +183,11 @@ namespace bilibili_music_player_windows
             {
                 SearchPage => _searchViewModel.CanGoBack,
                 FavoritesPage => _libraryViewModel.CanGoBack,
+                AudioPlayerPage => true,
                 _ => false,
             };
-            var label = _tabs?.ActivePage is FavoritesPage ? "返回上一级" :
+            var label = _tabs?.ActivePage is AudioPlayerPage ? "收起播放器" :
+                _tabs?.ActivePage is FavoritesPage ? "返回上一级" :
                 _searchViewModel.IsPreviewing ? "返回搜索结果" : "返回搜索历史";
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(TitleBackButton, label);
             ToolTipService.SetToolTip(TitleBackButton, $"{label} (Esc / Alt+←)");

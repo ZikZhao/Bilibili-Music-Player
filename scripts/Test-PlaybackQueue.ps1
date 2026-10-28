@@ -86,7 +86,15 @@ try {
     $nowPlaying = Snapshot @{ Tab = 'nowplaying'; Width = 1245; Height = 780 }
     $cover = $nowPlaying.snapshot.nodes | Where-Object { $_.automationId -eq 'AudioPlayerCover' } | Select-Object -First 1
     Check ([Math]::Abs($cover.bounds.height - $cover.bounds.width * 9 / 16) -lt 1) 'Now playing cover is not 16:9.'
-    Check ($nowPlaying.lifetime.activeTab -eq 'nowplaying' -and -not $nowPlaying.lifetime.backEnabled) 'Footer navigation failed.'
+    Check ($nowPlaying.lifetime.activeTab -eq 'nowplaying' -and $nowPlaying.lifetime.backEnabled) 'Expanded player cannot return to the previous page.'
+    $overlay = $nowPlaying.snapshot.nodes | Where-Object { $_.automationId -eq 'ExpandedPlayer' } | Select-Object -First 1
+    $content = $nowPlaying.snapshot.nodes | Where-Object { $_.automationId -eq 'ShellContent' } | Select-Object -First 1
+    Check ([Math]::Abs($overlay.bounds.x - $content.bounds.x) -lt 1 -and [Math]::Abs($overlay.bounds.y - $content.bounds.y) -lt 1 -and
+        [Math]::Abs($overlay.bounds.width - $content.bounds.width) -lt 1 -and
+        [Math]::Abs($overlay.bounds.height - $content.bounds.height) -lt 1) 'Expanded player does not cover the content and transport area.'
+    Check (@($nowPlaying.snapshot.nodes | Where-Object { $_.automationId -eq 'NavPlaylist' }).Count -eq 1) 'Expanded player hides the sidebar.'
+    Check (@($nowPlaying.snapshot.nodes | Where-Object { $_.automationId -eq 'NowPlayingBar' }).Count -eq 0) 'Transport is exposed below the expanded player.'
+    Check (@($nowPlaying.snapshot.nodes | Where-Object { $_.automationId -eq 'PageTitle' }).Count -eq 0) 'Expanded player still has a page heading.'
 } finally {
     if ($started) {
         $restore = @{ PlaybackFixture = 'restore'; Theme = $initial.savedTheme }

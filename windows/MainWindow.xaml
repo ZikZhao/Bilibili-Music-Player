@@ -94,7 +94,7 @@
             </NavigationView.FooterMenuItems>
 
             <!-- Tabs stay attached to this host; switching only changes Visibility. -->
-            <Grid>
+            <Grid x:Name="ShellContent" AutomationProperties.AutomationId="ShellContent">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
@@ -102,7 +102,11 @@
 
                 <Grid x:Name="PageHost" Grid.Row="0" AutomationProperties.AutomationId="ResidentPageHost" />
 
-                <controls:NowPlayingBar Grid.Row="1" DetailsRequested="OnNowPlayingClick" />
+                <controls:NowPlayingBar x:Name="SharedTransport" Grid.Row="1" DetailsRequested="OnNowPlayingClick" />
+                <!-- The expanded player covers the right content and transport,
+                     leaving the navigation pane and window title bar available. -->
+                <Grid x:Name="PlayerOverlayHost" Grid.RowSpan="2" Canvas.ZIndex="10" Visibility="Collapsed"
+                      AutomationProperties.AutomationId="PlayerOverlayHost" />
             </Grid>
         </NavigationView>
     </Grid>

@@ -51,25 +51,32 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Button x:Name="NowPlayingDetails" Grid.Column="0" Padding="0" BorderThickness="0"
+            <Button x:Name="NowPlayingDetails" Grid.Column="0" Padding="8,6" CornerRadius="6" BorderThickness="0"
                     Background="Transparent" HorizontalContentAlignment="Stretch" VerticalAlignment="Center"
                     HorizontalAlignment="Stretch" Click="OnNowPlayingClick"
+                    Loaded="OnDetailsLoaded" Unloaded="OnDetailsUnloaded"
+                    GotFocus="OnDetailsFocusChanged" LostFocus="OnDetailsFocusChanged"
                     ToolTipService.ToolTip="{x:Bind ViewModel.TrackTitle, Mode=OneWay}"
-                    AutomationProperties.AutomationId="NowPlayingButton">
+                    AutomationProperties.Name="展开播放器" AutomationProperties.AutomationId="NowPlayingButton">
                 <Grid x:Name="NowPlayingDetailsLayout" ColumnSpacing="0">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                     <controls:AspectRatioPanel x:Name="CoverFrame" Width="80" VerticalAlignment="Center" Visibility="Collapsed">
                         <Border CornerRadius="4" Background="{ThemeResource Slate200}">
                             <FontIcon Glyph="&#xE8D6;" FontSize="20" Foreground="{ThemeResource Slate500}" />
                         </Border>
-                        <Border CornerRadius="4"><Border.Background>
+                        <Border CornerRadius="4" DataContext="{x:Bind ViewModel}"><Border.Background>
                             <ImageBrush Stretch="UniformToFill"
-                                        ImageSource="{x:Bind ViewModel.CurrentTrack.Cover, Converter={StaticResource TransportImageConverter}, Mode=OneWay}" />
+                                        ImageSource="{Binding CurrentTrack.Cover, Converter={StaticResource TransportImageConverter}}" />
                         </Border.Background></Border>
-                            <ProgressRing Width="20" Height="20" Foreground="{ThemeResource Rose400}"
+                            <ProgressRing x:Name="CoverLoadingRing" Width="20" Height="20" Foreground="{ThemeResource Rose400}"
                                           HorizontalAlignment="Center" VerticalAlignment="Center"
                                           IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                                           Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsBusy), Mode=OneWay}" />
+                        <Grid x:Name="CoverActivationLayer" Opacity="0" IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw">
+                            <Border CornerRadius="4" Background="#66000000" />
+                            <FontIcon Glyph="&#xE70E;" FontSize="16" Foreground="White"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
                     </controls:AspectRatioPanel>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                         <TextBlock Text="{x:Bind ViewModel.TrackTitle, Mode=OneWay}"

@@ -4,14 +4,18 @@ Debug builds expose a current-user-only named pipe, `BiliMusic.Ui.<process id>`.
 Release builds do not include this channel. The application must be running, but
 inspection does not move the mouse, type into the desktop, or require screenshots.
 
-Main pages share the settings page's layout: `PageContentMargin` is 32 DIPs on
+Library, search, playlist and settings share the settings page's layout: `PageContentMargin` is 32 DIPs on
 every side and `PageHeaderStyle` leaves 32 DIPs below the header. Each page's
 `PageTitle` uses `PageTitleTextBlockStyle` (28 DIP semibold Microsoft YaHei,
 `Slate800`), and `AppPageStyle` supplies the same primary foreground for body
 content. Do not override heading size, color or outer spacing on individual pages.
-The currently-playing page also has this header; its centered track title is
-separate content. The shared `PageTitle` automation ID allows native snapshots
+The expanded player has no page heading and covers the entire right content area,
+including the transport. The sidebar and window title bar remain available.
+The shared `PageTitle` automation ID allows native snapshots
 to compare heading bounds, baseline and resolved theme colors across pages.
+`playerBackground` reports the expanded player's Gaussian effect, decode status
+and image-load count. Composition visuals require a real window screenshot for
+visual confirmation; RenderTargetBitmap does not capture their pixels reliably.
 
 ```powershell
 ./scripts/Inspect-Ui.ps1 -Tab search -Theme Light -Text '' -Focus navigation -CompareNative -OutputPath ./artifacts/ui/light-empty

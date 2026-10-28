@@ -19,17 +19,21 @@
         <converters:VolumePercentConverter x:Key="VolumeTooltipConverter" />
     </Page.Resources>
 
-    <Grid Margin="{StaticResource PageContentMargin}">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <Grid Style="{StaticResource PageHeaderStyle}">
-            <TextBlock x:Name="PageTitle" Text="正在播放" Style="{StaticResource PageTitleTextBlockStyle}" AutomationProperties.AutomationId="PageTitle" />
-        </Grid>
-        <ScrollViewer Grid.Row="1" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel HorizontalAlignment="Center" Spacing="32" MaxWidth="600">
+    <Grid x:Name="PlayerRoot" Background="#FF24222A" RequestedTheme="Dark" AutomationProperties.AutomationId="ExpandedPlayer">
+        <controls:BlurredCoverBackground x:Name="CoverBackdrop" Source="{Binding CurrentTrack.Cover}"
+                                        AutomationProperties.AutomationId="PlayerBackdrop" />
+        <Border IsHitTestVisible="False">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#99000000" Offset="0" />
+                    <GradientStop Color="#99000000" Offset="0.45" />
+                    <GradientStop Color="#CC000000" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+        </Border>
+        <ScrollViewer Margin="32" HorizontalScrollMode="Disabled" VerticalScrollBarVisibility="Auto"
+                      VerticalContentAlignment="Center">
+            <StackPanel HorizontalAlignment="Center" Spacing="24" MaxWidth="600">
 
                 <!-- 封面图 -->
                 <controls:AspectRatioPanel MaxWidth="320"
@@ -37,20 +41,20 @@
                         HorizontalAlignment="Stretch">
                     <Border CornerRadius="16" Background="{ThemeResource Slate200}" />
                     <Border CornerRadius="16"><Border.Background>
-                        <ImageBrush ImageSource="{x:Bind ViewModel.CurrentTrack.Cover, Converter={StaticResource StringToImageSourceConverter}, Mode=OneWay}"
+                        <ImageBrush ImageSource="{Binding CurrentTrack.Cover, Converter={StaticResource StringToImageSourceConverter}}"
                                     Stretch="UniformToFill" />
                     </Border.Background></Border>
                 </controls:AspectRatioPanel>
 
                 <!-- 标题 + 艺术家 -->
                 <StackPanel HorizontalAlignment="Center" Spacing="8" MaxWidth="500">
-                    <TextBlock Text="{x:Bind ViewModel.CurrentTrack.Title, Mode=OneWay}"
+                    <TextBlock Text="{x:Bind ViewModel.TrackTitle, Mode=OneWay}"
                                Style="{StaticResource TitleTextBlockStyle}"
                                Foreground="{ThemeResource Slate800}"
                                TextTrimming="CharacterEllipsis"
                                HorizontalAlignment="Center" />
-                    <TextBlock Text="{x:Bind ViewModel.CurrentTrack.Artist, Mode=OneWay}"
-                               Foreground="{ThemeResource Slate500}"
+                    <TextBlock Text="{Binding CurrentTrack.Artist}"
+                               Foreground="#D9FFFFFF"
                                HorizontalAlignment="Center" />
                 </StackPanel>
 
@@ -70,12 +74,12 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0"
                                    Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(ViewModel.Position), Mode=OneWay}"
-                                   Foreground="{ThemeResource Slate400}"
-                                   FontFamily="Consolas" Style="{StaticResource CaptionTextBlockStyle}" />
+                                   Foreground="#D9FFFFFF"
+                                   FontFamily="Arial" FontSize="14" />
                         <TextBlock Grid.Column="2"
                                    Text="{x:Bind helpers:ViewHelpers.FormatTimeSpan(ViewModel.Duration), Mode=OneWay}"
-                                   Foreground="{ThemeResource Slate400}"
-                                   FontFamily="Consolas" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="#D9FFFFFF"
+                                   FontFamily="Arial" FontSize="14"
                                    HorizontalAlignment="Right" />
                     </Grid>
                 </StackPanel>
@@ -111,9 +115,9 @@
                                 AutomationProperties.AutomationId="PlayerPagePlayPauseButton">
                             <Grid>
                                 <controls:Icon Glyph="{StaticResource Icon_PlayOne}" FontSize="32"
-                                           Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
+                                           Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.ShowPause), Mode=OneWay}" />
                                 <controls:Icon Glyph="{StaticResource Icon_Pause}" FontSize="32"
-                                           Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsPlaying), Mode=OneWay}" />
+                                           Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.ShowPause), Mode=OneWay}" />
                             </Grid>
                         </Button>
 
@@ -150,7 +154,7 @@
                                 Margin="12,0" />
                         <TextBlock Grid.Column="2"
                                    Text="{x:Bind local:AudioPlayerPage.VolumePercent(ViewModel.Volume), Mode=OneWay}"
-                                   Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="#D9FFFFFF" Style="{StaticResource CaptionTextBlockStyle}"
                                    MinWidth="32" TextAlignment="Right" />
                     </Grid>
                 </StackPanel>

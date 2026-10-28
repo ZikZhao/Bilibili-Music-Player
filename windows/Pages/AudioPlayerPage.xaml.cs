@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Input;
 using System;
 using bilibili_music_player_windows.Converters;
 using bilibili_music_player_windows.ViewModels;
+using bilibili_music_player_windows.Services;
 
 namespace bilibili_music_player_windows.Pages
 {
@@ -17,7 +18,7 @@ namespace bilibili_music_player_windows.Pages
     /// ▸ 音量控制
     /// ▸ 播放列表侧边栏（P7）
     /// </summary>
-    public sealed partial class AudioPlayerPage : Page
+    public sealed partial class AudioPlayerPage : Page, IResidentTab, IDisposable
     {
         public PlayerViewModel ViewModel { get; }
         private Controls.PlaybackSeekBinding? _seekBinding;
@@ -32,6 +33,11 @@ namespace bilibili_music_player_windows.Pages
         }
 
         private void OnShowPlaylistClick(object sender, RoutedEventArgs e) => PlaylistRequested?.Invoke(this, e);
+        public void SetTabActive(bool active) => CoverBackdrop.SetActive(active);
+        public void Dispose() { _seekBinding?.Dispose(); CoverBackdrop.Dispose(); }
+#if DEBUG
+        internal object InspectBackground() => CoverBackdrop.Inspect();
+#endif
 
         /// <summary>音量百分比文本。</summary>
         public static string VolumePercent(double volume) =>

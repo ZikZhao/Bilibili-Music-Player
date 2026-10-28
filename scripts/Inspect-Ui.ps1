@@ -1,7 +1,7 @@
 param(
     [int]$AppProcessId,
-    [ValidateSet('sample', 'queue', 'online', 'restore')][string]$PlaybackFixture,
-    [ValidateSet('play', 'pause', 'next', 'previous', 'mute', 'shuffle', 'mode')][string]$PlaybackAction,
+    [ValidateSet('sample', 'queue', 'backdrop', 'online', 'restore')][string]$PlaybackFixture,
+    [ValidateSet('play', 'pause', 'next', 'previous', 'mute', 'shuffle', 'mode', 'library')][string]$PlaybackAction,
     [string]$PlaybackBvid,
     [double]$PlaybackProgress,
     [double]$PlaybackPreview,
@@ -19,6 +19,7 @@ param(
     [switch]$CheckProtection,
     [switch]$Svg,
     [switch]$Activate,
+    [switch]$Back,
     [switch]$Capture,
     [int]$SelectionStart,
     [switch]$VisibleReference,
@@ -41,6 +42,7 @@ foreach ($key in @('PlaybackFixture', 'PlaybackAction', 'PlaybackBvid', 'Playbac
 if ($CompareNative) { $request.CompareNative = $true }
 if ($CheckProtection) { $request.CheckProtection = $true }
 if ($Activate) { $request.Activate = $true }
+if ($Back) { $request.Back = $true }
 if ($Capture) { $request.Capture = $true }
 if ($VisibleReference) { $request.VisibleReference = $true }
 if ($FocusReference) { $request.FocusReference = $true }

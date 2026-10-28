@@ -16,13 +16,15 @@ function Check([bool]$condition, [string]$message) {
     $script:checks++
 }
 function Slider($snapshot) {
-    @($snapshot.snapshot.nodes | Where-Object { $_.automationId -eq 'ProgressSlider' })[0]
+    $id = if ($snapshot.lifetime.activeTab -eq 'nowplaying') { 'PlayerPageProgressSlider' } else { 'ProgressSlider' }
+    @($snapshot.snapshot.nodes | Where-Object { $_.automationId -eq $id })[0]
 }
 function Fill($snapshot) {
     # Native template descendants follow the slider in the measured visual tree.
     $track = Slider $snapshot
+    $name = if ($snapshot.lifetime.activeTab -eq 'nowplaying') { 'HorizontalDecreaseRect' } else { 'CenteredProgressFill' }
     $snapshot.snapshot.nodes | Where-Object {
-        $_.name -eq 'CenteredProgressFill' -and $_.id -gt $track.id
+        $_.name -eq $name -and $_.id -gt $track.id
     } | Select-Object -First 1
 }
 function CheckAdvancing {
