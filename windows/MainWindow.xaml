@@ -58,10 +58,10 @@
 
             <!-- Main navigation items -->
             <NavigationView.MenuItems>
-                <NavigationViewItem Tag="nowplaying" Content="正在播放"
-                                    AutomationProperties.AutomationId="NavNowPlaying">
+                <NavigationViewItem Tag="playlist" Content="播放列表"
+                                    AutomationProperties.AutomationId="NavPlaylist">
                     <NavigationViewItem.Icon>
-                        <controls:Icon Glyph="{StaticResource Icon_Play}" />
+                        <controls:Icon Glyph="{StaticResource Icon_MusicList}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Tag="search" Content="搜索"
@@ -79,6 +79,12 @@
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
+                <NavigationViewItem Tag="nowplaying" Content="正在播放"
+                                    AutomationProperties.AutomationId="NavNowPlaying">
+                    <NavigationViewItem.Icon>
+                        <controls:Icon Glyph="{StaticResource Icon_Play}" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Tag="settings" Content="设置"
                                     AutomationProperties.AutomationId="NavSettings">
                     <NavigationViewItem.Icon>

@@ -104,37 +104,116 @@ internal static class PlayerTests
             using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(new[] { Track("a"), Track("b") });
             rig.Vm.PlayMode = PlayMode.Single;
             await rig.Vm.NextCommand.ExecuteAsync(null);
-            Check(rig.Vm.CurrentIndex == 1);
+            Check(rig.Vm.CurrentIndex == 0 && rig.Vm.CurrentTrack?.Bvid == "b");
             rig.Engine.Emit(ended: true);
-            Check(rig.Vm.CurrentIndex == 1 && rig.Engine.OpenCount == 3);
+            Check(rig.Vm.CurrentTrack?.Bvid == "b" && rig.Engine.OpenCount == 3);
             rig.Vm.PlayMode = PlayMode.Loop; rig.Engine.Emit(ended: true);
-            Check(rig.Vm.CurrentIndex == 0);
+            Check(rig.Vm.CurrentIndex == 0 && rig.Vm.CurrentTrack?.Bvid == "a");
         }),
         ("skipping a paused queue changes songs without resuming playback", async () =>
         {
             using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(new[] { Track("a"), Track("b") });
             await rig.Vm.PauseCommand.ExecuteAsync(null);
             await rig.Vm.NextCommand.ExecuteAsync(null);
-            Check(rig.Vm.CurrentIndex == 1 && !rig.Vm.IsPlaying);
+            Check(rig.Vm.CurrentTrack?.Bvid == "b" && !rig.Vm.IsPlaying);
             await rig.Vm.PreviousCommand.ExecuteAsync(null);
-            Check(rig.Vm.CurrentIndex == 0 && !rig.Vm.IsPlaying);
+            Check(rig.Vm.CurrentTrack?.Bvid == "a" && !rig.Vm.IsPlaying);
         }),
-        ("previous restarts after three seconds and otherwise wraps through the queue", async () =>
+        ("previous always moves the tail to the head even after three seconds", async () =>
         {
             using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(new[] { Track("a"), Track("b") });
             rig.Engine.Position = TimeSpan.FromSeconds(10); rig.Engine.Emit();
             await rig.Vm.PreviousCommand.ExecuteAsync(null);
-            Check(rig.Engine.SeekCount == 1 && rig.Vm.CurrentIndex == 0);
+            Check(rig.Engine.SeekCount == 0 && rig.Vm.CurrentTrack?.Bvid == "b");
+            QueueIs(rig.Vm, "b", "a");
             await rig.Vm.PreviousCommand.ExecuteAsync(null);
-            Check(rig.Vm.CurrentIndex == 1);
+            Check(rig.Vm.CurrentTrack?.Bvid == "a");
         }),
-        ("removing earlier queue entries preserves the current song and paused replacement stays paused", async () =>
+        ("removing upcoming entries preserves the current source and paused replacement stays paused", async () =>
         {
             using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(new[] { Track("a"), Track("b"), Track("c") }, 1);
-            rig.Vm.RemoveFromPlaylist(0);
+            rig.Vm.RemoveFromPlaylist(2);
             Check(rig.Vm.CurrentIndex == 0 && rig.Vm.CurrentTrack?.Bvid == "b" && rig.Engine.OpenCount == 1);
             await rig.Vm.PauseCommand.ExecuteAsync(null); rig.Vm.RemoveFromPlaylist(0);
             Check(rig.Vm.CurrentTrack?.Bvid == "c" && !rig.Vm.IsPlaying && rig.Vm.QueueCount == 1);
+        }),
+        ("the selected track starts at the head and next and previous rotate the actual queue", async () =>
+        {
+            using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(new[] { Track("a"), Track("b"), Track("c") }, 1);
+            QueueIs(rig.Vm, "b", "c", "a");
+            await rig.Vm.NextCommand.ExecuteAsync(null);
+            QueueIs(rig.Vm, "c", "a", "b");
+            await rig.Vm.PreviousCommand.ExecuteAsync(null);
+            QueueIs(rig.Vm, "b", "c", "a");
+            Check(rig.Vm.CurrentTrack?.Bvid == "b" && rig.Engine.OpenCount == 3);
+        }),
+        ("list looping wraps naturally and single repeat keeps upcoming rows dimmed and stationary", async () =>
+        {
+            using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(new[] { Track("a"), Track("b"), Track("c") });
+            for (var i = 0; i < 3; i++) rig.Engine.Emit(ended: true);
+            QueueIs(rig.Vm, "a", "b", "c");
+            rig.Vm.CyclePlayModeCommand.Execute(null);
+            Check(rig.Vm.PlayModeLabel == "单曲循环" && !rig.Vm.Playlist[0].IsDimmed && rig.Vm.Playlist.Skip(1).All(e => e.IsDimmed));
+            rig.Engine.Emit(ended: true);
+            QueueIs(rig.Vm, "a", "b", "c");
+            rig.Vm.CyclePlayModeCommand.Execute(null);
+            Check(rig.Vm.PlayModeLabel == "列表循环" && rig.Vm.Playlist.All(e => !e.IsDimmed));
+        }),
+        ("shuffle only permutes upcoming occurrences without reloading or seeking current audio", async () =>
+        {
+            using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(Enumerable.Range(0, 8).Select(i => Track(i.ToString())).ToArray());
+            var current = rig.Vm.Playlist[0]; var upcoming = rig.Vm.Playlist.Skip(1).ToHashSet();
+            rig.Engine.Position = TimeSpan.FromSeconds(80); rig.Engine.Emit();
+            rig.Vm.PlayMode = PlayMode.Single;
+            rig.Vm.ShuffleUpcomingCommand.Execute(null);
+            Check(ReferenceEquals(rig.Vm.Playlist[0], current) && upcoming.SetEquals(rig.Vm.Playlist.Skip(1)));
+            Check(rig.Engine.OpenCount == 1 && rig.Engine.SeekCount == 0 && rig.Vm.Position.TotalSeconds == 80 && rig.Vm.IsPlaying && rig.Vm.PlayMode == PlayMode.Single);
+            QueueIs(rig.Vm, rig.Vm.Playlist.Select(e => e.Track.Bvid).ToArray());
+        }),
+        ("clicking an upcoming occurrence makes it current and preserves the remaining cyclic order", async () =>
+        {
+            using var rig = new Rig(); await rig.Vm.SetPlaylistAsync(new[] { Track("a"), Track("b"), Track("c"), Track("d") });
+            await rig.Vm.PlayQueueEntryAsync(rig.Vm.Playlist[2]);
+            QueueIs(rig.Vm, "c", "d", "a", "b");
+            var opens = rig.Engine.OpenCount;
+            await rig.Vm.PlayQueueEntryAsync(rig.Vm.Playlist[0]);
+            Check(rig.Engine.OpenCount == opens && rig.Vm.IsPlaying);
+        }),
+        ("duplicate videos are distinct queue occurrences and removing one cannot remove another", async () =>
+        {
+            using var rig = new Rig(); var same = Track("a");
+            await rig.Vm.SetPlaylistAsync(new[] { same, same, Track("b") });
+            var first = rig.Vm.Playlist[0]; var second = rig.Vm.Playlist[1];
+            Check(!ReferenceEquals(first, second));
+            await rig.Vm.RemoveQueueEntryAsync(second);
+            QueueIs(rig.Vm, "a", "b");
+            Check(ReferenceEquals(rig.Vm.Playlist[0], first) && rig.Engine.OpenCount == 1);
+            await rig.Vm.RemoveQueueEntryAsync(second);
+            Check(rig.Vm.QueueCount == 2);
+        }),
+        ("enqueue-next preserves input order and an unstarted queue numbers all pending rows", async () =>
+        {
+            using var rig = new Rig(); rig.Vm.AddToPlaylist(Track("c"));
+            rig.Vm.Enqueue(new[] { Track("a"), Track("b") }, true);
+            Check(rig.Vm.Playlist.Select(e => e.SequenceText).SequenceEqual(new[] { "1", "2", "3" }) && rig.Vm.Playlist.All(e => !e.IsCurrent));
+            await rig.Vm.PlayCommand.ExecuteAsync(null);
+            rig.Vm.Enqueue(new[] { Track("d"), Track("e") }, true);
+            QueueIs(rig.Vm, "a", "d", "e", "b", "c");
+            Check(rig.Engine.OpenCount == 1);
+        }),
+        ("direct playback joins the shared queue and a one-track queue can repeat and go backwards", async () =>
+        {
+            using var rig = new Rig(); await rig.Vm.PlayVideoAsync(Track("a"));
+            QueueIs(rig.Vm, "a");
+            Check(!rig.Vm.ShuffleUpcomingCommand.CanExecute(null));
+            await rig.Vm.PreviousCommand.ExecuteAsync(null);
+            rig.Engine.Emit(ended: true);
+            Check(rig.Engine.OpenCount == 3 && rig.Vm.CurrentTrack?.Bvid == "a");
+            await rig.Vm.PlayVideoAsync(Track("b"));
+            QueueIs(rig.Vm, "b", "a");
+            await rig.Vm.RemoveQueueEntryAsync(rig.Vm.Playlist[0]);
+            await rig.Vm.RemoveQueueEntryAsync(rig.Vm.Playlist[0]);
+            Check(!rig.Vm.HasQueue && rig.Vm.CurrentTrack is null && !rig.Vm.IsPlaying && !rig.Vm.ClearPlaylistCommand.CanExecute(null));
         }),
         ("an empty replacement stops playback and mute restores the prior audible volume", async () =>
         {
@@ -175,6 +254,13 @@ internal static class PlayerTests
     private static VideoModel Track(string id) => new() { Bvid = id, Cid = 10, Title = id, Artist = "fixture", DurationSeconds = 240 };
     private static ResolvedAudioSource Source(VideoModel track) => new(track, new Uri($"https://audio.example.invalid/{track.Bvid}.mp4"));
     private static void Check(bool value) { if (!value) throw new Exception("Playback state regression failed"); }
+    private static void QueueIs(PlayerViewModel vm, params string[] ids)
+    {
+        Check(vm.Playlist.Select(e => e.Track.Bvid).SequenceEqual(ids));
+        Check(vm.CurrentIndex == 0 && vm.Playlist[0].IsCurrent && vm.Playlist[0].SequenceText == "");
+        Check(vm.Playlist.Skip(1).Select(e => e.SequenceText).SequenceEqual(Enumerable.Range(1, ids.Length - 1).Select(i => i.ToString())));
+        Check(vm.Playlist.Skip(1).All(e => !e.IsCurrent));
+    }
     private sealed class Rig : IDisposable
     {
         public Engine Engine { get; } = new();

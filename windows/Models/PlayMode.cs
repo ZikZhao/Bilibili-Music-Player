@@ -1,7 +1,7 @@
 namespace bilibili_music_player_windows.Models
 {
     /// <summary>
-    /// 播放模式枚举，与移动端 <c>PlayMode</c> 一致。
+    /// Windows 单一播放队列的两种模式；打乱是操作，不是播放模式。
     /// </summary>
     public enum PlayMode
     {
@@ -15,9 +15,5 @@ namespace bilibili_music_player_windows.Models
         /// </summary>
         Single = 1,
 
-        /// <summary>
-        /// 随机播放：播完当前后随机选一首（不会与当前相同）。
-        /// </summary>
-        Shuffle = 2,
     }
 }

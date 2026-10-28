@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using System;
+using System.Linq;
 using bilibili_music_player_windows.Services;
 using bilibili_music_player_windows.Pages;
 using bilibili_music_player_windows.ViewModels;
@@ -121,9 +122,9 @@ namespace bilibili_music_player_windows
 
         private void NavigateTo(string? target)
         {
-            if (_tabs is null || target is not ("search" or "favorites" or "settings" or "nowplaying")) return;
+            if (_tabs is null || target is not ("search" or "favorites" or "settings" or "nowplaying" or "playlist")) return;
             _tabs.Select(target);
-            foreach (var entry in NavView.MenuItems)
+            foreach (var entry in NavView.MenuItems.Concat(NavView.FooterMenuItems))
                 if (entry is NavigationViewItem item && item.Tag?.ToString() == target &&
                     !ReferenceEquals(NavView.SelectedItem, item)) NavView.SelectedItem = item;
             UpdateBackButton();
@@ -137,8 +138,10 @@ namespace bilibili_music_player_windows
                 "favorites" => new FavoritesPage(),
                 "settings" => new SettingsPage(),
                 "nowplaying" => new AudioPlayerPage(),
+                "playlist" => new PlaylistPage(),
                 _ => throw new ArgumentOutOfRangeException(nameof(key)),
             };
+            if (page is AudioPlayerPage playerPage) playerPage.PlaylistRequested += (_, _) => NavigateTo("playlist");
             page.Visibility = Visibility.Collapsed;
             PageHost.Children.Add(page);
             return page;

@@ -28,17 +28,15 @@
             <StackPanel HorizontalAlignment="Center" Margin="32" Spacing="32" MaxWidth="600">
 
                 <!-- 封面图 -->
-                <Border Width="320" Height="200" CornerRadius="16" Background="{ThemeResource Slate200}"
+                <controls:AspectRatioPanel Width="320"
                         AutomationProperties.AutomationId="AudioPlayerCover"
                         HorizontalAlignment="Center">
-                    <Border CornerRadius="16">
-                        <Border.Clip>
-                            <RectangleGeometry Rect="0,0,320,200" />
-                        </Border.Clip>
-                        <Image Source="{x:Bind ViewModel.CurrentTrack.Cover, Converter={StaticResource StringToImageSourceConverter}, Mode=OneWay}"
-                               Stretch="UniformToFill" />
-                    </Border>
-                </Border>
+                    <Border CornerRadius="16" Background="{ThemeResource Slate200}" />
+                    <Border CornerRadius="16"><Border.Background>
+                        <ImageBrush ImageSource="{x:Bind ViewModel.CurrentTrack.Cover, Converter={StaticResource StringToImageSourceConverter}, Mode=OneWay}"
+                                    Stretch="UniformToFill" />
+                    </Border.Background></Border>
+                </controls:AspectRatioPanel>
 
                 <!-- 标题 + 艺术家 -->
                 <StackPanel HorizontalAlignment="Center" Spacing="8" MaxWidth="500">
@@ -85,14 +83,14 @@
                         <!-- P8: 播放模式循环 -->
                         <Button Width="40" Height="40" Background="Transparent" BorderThickness="0"
                                 Command="{x:Bind ViewModel.CyclePlayModeCommand}"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.PlayModeLabel, Mode=OneWay}"
+                                AutomationProperties.Name="{x:Bind ViewModel.PlayModeLabel, Mode=OneWay}"
                                 AutomationProperties.AutomationId="CyclePlayModeButton">
                             <Grid>
                                 <controls:Icon Glyph="{StaticResource Icon_PlayCycle}" FontSize="20"
                                            Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 0), Mode=OneWay}" />
                                 <controls:Icon Glyph="{StaticResource Icon_PlayOnce}" FontSize="20"
                                            Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 1), Mode=OneWay}" />
-                                <controls:Icon Glyph="{StaticResource Icon_Shuffle}" FontSize="20"
-                                           Visibility="{x:Bind local:AudioPlayerPage.PlayModeToVisibility(ViewModel.PlayMode, 2), Mode=OneWay}" />
                             </Grid>
                         </Button>
 
@@ -124,7 +122,7 @@
 
                         <!-- P7: 播放列表按钮 -->
                         <Button Width="40" Height="40" Background="Transparent" BorderThickness="0"
-                                Click="OnTogglePlaylistClick"
+                                Click="OnShowPlaylistClick" ToolTipService.ToolTip="播放列表" AutomationProperties.Name="播放列表"
                                 AutomationProperties.AutomationId="TogglePlaylistButton">
                             <controls:Icon Glyph="{StaticResource Icon_MusicList}" FontSize="24" />
                         </Button>
@@ -153,78 +151,6 @@
                     </Grid>
                 </StackPanel>
 
-                <!-- P7: 播放列表面板 -->
-                <Border x:Name="PlaylistPanel"
-                        Visibility="Collapsed"
-                        Background="{ThemeResource Slate50}"
-                        CornerRadius="12"
-                        Padding="16"
-                        BorderBrush="{ThemeResource Slate200}"
-                        BorderThickness="1"
-                        AutomationProperties.AutomationId="PlaylistPanel">
-                    <StackPanel Spacing="8">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="播放队列" FontWeight="SemiBold"
-                                       Foreground="{ThemeResource Slate800}" />
-                            <TextBlock Grid.Column="1"
-                                       Text="{x:Bind ViewModel.QueueCount, Mode=OneWay}"
-                                       Foreground="{ThemeResource Slate400}" Style="{StaticResource CaptionTextBlockStyle}"
-                                       VerticalAlignment="Center" />
-                        </Grid>
-
-                        <ListView ItemsSource="{x:Bind ViewModel.Playlist, Mode=OneWay}"
-                                  SelectionMode="None"
-                                  MaxHeight="300"
-                                  BorderThickness="0"
-                                  AutomationProperties.AutomationId="PlaylistListView">
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="models:VideoModel">
-                                    <Grid Padding="8,4">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
-                                            <Border Width="40" Height="28" CornerRadius="4" Background="{ThemeResource Slate200}">
-                                                <Image Source="{x:Bind Cover, Converter={StaticResource StringToImageSourceConverter}, Mode=OneWay}"
-                                                       Stretch="UniformToFill" />
-                                            </Border>
-                                            <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{x:Bind Title, Mode=OneWay}"
-                                                           Foreground="{ThemeResource Slate800}"
-                                                           FontSize="13" MaxWidth="300"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{x:Bind Artist, Mode=OneWay}"
-                                                           Foreground="{ThemeResource Slate500}"
-                                                           FontSize="11" />
-                                            </StackPanel>
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{x:Bind Duration, Mode=OneWay}"
-                                                   Foreground="{ThemeResource Slate400}"
-                                                   FontFamily="Consolas" FontSize="11"
-                                                   VerticalAlignment="Center" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-
-                        <Button Content="清空队列"
-                                Command="{x:Bind ViewModel.ClearPlaylistCommand}"
-                                Background="Transparent"
-                                BorderThickness="1"
-                                BorderBrush="{ThemeResource Rose400}"
-                                Foreground="{ThemeResource Rose400}"
-                                CornerRadius="8"
-                                Padding="12,6"
-                                HorizontalAlignment="Center"
-                                AutomationProperties.AutomationId="ClearPlaylistButton" />
-                    </StackPanel>
-                </Border>
             </StackPanel>
         </ScrollViewer>
     </Grid>

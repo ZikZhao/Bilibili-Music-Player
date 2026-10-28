@@ -21,6 +21,7 @@ namespace bilibili_music_player_windows.Pages
     {
         public PlayerViewModel ViewModel { get; }
         private Controls.PlaybackSeekBinding? _seekBinding;
+        public event RoutedEventHandler? PlaylistRequested;
 
         public AudioPlayerPage()
         {
@@ -30,15 +31,7 @@ namespace bilibili_music_player_windows.Pages
 
         }
 
-        // ── P7: 切换播放列表面板 ──
-
-        private void OnTogglePlaylistClick(object sender, RoutedEventArgs e)
-        {
-            PlaylistPanel.Visibility =
-                PlaylistPanel.Visibility == Visibility.Visible
-                    ? Visibility.Collapsed
-                    : Visibility.Visible;
-        }
+        private void OnShowPlaylistClick(object sender, RoutedEventArgs e) => PlaylistRequested?.Invoke(this, e);
 
         /// <summary>音量百分比文本。</summary>
         public static string VolumePercent(double volume) =>
@@ -46,7 +39,7 @@ namespace bilibili_music_player_windows.Pages
 
         /// <summary>
         /// P8: 根据 PlayMode 枚举值返回对应图标可见性。
-        /// <paramref name="modeValue"/>: 0=Loop, 1=Single, 2=Shuffle。
+        /// <paramref name="modeValue"/>: 0=Loop, 1=Single。
         /// </summary>
         public static Visibility PlayModeToVisibility(Models.PlayMode mode, int modeValue)
         {

@@ -105,3 +105,10 @@ test('rejects invalid or incomplete fonts before writing metadata', () => {
   missingOs2.write('xxxx', tables(missingOs2).get('OS/2').record, 'ascii');
   assert.throws(() => removeIconFontLineGap(missingOs2), /Missing or truncated.*OS\/2/);
 });
+
+test('shipped icon outlines fit inside the em square', () => {
+  const head = tables(readFileSync(new URL('../../Assets/IconPark.ttf', import.meta.url))).get('head').bytes;
+  const em = head.readUInt16BE(18);
+  assert.ok(head.readInt16BE(36) >= 0 && head.readInt16BE(38) >= 0, 'negative outline overshoot');
+  assert.ok(head.readInt16BE(40) <= em && head.readInt16BE(42) <= em, 'oversized outline: check SVG dimensions');
+});

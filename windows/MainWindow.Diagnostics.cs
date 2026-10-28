@@ -75,7 +75,7 @@ public sealed partial class MainWindow
         }
         if (request.Tab is not null)
         {
-            if (request.Tab is not ("search" or "favorites" or "settings" or "nowplaying"))
+            if (request.Tab is not ("search" or "favorites" or "settings" or "nowplaying" or "playlist"))
                 throw new ArgumentException("Unknown tab.");
             NavigateTo(request.Tab);
         }
@@ -241,6 +241,9 @@ public sealed partial class MainWindow
                 progress = _playerViewModel.Progress, canSeek = _playerViewModel.CanSeek, error = _playerViewModel.ErrorMessage,
                 index = _playerViewModel.CurrentIndex, count = _playerViewModel.QueueCount, volume = _playerViewModel.Volume,
                 time = _playerViewModel.TimeText, seeking = _playerViewModel.IsUserSeeking,
+                mode = _playerViewModel.PlayMode.ToString(), sourceId = _playerViewModel.InspectionSourceId,
+                queue = _playerViewModel.Playlist.Select(e => new { bvid = e.Track.Bvid, title = e.Track.Title,
+                    sequence = e.SequenceText, current = e.IsCurrent, dimmed = e.IsDimmed, playing = e.IsPlaying }).ToArray(),
                 engine = App.Current.GetService<Services.AudioPlayerService>().Inspect() },
             library = new { ready = _libraryViewModel.IsReady, kind = _libraryViewModel.CurrentKind,
                 currentId = _libraryViewModel.CurrentId, nodes = _libraryViewModel.Document.Nodes.Count,

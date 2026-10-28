@@ -8,15 +8,16 @@
     <x:String x:Key="Icon_Like">&#xe005;</x:String>
     <x:String x:Key="Icon_More">&#xe006;</x:String>
     <x:String x:Key="Icon_MusicList">&#xe007;</x:String>
-    <x:String x:Key="Icon_Pause">&#xe008;</x:String>
-    <x:String x:Key="Icon_Play">&#xe009;</x:String>
-    <x:String x:Key="Icon_PlayCycle">&#xe00a;</x:String>
-    <x:String x:Key="Icon_PlayOnce">&#xe00b;</x:String>
-    <x:String x:Key="Icon_PlayOne">&#xe00c;</x:String>
-    <x:String x:Key="Icon_RecordPlayer">&#xe00d;</x:String>
-    <x:String x:Key="Icon_Search">&#xe00e;</x:String>
-    <x:String x:Key="Icon_SettingTwo">&#xe00f;</x:String>
-    <x:String x:Key="Icon_Shuffle">&#xe010;</x:String>
-    <x:String x:Key="Icon_VolumeMute">&#xe011;</x:String>
-    <x:String x:Key="Icon_VolumeNotice">&#xe012;</x:String>
+    <x:String x:Key="Icon_MusicRhythm">&#xe008;</x:String>
+    <x:String x:Key="Icon_Pause">&#xe009;</x:String>
+    <x:String x:Key="Icon_Play">&#xe00a;</x:String>
+    <x:String x:Key="Icon_PlayCycle">&#xe00b;</x:String>
+    <x:String x:Key="Icon_PlayOnce">&#xe00c;</x:String>
+    <x:String x:Key="Icon_PlayOne">&#xe00d;</x:String>
+    <x:String x:Key="Icon_RecordPlayer">&#xe00e;</x:String>
+    <x:String x:Key="Icon_Search">&#xe00f;</x:String>
+    <x:String x:Key="Icon_SettingTwo">&#xe010;</x:String>
+    <x:String x:Key="Icon_Shuffle">&#xe011;</x:String>
+    <x:String x:Key="Icon_VolumeMute">&#xe012;</x:String>
+    <x:String x:Key="Icon_VolumeNotice">&#xe013;</x:String>
 </ResourceDictionary>

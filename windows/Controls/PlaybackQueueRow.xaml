@@ -1,0 +1,54 @@
+<UserControl x:Class="bilibili_music_player_windows.Controls.PlaybackQueueRow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:bilibili_music_player_windows.Controls"
+    xmlns:converters="using:bilibili_music_player_windows.Converters">
+    <UserControl.Resources>
+        <converters:StringToImageSourceConverter x:Key="QueueCoverConverter" />
+        <converters:BoolToVisibilityConverter x:Key="QueueVisibilityConverter" />
+    </UserControl.Resources>
+    <Grid x:Name="QueueRow" Padding="12,10" ColumnSpacing="12" MinHeight="60" Opacity="{Binding RowOpacity, Mode=OneWay}">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="CompactRow">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="0" /></VisualState.StateTriggers>
+                </VisualState>
+                <VisualState x:Name="WideRow">
+                    <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="850" /></VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="ArtistColumn.Width" Value="160" />
+                        <Setter Target="ArtistText.Visibility" Value="Visible" />
+                        <Setter Target="CompactArtistText.Visibility" Value="Collapsed" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="32" /><ColumnDefinition Width="64" /><ColumnDefinition Width="*" />
+            <ColumnDefinition x:Name="ArtistColumn" Width="0" /><ColumnDefinition Width="56" /><ColumnDefinition Width="32" />
+        </Grid.ColumnDefinitions>
+        <Grid VerticalAlignment="Center">
+            <TextBlock Text="{Binding SequenceText, Mode=OneWay}" HorizontalAlignment="Center" Foreground="{ThemeResource Slate500}" />
+            <controls:Icon Glyph="{StaticResource Icon_MusicRhythm}" FontSize="18" Foreground="{ThemeResource Rose400}"
+                           Opacity="{Binding IndicatorOpacity, Mode=OneWay}"
+                           Visibility="{Binding IsCurrent, Converter={StaticResource QueueVisibilityConverter}}"
+                           AutomationProperties.Name="当前曲目" />
+        </Grid>
+        <controls:AspectRatioPanel Grid.Column="1" Width="64" VerticalAlignment="Center">
+            <Border CornerRadius="4" Background="{ThemeResource Slate200}" />
+            <Border CornerRadius="4"><Border.Background><ImageBrush Stretch="UniformToFill" ImageSource="{Binding Track.Cover, Converter={StaticResource QueueCoverConverter}, Mode=OneWay}" /></Border.Background></Border>
+        </controls:AspectRatioPanel>
+        <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="3">
+            <TextBlock Text="{Binding Track.Title, Mode=OneWay}" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Track.Title, Mode=OneWay}" />
+            <TextBlock x:Name="CompactArtistText" Text="{Binding Track.Artist, Mode=OneWay}" FontSize="12" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource Slate500}" />
+        </StackPanel>
+        <TextBlock x:Name="ArtistText" Grid.Column="3" Text="{Binding Track.Artist, Mode=OneWay}" Visibility="Collapsed"
+                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{ThemeResource Slate500}" />
+        <TextBlock Grid.Column="4" Text="{Binding DurationText, Mode=OneWay}" FontFamily="Arial" FontSize="13"
+                   HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{ThemeResource Slate500}" />
+        <Button Grid.Column="5" Width="32" Height="32" Padding="0" VerticalAlignment="Center" Click="OnRemoveClick"
+                Style="{StaticResource SubtleButtonStyle}" AutomationProperties.Name="从播放列表移除" ToolTipService.ToolTip="从播放列表移除">
+            <controls:Icon Glyph="{StaticResource Icon_Close}" FontSize="14" />
+        </Button>
+    </Grid>
+</UserControl>

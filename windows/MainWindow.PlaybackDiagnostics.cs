@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using bilibili_music_player_windows.Models;
@@ -12,6 +13,7 @@ public sealed partial class MainWindow
 {
     private bool _playbackFixtureActive;
     private double _volumeBeforePlaybackFixture;
+    private PlayMode _playModeBeforePlaybackFixture;
     private async Task InspectPlaybackAsync(UiInspectionRequest request)
     {
         if (request.PlaybackFixture == "restore")
@@ -21,6 +23,7 @@ public sealed partial class MainWindow
                 _playerViewModel.ClearPlaylist();
                 _playerViewModel.SetInspectionSources(null);
                 _playerViewModel.Volume = _volumeBeforePlaybackFixture;
+                _playerViewModel.PlayMode = _playModeBeforePlaybackFixture;
                 _playbackFixtureActive = false;
             }
         }
@@ -29,9 +32,10 @@ public sealed partial class MainWindow
             if (_playerViewModel.CurrentTrack is not null || _playerViewModel.Playlist.Count > 0)
                 throw new InvalidOperationException("Playback inspection requires an empty queue; existing playback is preserved.");
             _volumeBeforePlaybackFixture = _playerViewModel.Volume;
+            _playModeBeforePlaybackFixture = _playerViewModel.PlayMode;
             _playerViewModel.Volume = 0; // Native decoding/transport tests must not produce unexpected sound.
             _playbackFixtureActive = true;
-            if (fixture == "sample")
+            if (fixture is "sample" or "queue")
             {
                 var path = Path.Combine(Windows.Storage.ApplicationData.Current.LocalFolder.Path, "playback-inspection-silence.wav");
                 using (var file = File.Create(path))
@@ -46,12 +50,16 @@ public sealed partial class MainWindow
                     file.SetLength(44 + bytes);
                 }
                 _playerViewModel.SetInspectionSources(new Dictionary<string, Uri>
-                { ["inspection-a"] = new(path), ["inspection-b"] = new(path) });
+                { ["inspection-a"] = new(path), ["inspection-b"] = new(path), ["inspection-c"] = new(path), ["inspection-d"] = new(path) });
+                var covers = _libraryViewModel.Document.Media.Select(m => m.Cover).Where(c => !string.IsNullOrEmpty(c)).ToArray();
+                string Cover(int i) => covers.Length > 0 ? covers[i % covers.Length] : "";
                 await _playerViewModel.SetPlaylistAsync(new[]
                 {
-                    new VideoModel { Bvid = "inspection-a", Title = "播放检查 · 第一首较长的中文标题与 English title", Artist = "本机静音音频 · 不修改收藏", DurationSeconds = 120, Cover = "ms-appx:///Assets/StoreLogo.png" },
-                    new VideoModel { Bvid = "inspection-b", Title = "播放检查 · 第二首", Artist = "上一首、下一首和进度测试", DurationSeconds = 120 },
-                });
+                    new VideoModel { Bvid = "inspection-a", Title = "播放检查 · 第一首较长的中文标题与 English title", Artist = "本机静音音频 · 不修改收藏", DurationSeconds = 120, Cover = Cover(0) },
+                    new VideoModel { Bvid = "inspection-b", Title = "播放检查 · 第二首", Artist = "上一首、下一首和进度测试", DurationSeconds = 120, Cover = Cover(1) },
+                    new VideoModel { Bvid = "inspection-c", Title = "播放检查 · 第三首", Artist = "打乱只改变接下来播放的顺序", DurationSeconds = 120, Cover = Cover(2) },
+                    new VideoModel { Bvid = "inspection-d", Title = "播放检查 · 第四首", Artist = "单曲循环时显示为灰色", DurationSeconds = 120, Cover = Cover(0) },
+                }.Take(fixture == "queue" ? 4 : 2).ToArray());
             }
             else if (fixture == "online")
             {
@@ -70,6 +78,8 @@ public sealed partial class MainWindow
                 case "next": await _playerViewModel.NextCommand.ExecuteAsync(null); break;
                 case "previous": await _playerViewModel.PreviousCommand.ExecuteAsync(null); break;
                 case "mute": _playerViewModel.ToggleMuteCommand.Execute(null); break;
+                case "shuffle": _playerViewModel.ShuffleUpcomingCommand.Execute(null); break;
+                case "mode": _playerViewModel.CyclePlayModeCommand.Execute(null); break;
                 default: throw new ArgumentException("Unknown playback action.");
             }
         }

@@ -58,30 +58,32 @@
                     AutomationProperties.AutomationId="NowPlayingButton">
                 <Grid x:Name="NowPlayingDetailsLayout" ColumnSpacing="0">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <Border x:Name="CoverFrame" Width="48" Height="48" CornerRadius="4"
-                            Background="{ThemeResource Slate200}" Visibility="Collapsed">
-                        <Grid>
+                    <controls:AspectRatioPanel x:Name="CoverFrame" Width="80" VerticalAlignment="Center" Visibility="Collapsed">
+                        <Border CornerRadius="4" Background="{ThemeResource Slate200}">
                             <FontIcon Glyph="&#xE8D6;" FontSize="20" Foreground="{ThemeResource Slate500}" />
-                            <Image Stretch="UniformToFill" DataContext="{x:Bind ViewModel}"
-                                   Source="{Binding CurrentTrack.Cover, Converter={StaticResource TransportImageConverter}}" />
+                        </Border>
+                        <Border CornerRadius="4"><Border.Background>
+                            <ImageBrush Stretch="UniformToFill"
+                                        ImageSource="{x:Bind ViewModel.CurrentTrack.Cover, Converter={StaticResource TransportImageConverter}, Mode=OneWay}" />
+                        </Border.Background></Border>
                             <ProgressRing Width="20" Height="20" Foreground="{ThemeResource Rose400}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
                                           IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                                           Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsBusy), Mode=OneWay}" />
-                        </Grid>
-                    </Border>
+                    </controls:AspectRatioPanel>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                         <TextBlock Text="{x:Bind ViewModel.TrackTitle, Mode=OneWay}"
                                    Foreground="{ThemeResource Slate800}" FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{x:Bind ViewModel.TrackSubtitle, Mode=OneWay}"
                                    Foreground="{ThemeResource Slate500}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="CompactTransportTime" FontFamily="{StaticResource AppFontFamily}" FontSize="13"
+                        <TextBlock x:Name="CompactTransportTime" FontFamily="Arial" FontSize="13"
                                    Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
                                    Foreground="{ThemeResource Slate500}" />
                     </StackPanel>
                 </Grid>
             </Button>
-            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0,19,0" FontFamily="{StaticResource AppFontFamily}" FontSize="14"
+            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0,19,0" FontFamily="Arial" FontSize="14"
                        VerticalAlignment="Center" Foreground="{ThemeResource Slate500}" Visibility="Collapsed"
                        Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
                        AutomationProperties.AutomationId="TransportTime" />
