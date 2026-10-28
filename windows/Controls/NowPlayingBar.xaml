@@ -81,8 +81,7 @@
                     </StackPanel>
                 </Grid>
             </Button>
-            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0" FontFamily="{StaticResource AppFontFamily}" FontSize="20"
-                       TextLineBounds="TrimToCapHeight"
+            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0" FontFamily="{StaticResource AppFontFamily}" FontSize="14"
                        VerticalAlignment="Center" Foreground="{ThemeResource Slate500}" Visibility="Collapsed"
                        Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
                        AutomationProperties.AutomationId="TransportTime" />
