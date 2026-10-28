@@ -15,6 +15,7 @@ import { pipeline } from 'node:stream';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeIconFontLineGap } from './font-metrics.mjs';
 
 const pipelineAsync = promisify(pipeline);
 
@@ -95,7 +96,7 @@ async function build() {
     .replace(/<defs>/g, '')
     .replace(/<\/defs>/g, '');
   const ttf = svg2ttf(cleanSvg, {});
-  await writeFile(path.join(DIST, 'IconPark.ttf'), ttf.buffer);
+  await writeFile(path.join(DIST, 'IconPark.ttf'), removeIconFontLineGap(ttf.buffer));
 
   // --- Phase 4: XAML generation ---
   console.log('[Phase 3] Generating Icons.xaml...');

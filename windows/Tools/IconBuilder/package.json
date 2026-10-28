@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "test": "node --test font-metrics.test.mjs"
   },
   "devDependencies": {
     "oslllo-svg-fixer": "^6.0.0",
