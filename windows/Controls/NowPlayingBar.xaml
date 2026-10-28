@@ -81,7 +81,7 @@
                     </StackPanel>
                 </Grid>
             </Button>
-            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0" FontFamily="Consolas" FontSize="14"
+            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0" FontFamily="Consolas" FontSize="24"
                        VerticalAlignment="Center" Foreground="{ThemeResource Slate500}" Visibility="Collapsed"
                        Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
                        AutomationProperties.AutomationId="TransportTime" />
@@ -122,8 +122,8 @@
                     <Grid Width="20" Height="20">
                         <controls:Icon Glyph="{StaticResource Icon_VolumeNotice}" FontSize="18"
                                        Visibility="{x:Bind helpers:ViewHelpers.InvertBoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
-                        <FontIcon Glyph="&#xE74F;" FontSize="18"
-                                  Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
+                        <controls:Icon Glyph="{StaticResource Icon_VolumeMute}" FontSize="18"
+                                       Visibility="{x:Bind helpers:ViewHelpers.BoolToVisibility(ViewModel.IsMuted), Mode=OneWay}" />
                     </Grid>
                 </Button>
                 <Slider x:Name="VolumeSlider" Width="56" Minimum="0" Maximum="1" StepFrequency="0.01" SmallChange="0.01" LargeChange="0.1"

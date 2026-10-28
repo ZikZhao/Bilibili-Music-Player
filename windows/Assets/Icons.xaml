@@ -17,5 +17,6 @@
     <x:String x:Key="Icon_Search">&#xe00e;</x:String>
     <x:String x:Key="Icon_SettingTwo">&#xe00f;</x:String>
     <x:String x:Key="Icon_Shuffle">&#xe010;</x:String>
-    <x:String x:Key="Icon_VolumeNotice">&#xe011;</x:String>
+    <x:String x:Key="Icon_VolumeMute">&#xe011;</x:String>
+    <x:String x:Key="Icon_VolumeNotice">&#xe012;</x:String>
 </ResourceDictionary>
