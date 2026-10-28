@@ -38,6 +38,20 @@ lineGap = (ascent - descent) * 0.09
 该版本的公开转换 API 不读取 `lineGap` 参数，SVG 解析器也不读取 `line-gap` 属性。
 所以仅传 `{ lineGap: 0 }` 不会生效。
 
+### 为什么选择 9%
+
+早期代码直接设置 `lineGap = 90`，当时的默认 ascent/descent 合计约 1000 个单位。
+[2013-07-18 的提交](https://github.com/fontello/svg2ttf/commit/c39bf48a673d77f64c375ca95e754ef04c35e863)
+加入了按高度乘以 0.09 的计算。提交说明只有“Enhanced SFNT properties”，没有解释
+为什么恰好是 9%。从代码演变看，它延续了早期约 90/1000 的默认比例；这是对历史的推断，
+不是维护者明确给出的设计理由。
+
+源码注释明确解释的是另一项兼容处理：非零 `hhea.lineGap` 曾导致 IE11 垂直偏移。
+[issue #37](https://github.com/fontello/svg2ttf/issues/37) 和
+[2016 年的修复](https://github.com/fontello/svg2ttf/commit/0f25b4081d91c209787bdfd999b2ef574461fedc)
+因此将 `hhea.lineGap` 设为 0，同时保留 `OS/2.sTypoLineGap` 的默认公式。
+这能解释两个表为什么不同，不能解释最初为什么选 9%。
+
 ## 构建时的修正
 
 `windows/Tools/IconBuilder/font-metrics.mjs` 在转换结束后修正 TTF：

@@ -75,13 +75,13 @@
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{x:Bind ViewModel.TrackSubtitle, Mode=OneWay}"
                                    Foreground="{ThemeResource Slate500}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                        <TextBlock x:Name="CompactTransportTime" FontFamily="Arial" FontSize="13"
+                        <TextBlock x:Name="CompactTransportTime" FontFamily="{StaticResource AppFontFamily}" FontSize="13"
                                    Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
                                    Foreground="{ThemeResource Slate500}" />
                     </StackPanel>
                 </Grid>
             </Button>
-            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0,19,0" FontFamily="Arial" FontSize="14"
+            <TextBlock x:Name="TransportTime" Grid.Column="1" Margin="24,0,19,0" FontFamily="{StaticResource AppFontFamily}" FontSize="14"
                        VerticalAlignment="Center" Foreground="{ThemeResource Slate500}" Visibility="Collapsed"
                        Text="{x:Bind ViewModel.TimeText, Mode=OneWay}"
                        AutomationProperties.AutomationId="TransportTime" />
