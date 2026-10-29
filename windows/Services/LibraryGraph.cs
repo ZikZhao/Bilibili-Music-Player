@@ -64,11 +64,16 @@ public sealed class LibraryGraph
         return media.Id;
     }
 
-    public void Like(Guid media, bool liked) => Change(d =>
+    public void Like(Guid media, bool liked)
     {
-        d.Likes.RemoveAll(l => l.MediaId == media);
-        if (liked) d.Likes.Add(new(media, DateTimeOffset.UtcNow));
-    });
+        // Repeated collection does not start a new point in the timeline.
+        if (liked && Document.Likes.Any(l => l.MediaId == media)) return;
+        Change(d =>
+        {
+            d.Likes.RemoveAll(l => l.MediaId == media);
+            if (liked) d.Likes.Add(new(media, DateTimeOffset.UtcNow));
+        });
+    }
 
     public void AddMedia(Guid playlist, IEnumerable<Guid> media)
     {
@@ -137,7 +142,7 @@ public sealed class LibraryGraph
                 foreach (var entry in Document.Entries.Where(e => e.PlaylistId == id).OrderBy(e => e.Order).ThenBy(e => e.Id))
                     if (entry.MediaId is { } m) Add(m, id, entry.Id); else if (entry.LinkedPlaylistId is { } link) Visit(link);
         }
-        if (likes) foreach (var like in Document.Likes.OrderByDescending(l => l.AddedAt)) Add(like.MediaId);
+        if (likes) foreach (var like in Document.Likes.AsEnumerable().Reverse().OrderByDescending(l => l.AddedAt)) Add(like.MediaId);
         else if (node is { } id) Visit(id);
         else foreach (var item in Document.Media) Add(item.Id);
         return result;

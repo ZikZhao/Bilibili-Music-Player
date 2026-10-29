@@ -53,7 +53,7 @@ public partial class LibraryViewModel : ObservableObject
     public bool CanGoBack => _history.Count > 0 || CurrentId.HasValue;
     public bool IsPlaylist => CurrentKind == "playlist";
     public bool IsNode => CurrentId.HasValue;
-    public bool CanSortTracks => CurrentKind != "folder" && (!IsPlaylist || ExpandLinks);
+    public bool CanSortTracks => CurrentKind is not ("folder" or "likes") && (!IsPlaylist || ExpandLinks);
     public bool IsSignedIn => Account.Session is not null;
     public bool HasConflict => Repository.HasConflict;
     public string AccountLabel => Account.Session?.Email ?? "未登录";
@@ -306,10 +306,16 @@ public partial class LibraryViewModel : ObservableObject
         else
         {
             var resolved = graph.Resolve(CurrentId, CurrentKind == "likes").ToDictionary(r => r.Media.Id);
+            var collectedAt = CurrentKind == "likes" ? Document.Likes.ToDictionary(l => l.MediaId, l => l.AddedAt) : null;
             foreach (var media in CurrentTracks())
             {
                 var origin = resolved[media.Id];
                 var row = MediaRow(media, IsPlaylist && origin.PlaylistId == CurrentId ? origin.EntryId : null);
+                if (collectedAt is not null)
+                {
+                    var date = collectedAt[media.Id].ToLocalTime().ToString("yyyy-MM-dd");
+                    row = row with { Subtitle = "收藏于 " + date + (string.IsNullOrEmpty(media.Artist) ? "" : " · " + media.Artist) };
+                }
                 if (IsPlaylist && origin.PlaylistId is { } source && source != CurrentId)
                     row = row with { SourceId = source, Subtitle = media.Artist + " · 来自“" + Document.Nodes.Single(n => n.Id == source).Name + "”" };
                 nextRows.Add(row);
@@ -320,7 +326,8 @@ public partial class LibraryViewModel : ObservableObject
             if (Rows[i] != nextRows[i]) Rows[i] = nextRows[i];
         while (Rows.Count > nextRows.Count) Rows.RemoveAt(Rows.Count - 1);
         for (var i = Rows.Count; i < nextRows.Count; i++) Rows.Add(nextRows[i]);
-        Summary = CurrentKind == "folder" ? $"{Rows.Count} 个项目 · 播放时包含所有子文件夹" :
+        Summary = CurrentKind == "likes" ? $"{CurrentTracks().Count} 首 · 收藏时间线 · 最近收藏在前" :
+            CurrentKind == "folder" ? $"{Rows.Count} 个项目 · 播放时包含所有子文件夹" :
             $"{CurrentTracks().Count} 首" + (IsPlaylist ? " · 动态链接在打开和播放时展开" : "");
         foreach (var name in new[] { nameof(IsPlaylist), nameof(IsNode), nameof(CanGoBack), nameof(IsSignedIn), nameof(AccountLabel), nameof(AccountButtonLabel),
             nameof(SyncStatus), nameof(HasConflict), nameof(EmptyStateVisibility), nameof(ListVisibility), nameof(PlaylistToolsVisibility),

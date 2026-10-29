@@ -13,6 +13,32 @@ internal static class LibraryTests
             Check(AudioSourceIdentity.CacheKey("BV123", 123) != AudioSourceIdentity.CacheKey("BV123", 0));
             return Task.CompletedTask;
         }),
+        ("default collection preserves original timestamps on repeated collection", () =>
+        {
+            var g = Graph(); var a = Media(g, "a");
+            var original = new LibraryLike(a, new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            g.Document.Likes.Add(original);
+            g.Like(a, true); g.Like(a, true);
+            Check(g.Document.Likes.Count == 1 && g.Document.Likes[0] == original);
+            return Task.CompletedTask;
+        }),
+        ("default timeline is newest first with stable reverse insertion order for equal timestamps", () =>
+        {
+            var g = Graph(); var a = Media(g, "a"); var b = Media(g, "b"); var c = Media(g, "c");
+            var old = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            g.Document.Likes.Add(new(a, old)); g.Document.Likes.Add(new(b, old.AddDays(1))); g.Document.Likes.Add(new(c, old.AddDays(1)));
+            Eq(new[] { c, b, a }, g.Expand(null, likes: true).Select(m => m.Id));
+            return Task.CompletedTask;
+        }),
+        ("collecting again after removal creates a new timeline date without changing other playlists", () =>
+        {
+            var g = Graph(); var a = Media(g, "a"); var p = g.Create("playlist", "regular"); g.AddMedia(p, new[] { a });
+            var old = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            g.Document.Likes.Add(new(a, old));
+            g.Like(a, false); Check(g.Document.Likes.Count == 0 && g.Expand(p).Single().Id == a);
+            g.Like(a, true); Check(g.Document.Likes.Single().AddedAt > old && g.Expand(p).Single().Id == a);
+            return Task.CompletedTask;
+        }),
         ("dynamic playlist links follow edits and preserve expansion order", () =>
         {
             var g = Graph(); var a = Media(g, "a"); var b = Media(g, "b"); var c = Media(g, "c");
