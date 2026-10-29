@@ -47,7 +47,7 @@ public sealed partial class FavoritesPage : Page, IResidentTab
     }
     private void OnNavigationPicked(object sender, SelectionChangedEventArgs e)
     { if (!_updatingNavigation && e.AddedItems.FirstOrDefault() is LibraryNavItem item) ViewModel.Open(item.Id, item.Kind); }
-    public void SetTabActive(bool active) { if (active) _ = ViewModel.Repository.SyncAsync(); }
+    public void SetTabActive(bool active) { }
 
     private void OnTreeInvoked(TreeView sender, TreeViewItemInvokedEventArgs args)
     { if (args.InvokedItem is LibraryNavItem item) ViewModel.Open(item.Id, item.Kind); }
@@ -87,19 +87,10 @@ public sealed partial class FavoritesPage : Page, IResidentTab
     private async void OnPlayAllClick(object sender, RoutedEventArgs e) => await ViewModel.RunAsync(() => ViewModel.PlayAsync());
     private void OnAppendAllClick(object sender, RoutedEventArgs e) => ViewModel.Queue(false);
     private async void OnSyncClick(object sender, RoutedEventArgs e) => await ViewModel.Repository.SyncAsync();
-    private async void OnKeepLocalClick(object sender, RoutedEventArgs e) => await ResolveAsync(true);
-    private async void OnUseCloudClick(object sender, RoutedEventArgs e) => await ResolveAsync(false);
-
-    private async Task ResolveAsync(bool local)
-    {
-        if (await ConfirmAsync("解决同步冲突", local ? "使用本机版本覆盖当前云端版本？" : "使用云端版本替换当前显示的收藏？本机版本会保存在冲突备份中。"))
-            await ViewModel.Repository.SyncAsync(local);
-    }
-
     private async void OnCreateClick(object sender, RoutedEventArgs e)
     {
         var kind = ((FrameworkElement)sender).Tag as string ?? "playlist";
-        var name = await NameAsync(kind == "folder" ? "新建文件夹" : "新建歌单", "");
+        var name = await NameAsync("新建歌单", "");
         if (name is not null) await ViewModel.RunAsync(() => ViewModel.CreateAsync(kind, name));
     }
     private async void OnRenameClick(object sender, RoutedEventArgs e)
@@ -110,23 +101,15 @@ public sealed partial class FavoritesPage : Page, IResidentTab
     }
     private async void OnMoveClick(object sender, RoutedEventArgs e)
     {
-        var target = await ChooseAsync("移动到文件夹", ViewModel.Folders().Where(c => c.Id != ViewModel.CurrentId).ToArray());
+        var target = await ChooseAsync("移动到歌单", ViewModel.Folders().ToArray());
         if (target is not null) await ViewModel.RunAsync(() => ViewModel.MoveAsync(target.Id));
     }
     private async void OnReorderNodeClick(object sender, RoutedEventArgs e)
     { if (sender is FrameworkElement { Tag: string delta }) await ViewModel.RunAsync(() => ViewModel.ReorderNodeAsync(int.Parse(delta))); }
     private async void OnDeleteClick(object sender, RoutedEventArgs e)
     {
-        if (await ConfirmAsync("删除“" + ViewModel.Heading + "”", ViewModel.IsPlaylist
-            ? "歌单及其他歌单对它的动态引用会被移除。歌曲仍保留在收藏库中。"
-            : "仅解散这个文件夹，里面的歌单和子文件夹会移到上一级。"))
+        if (await ConfirmAsync("删除“" + ViewModel.Heading + "”", "此歌单及所有子歌单将一起删除。“我喜欢”和其他歌单中的歌曲不受影响。"))
             await ViewModel.RunAsync(ViewModel.DeleteAsync);
-    }
-    private async void OnAddLinkClick(object sender, RoutedEventArgs e)
-    {
-        var target = await ChooseAsync("动态链接其他歌单", ViewModel.Playlists().Where(c => c.Id != ViewModel.CurrentId).ToArray(),
-            "源歌单更新后，这里会自动更新。播放时按条目顺序展开，相同音源只播放一次。");
-        if (target?.Id is { } id) await ViewModel.RunAsync(() => ViewModel.LinkAsync(id));
     }
     private async void OnCopyPlaylistClick(object sender, RoutedEventArgs e)
     {
@@ -170,12 +153,18 @@ public sealed partial class FavoritesPage : Page, IResidentTab
         if (row.EntryId is { } entry)
         {
             menu.Items.Add(new MenuFlyoutSeparator());
-            if (!ViewModel.ExpandLinks)
+            if (!ViewModel.ExpandChildren)
             {
                 Add(menu, "向上移动", () => ViewModel.RunAsync(() => ViewModel.ReorderEntryAsync(entry, -1)));
                 Add(menu, "向下移动", () => ViewModel.RunAsync(() => ViewModel.ReorderEntryAsync(entry, 1)));
             }
-            Add(menu, row.Kind == "link" ? "移除动态链接" : "从此歌单移除", () => ViewModel.RunAsync(() => ViewModel.RemoveEntryAsync(entry)));
+            Add(menu, "从此歌单移除", () => ViewModel.RunAsync(() => ViewModel.RemoveEntryAsync(entry)));
+        }
+        if (row.NodeId is { } child && !ViewModel.ExpandChildren)
+        {
+            menu.Items.Add(new MenuFlyoutSeparator());
+            Add(menu, "向上移动", () => ViewModel.RunAsync(() => ViewModel.ReorderChildAsync(child, -1)));
+            Add(menu, "向下移动", () => ViewModel.RunAsync(() => ViewModel.ReorderChildAsync(child, 1)));
         }
         menu.ShowAt(element);
     }

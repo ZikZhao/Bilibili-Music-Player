@@ -60,6 +60,12 @@ namespace bilibili_music_player_windows
             });
             _tabs = new ResidentTabs<Page>(CreateTab, SetTabActive);
             Closed += OnWindowClosed;
+            Activated += (_, args) =>
+            {
+                if (args.WindowActivationState != WindowActivationState.Deactivated)
+                    _ = _libraryViewModel.Repository.RefreshAsync();
+            };
+            Windows.Networking.Connectivity.NetworkInformation.NetworkStatusChanged += OnNetworkStatusChanged;
 
             // U4: Enable MicaBackdrop
             SystemBackdrop = new MicaBackdrop();
@@ -98,6 +104,13 @@ namespace bilibili_music_player_windows
             StartUiDiagnostics();
 #endif
         }
+
+        private void OnNetworkStatusChanged(object sender) => DispatcherQueue.TryEnqueue(() =>
+        {
+            var profile = Windows.Networking.Connectivity.NetworkInformation.GetInternetConnectionProfile();
+            if (profile?.GetNetworkConnectivityLevel() == Windows.Networking.Connectivity.NetworkConnectivityLevel.InternetAccess)
+                _ = _libraryViewModel.Repository.RefreshAsync();
+        });
 
         /// <summary>主题变化时延迟应用。</summary>
         private void OnThemeChanged(object? sender, string mode)
@@ -199,6 +212,7 @@ namespace bilibili_music_player_windows
 
         private void OnWindowClosed(object sender, WindowEventArgs args)
         {
+            Windows.Networking.Connectivity.NetworkInformation.NetworkStatusChanged -= OnNetworkStatusChanged;
             _tray?.Dispose();
             try { _tabs?.Dispose(); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[Tabs] Window cleanup: {ex}"); }

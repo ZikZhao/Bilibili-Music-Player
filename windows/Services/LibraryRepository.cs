@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,228 +12,280 @@ namespace bilibili_music_player_windows.Services;
 
 public interface ILibraryCloud
 {
-    Task<CloudLibrary> ReadAsync(Guid owner, CancellationToken ct);
-    Task<CloudLibrary> WriteAsync(Guid owner, long expectedRevision, LibraryDocument document, CancellationToken ct);
+    Task<LibrarySyncReply> PullAsync(Guid owner, Guid writer, long revision, string hash, bool snapshot, CancellationToken ct);
+    Task<LibrarySyncReply> SubmitAsync(Guid owner, Guid writer, long revision, string hash, IReadOnlyList<LibraryCommand> commands, CancellationToken ct);
 }
+// Also reads the previous JSON format for non-destructive local migration.
+public sealed record LocalLibrary(Guid? UserId, long CloudRevision, bool Pending, LibraryDocument Document, bool LegacyImported = false);
 
-public sealed class LibraryConflictException : Exception
-{
-    public LibraryConflictException() : base("云端收藏已在其他设备更新，本机修改已保留。请选择要保留的版本。") { }
-}
-
-public sealed record LocalLibrary(Guid? UserId, long CloudRevision, bool Pending, LibraryDocument Document,
-    bool LegacyImported = false);
-
-/// <summary>Account-scoped atomic local files, optimistic cloud commits and explicit conflict resolution.</summary>
 public sealed class LibraryRepository : IDisposable
 {
     private readonly string _root;
     private readonly ILibraryCloud _cloud;
+    private readonly LibrarySqliteStore _store;
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly SemaphoreSlim _syncGate = new(1, 1);
-    private CancellationTokenSource _profileCts = new();
+    private readonly object _syncLock = new();
+    private readonly CancellationTokenSource _lifetime = new();
+    private CancellationTokenSource _profile = new();
     private CancellationTokenSource? _debounce;
-    private long _generation;
-    private long _editVersion;
-    private bool _synchronize = true;
-    private bool _disposed;
+    private StoredLibrary _stored;
+    private Task _syncTask = Task.CompletedTask;
+    private bool _syncRequested, _disposed, _synchronize = true;
+    private long _generation, _pendingSince;
+    private DateTimeOffset _lastSuccess;
+    private int _failures;
     public LocalLibrary State { get; private set; } = new(null, 0, false, new());
     public bool IsReady { get; private set; }
-    public bool HasConflict { get; private set; }
     public string Status { get; private set; } = "正在读取收藏…";
     public event EventHandler? Changed;
 
-    public LibraryRepository(string root, ILibraryCloud cloud) { _root = root; _cloud = cloud; }
-    private string FilePath(Guid? id) => Path.Combine(_root, id?.ToString("N") ?? "local", "library.json");
-
+    public LibraryRepository(string root, ILibraryCloud cloud)
+    {
+        _root = root; _cloud = cloud; _store = new(root);
+        var empty = new LibraryDocument(); _stored = new(null, 0, LibraryProtocol.Hash(empty), empty, empty, Guid.NewGuid(), 1, new(), false);
+        _ = PollAsync();
+    }
+    private void Publish()
+    {
+        State = new(_stored.Owner, _stored.Revision, _stored.Pending.Count > 0, _stored.Document, _stored.LegacyImported);
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
     public async Task SwitchAsync(Guid? user, bool synchronize = true)
     {
         await _gate.WaitAsync();
         try
         {
-            _profileCts.Cancel(); _profileCts.Dispose(); _profileCts = new();
-            _debounce?.Cancel();
-            _generation++; _editVersion = 0; IsReady = false; HasConflict = false;
-            _synchronize = synchronize;
-            State = new(user, 0, false, new());
-            var path = FilePath(user);
-            if (File.Exists(path))
-            {
-                try { State = await ReadFileAsync(path, user); }
-                catch (Exception ex) when (ex is JsonException or InvalidOperationException or IOException)
-                {
-                    // Never replace an unreadable library with an empty document.
-                    State = await ReadFileAsync(path + ".bak", user);
-                    // Preserve the damaged bytes, then restore the primary too.
-                    // Otherwise the next save would back up the damaged primary
-                    // over the only valid backup before replacing it.
-                    File.Copy(path, path + ".unreadable-" + Guid.NewGuid().ToString("N"));
-                    File.Copy(path + ".bak", path, overwrite: true);
-                    Status = "已从本机备份恢复收藏。";
-                }
-            }
-            IsReady = true;
-            Status = user is null ? "仅保存在本机" : State.Pending ? "本机修改等待同步" : "等待同步";
+            _profile.Cancel(); _profile.Dispose(); _profile = new(); _debounce?.Cancel(); _generation++;
+            IsReady = false; _synchronize = synchronize; _pendingSince = 0;
+            try { _stored = await Task.Run(() => _store.Read(user)) ?? await MigrateAsync(user, synchronize); }
+            catch (Exception ex) when (user.HasValue && synchronize && ex is InvalidDataException or InvalidOperationException or ArgumentException)
+            { _stored = await Task.Run(() => _store.Recover(user.Value)); }
+            IsReady = true; Status = user is null || !synchronize ? "仅保存在本机" : _stored.Pending.Count > 0 ? "本机修改等待同步" : "等待同步";
+            Publish();
         }
-        catch { Status = "无法读取收藏库，请检查本机文件或备份。"; throw; }
-        finally { _gate.Release(); Changed?.Invoke(this, EventArgs.Empty); }
-        if (user.HasValue && _synchronize) _ = SyncAsync();
+        finally { _gate.Release(); }
+        if (user.HasValue && synchronize) _ = SyncAsync();
     }
-
+    private async Task<StoredLibrary> MigrateAsync(Guid? user, bool synchronize)
+    {
+        var empty = new LibraryDocument();
+        var state = new StoredLibrary(user, 0, LibraryProtocol.Hash(empty), empty, empty, Guid.NewGuid(), 1, new(), false);
+        var path = Path.Combine(_root, user?.ToString("N") ?? "local", "library.json");
+        if (File.Exists(path))
+        {
+            LocalLibrary old;
+            try { old = JsonSerializer.Deserialize<LocalLibrary>(await File.ReadAllTextAsync(path), LibraryJson.Options)!; }
+            catch (JsonException) { old = JsonSerializer.Deserialize<LocalLibrary>(await File.ReadAllTextAsync(path + ".bak"), LibraryJson.Options)!; }
+            if (old.UserId != user) throw new InvalidDataException("收藏库账号不匹配。");
+            var migrated = LibraryProtocol.Upgrade(old.Document);
+            state = state with { LegacyImported = old.LegacyImported };
+            if (user is null || !synchronize || !old.Pending)
+                state = state with { Baseline = migrated, Document = migrated, Hash = LibraryProtocol.Hash(migrated), Revision = user.HasValue ? old.CloudRevision : 0 };
+            else
+            {
+                // The old format has no clean base for reconstructing deletions.
+                // Preserve its full content through an additive recovery import.
+                var graph = new LibraryGraph(empty); Import(graph, migrated, "迁移前未同步收藏");
+                var operations = graph.Commands.Select((c, i) => c with { Sequence = i + 1 }).ToList();
+                state = state with { Document = graph.Document, Pending = operations, NextSequence = operations.Count + 1 };
+            }
+        }
+        await Task.Run(() => _store.Save(state));
+        // Keep legacy JSON and its .bak as migration recovery sources.
+        return state;
+    }
     public async Task EditAsync(Action<LibraryGraph> edit, bool markLegacyImported = false)
     {
         await _gate.WaitAsync();
         try
         {
             if (!IsReady) throw new InvalidOperationException("收藏库尚未就绪。");
-            var graph = new LibraryGraph(State.Document);
-            edit(graph);
-            var next = State with { Document = graph.Document, Pending = true,
-                LegacyImported = State.LegacyImported || markLegacyImported };
-            await WriteFileAsync(FilePath(next.UserId), next);
-            State = next; _editVersion++;
-            Status = HasConflict ? "存在同步冲突，本机修改已保存" : State.UserId.HasValue ? "本机修改已保存，等待同步" : "已保存在本机";
+            var before = _stored;
+            var graph = await Task.Run(() => { var g = new LibraryGraph(before.Document); edit(g); return g; });
+            var nextSequence = before.NextSequence;
+            var additions = graph.Commands.Select(c => c with { Sequence = nextSequence++ }).ToList();
+            var pending = before.Pending.Concat(additions).ToList();
+            var next = before with { Document = graph.Document, Pending = pending, NextSequence = nextSequence, LegacyImported = before.LegacyImported || markLegacyImported };
+            if (before.Owner is null || !_synchronize) next = next with { Baseline = graph.Document, Hash = LibraryProtocol.Hash(graph.Document), Pending = new() };
+            await Task.Run(() => _store.Save(next)); _stored = next;
+            if (_pendingSince == 0 && pending.Count > 0) _pendingSince = Stopwatch.GetTimestamp();
+            Status = before.Owner is null || !_synchronize ? "已保存在本机" : "本机修改已保存，等待同步";
+            Publish();
         }
         finally { _gate.Release(); }
-        Changed?.Invoke(this, EventArgs.Empty);
         ScheduleSync();
     }
-
+    private static void Import(LibraryGraph graph, LibraryDocument source, string name)
+    {
+        var container = graph.Create("playlist", name); var map = new Dictionary<Guid, Guid>(); var media = new Dictionary<Guid, Guid>();
+        foreach (var item in source.Media) media[item.Id] = graph.Remember(item with { Id = Guid.NewGuid() });
+        void Copy(Guid? parent, Guid into)
+        {
+            foreach (var item in LibraryGraph.Items(source, parent))
+                if (item.NodeId is { } n) { var id = graph.Create("playlist", source.Nodes.Single(x => x.Id == n).Name, into); map[n] = id; Copy(n, id); }
+                else if (item.MediaId is { } m) graph.AddMedia(into, new[] { media[m] });
+        }
+        Copy(null, container);
+        // Preserve otherwise unfiled media in the import container as well.
+        graph.AddMedia(container, source.Media.Where(m => !source.Entries.Any(e => e.MediaId == m.Id)).Select(m => media[m.Id]));
+        foreach (var like in source.Likes) graph.SetLikeAt(media[like.MediaId], like.AddedAt);
+    }
     public async Task ImportLocalAsync()
     {
-        if (!State.UserId.HasValue) return;
-        var owner = State.UserId;
-        var local = FilePath(null);
-        if (!File.Exists(local)) return;
-        var guest = await ReadFileAsync(local, null);
-        // Merge through a fresh container, remapping IDs; never silently replace
-        // the account library with a guest's document.
-        await EditAsync(graph =>
-        {
-            if (State.UserId != owner) throw new OperationCanceledException("账号已切换，已取消导入。");
-            var folder = graph.Create("folder", "本机导入 " + DateTime.Now.ToString("yyyy-MM-dd"));
-            var media = new System.Collections.Generic.Dictionary<Guid, Guid>();
-            foreach (var item in guest.Document.Media) media[item.Id] = graph.Remember(item with { Id = Guid.NewGuid() });
-            var nodes = new System.Collections.Generic.Dictionary<Guid, Guid>();
-            void CopyChildren(Guid? parent, Guid target)
-            {
-                foreach (var node in guest.Document.Nodes.FindAll(n => n.ParentId == parent))
-                {
-                    var id = graph.Create(node.Kind, node.Name, target); nodes[node.Id] = id;
-                    if (node.Kind == "folder") CopyChildren(node.Id, id);
-                }
-            }
-            CopyChildren(null, folder);
-            foreach (var entry in System.Linq.Enumerable.OrderBy(guest.Document.Entries, e => e.Order))
-                if (entry.MediaId is { } m) graph.AddMedia(nodes[entry.PlaylistId], new[] { media[m] });
-                else if (entry.LinkedPlaylistId is { } link) graph.Link(nodes[entry.PlaylistId], nodes[link]);
-            foreach (var like in guest.Document.Likes)
-                if (!graph.Document.Likes.Exists(l => l.MediaId == media[like.MediaId])) graph.Like(media[like.MediaId], true);
-        });
-    }
-
-    private void ScheduleSync()
-    {
-        if (_disposed || !_synchronize || !State.UserId.HasValue || HasConflict) return;
-        _debounce?.Cancel();
-        var cts = _debounce = new();
-        _ = DebounceAsync(cts.Token);
-    }
-    private async Task DebounceAsync(CancellationToken ct)
-    {
-        try { await Task.Delay(700, ct); await SyncAsync(); }
-        catch (OperationCanceledException) { }
-    }
-
-    public async Task SyncAsync(bool? keepLocal = null)
-    {
-        if (_disposed || !_synchronize || !IsReady || State.UserId is null || (HasConflict && keepLocal is null)) return;
-        await _syncGate.WaitAsync();
-        var generation = _generation; var ct = _profileCts.Token;
+        Guid? owner; StoredLibrary? guest;
+        await _gate.WaitAsync();
         try
         {
-            if (!IsReady || State.UserId is null) return;
-            Status = "正在同步…"; Changed?.Invoke(this, EventArgs.Empty);
-            var owner = State.UserId.Value;
-            var remote = await _cloud.ReadAsync(owner, ct);
-            await _gate.WaitAsync(ct);
-            LocalLibrary snapshot; long edits;
-            try
-            {
-                if (generation != _generation) return;
-                if (keepLocal is null && remote.Revision < State.CloudRevision)
-                    throw new LibraryConflictException();
-                // A lost HTTP response can leave a committed document marked
-                // dirty locally. Recognize that commit instead of a false conflict.
-                if (keepLocal is null && State.Pending && remote.Revision != State.CloudRevision &&
-                    JsonSerializer.Serialize(remote.Document, LibraryJson.Options) == JsonSerializer.Serialize(State.Document, LibraryJson.Options))
-                {
-                    var acknowledged = State with { CloudRevision = remote.Revision, Pending = false };
-                    await WriteFileAsync(FilePath(acknowledged.UserId), acknowledged); State = acknowledged;
-                    HasConflict = false; Status = "已与云端同步"; return;
-                }
-                if (keepLocal == false || (!State.Pending && keepLocal is null))
-                {
-                    if (keepLocal == false) await WriteFileAsync(FilePath(State.UserId) + ".conflict-local", State);
-                    var next = State with { CloudRevision = remote.Revision, Document = remote.Document, Pending = false };
-                    await WriteFileAsync(FilePath(next.UserId), next); State = next; HasConflict = false;
-                    Status = "已与云端同步"; return;
-                }
-                if (State.CloudRevision != remote.Revision && keepLocal != true) throw new LibraryConflictException();
-                if (keepLocal == true)
-                    await WriteFileAsync(FilePath(State.UserId) + ".conflict-cloud", new(State.UserId, remote.Revision, false, remote.Document));
-                snapshot = State; edits = _editVersion;
-            }
-            finally { _gate.Release(); }
-            var saved = await _cloud.WriteAsync(owner, remote.Revision, snapshot.Document, ct);
-            await _gate.WaitAsync(ct);
-            try
-            {
-                if (generation != _generation) return;
-                var next = State with { CloudRevision = saved.Revision, Pending = _editVersion != edits };
-                await WriteFileAsync(FilePath(next.UserId), next); State = next; HasConflict = false;
-                Status = next.Pending ? "新的修改等待同步" : "已与云端同步";
-            }
-            finally { _gate.Release(); }
+            owner = _stored.Owner; if (owner is null) return;
+            guest = await Task.Run(() => _store.Read(null));
+        }
+        finally { _gate.Release(); }
+        if (guest is not null) await EditAsync(g =>
+        {
+            if (_stored.Owner != owner) throw new OperationCanceledException("账号已切换，已取消导入。");
+            Import(g, guest.Document, "本机导入 " + DateTime.Now.ToString("yyyy-MM-dd"));
+        });
+    }
+    private void ScheduleSync()
+    {
+        if (_disposed || !_synchronize || _stored.Owner is null || _stored.Pending.Count == 0) return;
+        _debounce?.Cancel(); var cts = _debounce = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        var elapsed = _pendingSince == 0 ? 0 : Stopwatch.GetElapsedTime(_pendingSince).TotalMilliseconds;
+        var delay = Math.Max(0, Math.Min(400, 2000 - elapsed));
+        _ = DelaySyncAsync(TimeSpan.FromMilliseconds(delay), cts.Token);
+    }
+    private async Task DelaySyncAsync(TimeSpan delay, CancellationToken ct)
+    { try { await Task.Delay(delay, ct); await SyncAsync(); } catch (OperationCanceledException) { } }
+    private async Task PollAsync()
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30)); while (await timer.WaitForNextTickAsync(_lifetime.Token))
+                if (IsReady && _stored.Owner.HasValue && _synchronize) await SyncAsync();
         }
         catch (OperationCanceledException) { }
-        catch (LibraryConflictException ex) { if (generation == _generation) { HasConflict = true; Status = ex.Message; } }
-        catch (InvalidOperationException ex) { if (generation == _generation) Status = ex.Message + " 本机修改已保留。"; }
-        catch (Exception) { if (generation == _generation) Status = "暂时无法同步，本机收藏已保留。可稍后重试。"; }
+    }
+    public Task RefreshAsync() => DateTimeOffset.UtcNow - _lastSuccess > TimeSpan.FromSeconds(15) ? SyncAsync() : Task.CompletedTask;
+    public Task SyncAsync()
+    {
+        if (_disposed || !_synchronize || !IsReady || _stored.Owner is null) return Task.CompletedTask;
+        TaskCompletionSource? completion = null;
+        lock (_syncLock)
+        {
+            _syncRequested = true;
+            if (!_syncTask.IsCompleted) return _syncTask;
+            completion = new(TaskCreationOptions.RunContinuationsAsynchronously); _syncTask = completion.Task;
+        }
+        _ = RunSyncAsync(completion); return completion.Task;
+    }
+    private async Task RunSyncAsync(TaskCompletionSource completion)
+    {
+        var generation = _generation; var ct = _profile.Token;
+        try
+        {
+            for (var turn = 0; turn < 12 && !_disposed && generation == _generation; turn++)
+            {
+                lock (_syncLock) _syncRequested = false;
+                StoredLibrary sent;
+                await _gate.WaitAsync(ct);
+                try { sent = _stored; Status = "正在同步…"; Publish(); } finally { _gate.Release(); }
+                var pull = await _cloud.PullAsync(sent.Owner!.Value, sent.Writer, sent.Revision, sent.Hash, false, ct);
+                try { await AcceptAsync(pull, generation, ct); }
+                catch (InvalidDataException)
+                {
+                    var fresh = await _cloud.PullAsync(sent.Owner.Value, sent.Writer, 0, "", true, ct);
+                    await AcceptAsync(fresh, generation, ct);
+                }
+                await _gate.WaitAsync(ct);
+                try { sent = _stored; } finally { _gate.Release(); }
+                if (sent.Pending.Count > 0)
+                {
+                    var batch = new List<LibraryCommand>(); var size = 0;
+                    foreach (var operation in sent.Pending.Take(128))
+                    {
+                        var bytes = JsonSerializer.SerializeToUtf8Bytes(operation, LibraryJson.Options).Length;
+                        if (batch.Count > 0 && size + bytes > 900000) break;
+                        batch.Add(operation); size += bytes;
+                    }
+                    var reply = await _cloud.SubmitAsync(sent.Owner!.Value, sent.Writer, sent.Revision, sent.Hash, batch, ct);
+                    await AcceptAsync(reply, generation, ct);
+                }
+                _lastSuccess = DateTimeOffset.UtcNow; _failures = 0;
+                lock (_syncLock) if (!_syncRequested && _stored.Pending.Count == 0) break;
+            }
+            if (generation == _generation) { Status = _stored.Pending.Count > 0 ? "本机修改等待下一批同步" : "已与云端同步"; Publish(); }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            if (generation == _generation)
+            {
+                Status = ex is InvalidDataException ? "基线校验失败，正在重新获取云端状态。本机操作已保留。" : "暂时无法同步，本机修改已保留，将自动重试。";
+                Publish(); _failures++;
+                _ = DelaySyncAsync(TimeSpan.FromSeconds(Math.Min(30, Math.Pow(2, Math.Min(_failures, 5)))), _lifetime.Token);
+            }
+        }
         finally
         {
-            _syncGate.Release();
-            if (generation == _generation) { Changed?.Invoke(this, EventArgs.Empty); if (State.Pending && !HasConflict && Status == "新的修改等待同步") ScheduleSync(); }
+            completion.TrySetResult();
+            if (!_disposed && generation != _generation && _stored.Owner.HasValue && _synchronize) _ = SyncAsync();
+            else if (!_disposed && generation == _generation && _stored.Pending.Count > 0 && _failures == 0) ScheduleSync();
         }
     }
-
-    private static async Task<LocalLibrary> ReadFileAsync(string path, Guid? owner)
+    private async Task AcceptAsync(LibrarySyncReply reply, long generation, CancellationToken ct)
     {
-        if (new FileInfo(path).Length > 20_000_000) throw new InvalidOperationException("收藏库文件过大。");
-        var state = JsonSerializer.Deserialize<LocalLibrary>(await File.ReadAllTextAsync(path), LibraryJson.Options)
-            ?? throw new InvalidOperationException("收藏库文件为空。");
-        if (state.UserId != owner) throw new InvalidOperationException("收藏库账号不匹配。");
-        LibraryGraph.Validate(state.Document);
-        return state;
+        StoredLibrary basis;
+        await _gate.WaitAsync(ct);
+        try
+        {
+            if (generation != _generation) return;
+            basis = _stored;
+        }
+        finally { _gate.Release(); }
+        var accepted = await Task.Run(() =>
+        {
+            var baseline = basis.Baseline; var revision = basis.Revision; var hash = basis.Hash;
+            if (reply.Mode == "snapshot")
+            {
+                baseline = reply.Document ?? throw new InvalidDataException("Missing snapshot.");
+                LibraryGraph.Validate(baseline);
+                revision = reply.Revision; hash = LibraryProtocol.Hash(baseline);
+            }
+            else foreach (var change in reply.Changes)
+            {
+                if (change.Revision != revision + 1 || change.PreviousHash != hash) throw new InvalidDataException("Broken delta chain.");
+                baseline = LibraryProtocol.Apply(baseline, change.Patch); revision = change.Revision; hash = LibraryProtocol.Hash(baseline);
+                if (hash != change.Hash) throw new InvalidDataException("Delta content mismatch.");
+            }
+            if (revision != reply.Revision || hash != reply.Hash) throw new InvalidDataException("Snapshot version or digest mismatch.");
+            if (reply.Acknowledged < 0) throw new InvalidDataException("Invalid operation acknowledgement.");
+            return (baseline, revision, hash);
+        }, ct);
+        while (true)
+        {
+            StoredLibrary old;
+            await _gate.WaitAsync(ct);
+            try { if (generation != _generation) return; old = _stored; } finally { _gate.Release(); }
+            var pending = old.Pending.Where(c => c.Sequence > reply.Acknowledged).ToList();
+            var working = await Task.Run(() => { var d = accepted.baseline; foreach (var operation in pending) d = LibraryGraph.Replay(d, operation); return d; }, ct);
+            var next = old with { Baseline = accepted.baseline, Document = working, Revision = accepted.revision, Hash = accepted.hash, Pending = pending, NextSequence = Math.Max(old.NextSequence, reply.Acknowledged + 1) };
+            await _gate.WaitAsync(ct);
+            try
+            {
+                if (generation != _generation) return;
+                if (!ReferenceEquals(old, _stored)) continue; // Replay a newly appended tail before publishing.
+                await Task.Run(() => _store.Save(next), ct); _stored = next;
+                if (pending.Count == 0) _pendingSince = 0;
+                Publish(); return;
+            }
+            finally { _gate.Release(); }
+        }
     }
-
-    private static async Task WriteFileAsync(string path, LocalLibrary state)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temporary = path + ".tmp";
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(state, LibraryJson.Options);
-        await using (var file = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
-        { await file.WriteAsync(bytes); await file.FlushAsync(); file.Flush(flushToDisk: true); }
-        if (File.Exists(path)) File.Copy(path, path + ".bak", overwrite: true);
-        File.Move(temporary, path, overwrite: true);
-    }
-
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
-        _debounce?.Cancel(); _profileCts.Cancel();
-        // In-flight continuations may still release the gates; do not dispose
-        // their semaphores until the application has finished unwinding.
+        if (_disposed) return; _disposed = true; _lifetime.Cancel(); _profile.Cancel(); _debounce?.Cancel();
+        // Defer closing the connection until any local transaction releases it.
+        _ = CloseStoreAsync();
     }
+    private async Task CloseStoreAsync() { await _gate.WaitAsync(); try { _store.Dispose(); } finally { _gate.Release(); } }
 }

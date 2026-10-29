@@ -53,9 +53,8 @@ public partial class LibraryViewModel : ObservableObject
     public bool CanGoBack => _history.Count > 0 || CurrentId.HasValue;
     public bool IsPlaylist => CurrentKind == "playlist";
     public bool IsNode => CurrentId.HasValue;
-    public bool CanSortTracks => CurrentKind is not ("folder" or "likes") && (!IsPlaylist || ExpandLinks);
+    public bool CanSortTracks => CurrentKind != "likes" && (!IsPlaylist || ExpandChildren);
     public bool IsSignedIn => Account.Session is not null;
-    public bool HasConflict => Repository.HasConflict;
     public string AccountLabel => Account.Session?.Email ?? "未登录";
     public string AccountButtonLabel => IsSignedIn ? "账户" : "邮箱登录";
     public string SyncStatus => Repository.Status;
@@ -66,7 +65,7 @@ public partial class LibraryViewModel : ObservableObject
     public ObservableCollection<VideoModel> Favorites { get; } = new();
     public ObservableCollection<string> SortOptions { get; } = new() { "自定义顺序", "标题" };
     [ObservableProperty] private string _sortOption = "自定义顺序";
-    [ObservableProperty] private bool _expandLinks = true;
+    [ObservableProperty] private bool _expandChildren;
     [ObservableProperty] private string _heading = "我喜欢";
     [ObservableProperty] private string _summary = "";
     [ObservableProperty] private string _errorMessage = "";
@@ -75,7 +74,6 @@ public partial class LibraryViewModel : ObservableObject
     public Visibility ListVisibility => Rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     public Visibility PlaylistToolsVisibility => IsPlaylist ? Visibility.Visible : Visibility.Collapsed;
     public Visibility NodeToolsVisibility => IsNode ? Visibility.Visible : Visibility.Collapsed;
-    public Visibility ConflictVisibility => HasConflict ? Visibility.Visible : Visibility.Collapsed;
     public Visibility SignedInVisibility => IsSignedIn ? Visibility.Visible : Visibility.Collapsed;
     public Visibility TrackSortVisibility => CanSortTracks ? Visibility.Visible : Visibility.Collapsed;
     public Visibility ErrorVisibility => string.IsNullOrEmpty(ErrorMessage) ? Visibility.Collapsed : Visibility.Visible;
@@ -92,11 +90,11 @@ public partial class LibraryViewModel : ObservableObject
         if (mode == "sample" && Document.Nodes.Count == 0)
             await Repository.EditAsync(g =>
             {
-                var f = g.Create("folder", "界面验证 · 游戏原声"); var sub = g.Create("folder", "原神", f);
-                var source = g.Create("playlist", "战斗音乐", sub); var linked = g.Create("playlist", "常听合集");
+                var f = g.Create("playlist", "界面验证 · 游戏原声"); var sub = g.Create("playlist", "原神", f);
+                var source = g.Create("playlist", "战斗音乐", sub); var copy = g.Create("playlist", "常听合集");
                 var a = g.Remember(new(Guid.NewGuid(), "BV_fixture_a", 1, "示例曲目 A", "界面验证", "", 180, "3:00"));
                 var b = g.Remember(new(Guid.NewGuid(), "BV_fixture_b", 1, "示例曲目 B", "界面验证", "", 240, "4:00"));
-                g.AddMedia(source, new[] { a, b }); g.Link(linked, source); g.Like(a, true);
+                g.AddMedia(f, new[] { a }); g.AddMedia(source, new[] { a, b }); g.AddMedia(copy, new[] { b }); g.Like(a, true);
             });
         Rebuild();
     }
@@ -147,7 +145,7 @@ public partial class LibraryViewModel : ObservableObject
     }
 
     partial void OnSortOptionChanged(string value) => Rebuild();
-    partial void OnExpandLinksChanged(bool value) => Rebuild();
+    partial void OnExpandChildrenChanged(bool value) => Rebuild();
     partial void OnErrorMessageChanged(string value) => OnPropertyChanged(nameof(ErrorVisibility));
 
     public void Open(Guid? id, string kind, bool remember = true)
@@ -156,7 +154,6 @@ public partial class LibraryViewModel : ObservableObject
         if (id.HasValue && !Document.Nodes.Any(n => n.Id == id)) return;
         if (remember) _history.Push((CurrentId, CurrentKind));
         CurrentId = id; CurrentKind = kind; Rebuild();
-        if (IsSignedIn) _ = Repository.SyncAsync();
     }
     public void GoBack()
     {
@@ -168,7 +165,7 @@ public partial class LibraryViewModel : ObservableObject
         if (!found && CurrentId is { } id)
         {
             CurrentId = Document.Nodes.FirstOrDefault(n => n.Id == id)?.ParentId;
-            CurrentKind = CurrentId.HasValue ? "folder" : "likes";
+            CurrentKind = CurrentId.HasValue ? "playlist" : "likes";
         }
         Rebuild();
     }
@@ -178,10 +175,16 @@ public partial class LibraryViewModel : ObservableObject
         return node.ParentId is { } p ? PathName(p) + " / " + node.Name : node.Name;
     }
     public List<LibraryChoice> Folders() => new[] { new LibraryChoice(null, "收藏库根目录") }
-        .Concat(Document.Nodes.Where(n => n.Kind == "folder").Select(n => new LibraryChoice(n.Id, PathName(n.Id)))).ToList();
+        .Concat(Document.Nodes.Where(n => n.Id != CurrentId && !IsDescendantOf(n.Id, CurrentId)).Select(n => new LibraryChoice(n.Id, PathName(n.Id)))).ToList();
+    private bool IsDescendantOf(Guid id, Guid? ancestor)
+    {
+        for (var parent = Document.Nodes.Single(n => n.Id == id).ParentId; parent.HasValue; parent = Document.Nodes.Single(n => n.Id == parent).ParentId)
+            if (parent == ancestor) return true;
+        return false;
+    }
     public List<LibraryChoice> Playlists() => Document.Nodes.Where(n => n.Kind == "playlist")
         .Select(n => new LibraryChoice(n.Id, PathName(n.Id))).ToList();
-    public Guid? CreationParent => CurrentKind == "folder" ? CurrentId : Document.Nodes.FirstOrDefault(n => n.Id == CurrentId)?.ParentId;
+    public Guid? CreationParent => CurrentId;
 
     public async Task RunAsync(Func<Task> action)
     {
@@ -201,14 +204,14 @@ public partial class LibraryViewModel : ObservableObject
         var id = CurrentId!.Value;
         var parent = Document.Nodes.Single(n => n.Id == id).ParentId;
         await Repository.EditAsync(graph => graph.Delete(id));
-        Open(parent, parent.HasValue ? "folder" : "likes", remember: false);
+        Open(parent, parent.HasValue ? "playlist" : "likes", remember: false);
     }
-    public Task LinkAsync(Guid target) => Repository.EditAsync(graph => graph.Link(CurrentId!.Value, target));
     public Task AddMediaAsync(IEnumerable<Guid> media) => Repository.EditAsync(graph => graph.AddMedia(CurrentId!.Value, media));
     public Task CopyPlaylistAsync(Guid source) => AddMediaAsync(new LibraryGraph(Document).Expand(source).Select(m => m.Id));
     public Task RemoveEntryAsync(Guid id) => Repository.EditAsync(graph => graph.RemoveEntry(id));
     public Task ReorderEntryAsync(Guid id, int delta) => Repository.EditAsync(graph => graph.ReorderEntry(id, delta));
     public Task ReorderNodeAsync(int delta) => Repository.EditAsync(graph => graph.ReorderNode(CurrentId!.Value, delta));
+    public Task ReorderChildAsync(Guid id, int delta) => Repository.EditAsync(graph => graph.ReorderNode(id, delta));
 
     [RelayCommand] private Task ToggleFavoriteAsync(VideoModel? video) => RunAsync(async () =>
     {
@@ -272,8 +275,8 @@ public partial class LibraryViewModel : ObservableObject
         { foreach (var item in items) { expansion[(item.Id, item.Kind)] = item.IsExpanded; RememberExpansion(item.Children); } }
         RememberExpansion(Roots);
         ObservableCollection<LibraryNavItem> Children(Guid? parent) => new(Document.Nodes.Where(n => n.ParentId == parent)
-            .OrderBy(n => n.Order).ThenBy(n => n.Id).Select(n => new LibraryNavItem(n.Name,
-                n.Kind == "folder" ? "\uE8B7" : "\uE142", n.Id, n.Kind, Children(n.Id))
+            .OrderBy(n => n.Rank, StringComparer.Ordinal).ThenBy(n => n.Id).Select(n => new LibraryNavItem(n.Name,
+                "\uE142", n.Id, n.Kind, Children(n.Id))
                 { IsExpanded = expansion.GetValueOrDefault((n.Id, n.Kind), true) }));
         if (!ReferenceEquals(Document, _renderedDocument))
         {
@@ -285,23 +288,19 @@ public partial class LibraryViewModel : ObservableObject
             NavigationChoices.Clear();
             NavigationChoices.Add(Roots[0]); NavigationChoices.Add(Roots[1]);
             foreach (var node in Document.Nodes.OrderBy(n => PathName(n.Id), StringComparer.CurrentCulture))
-                NavigationChoices.Add(new(PathName(node.Id), node.Kind == "folder" ? "\uE8B7" : "\uE142", node.Id, node.Kind, new()));
+                NavigationChoices.Add(new(PathName(node.Id), "\uE142", node.Id, node.Kind, new()));
             Favorites.Clear();
             foreach (var item in graph.Expand(null, likes: true)) Favorites.Add(ToVideo(item));
         }
         var nextRows = new List<LibraryDisplayRow>();
         Heading = CurrentKind switch { "likes" => "我喜欢", "all" => "全部收藏", _ => PathName(CurrentId!.Value) };
-        if (CurrentKind == "folder")
-            foreach (var node in Document.Nodes.Where(n => n.ParentId == CurrentId).OrderBy(n => n.Order))
-                nextRows.Add(new(node.Name, node.Kind == "folder" ? "文件夹" : $"歌单 · {graph.Expand(node.Id).Count} 首",
-                    node.Kind == "folder" ? "\uE8B7" : "\uE142", "", "", null, node.Id, null, node.Kind));
-        else if (IsPlaylist && !ExpandLinks)
-            foreach (var entry in Document.Entries.Where(e => e.PlaylistId == CurrentId).OrderBy(e => e.Order).ThenBy(e => e.Id))
+        if (IsPlaylist && !ExpandChildren)
+            foreach (var item in graph.Items(CurrentId))
             {
-                if (entry.MediaId is { } id) nextRows.Add(MediaRow(Document.Media.Single(m => m.Id == id), entry.Id));
-                else if (entry.LinkedPlaylistId is { } target)
-                    nextRows.Add(new(Document.Nodes.Single(n => n.Id == target).Name, $"动态链接 · {graph.Expand(target).Count} 首 · 跟随源歌单更新",
-                        "\uE71B", "", "", null, target, entry.Id, "link"));
+                if (item.MediaId is { } id) nextRows.Add(MediaRow(Document.Media.Single(m => m.Id == id), item.Id));
+                else if (item.NodeId is { } child)
+                    nextRows.Add(new(Document.Nodes.Single(n => n.Id == child).Name, $"子歌单 · {graph.Expand(child).Count} 首",
+                        "\uE142", "", "", null, child, null, "playlist"));
             }
         else
         {
@@ -327,11 +326,10 @@ public partial class LibraryViewModel : ObservableObject
         while (Rows.Count > nextRows.Count) Rows.RemoveAt(Rows.Count - 1);
         for (var i = Rows.Count; i < nextRows.Count; i++) Rows.Add(nextRows[i]);
         Summary = CurrentKind == "likes" ? $"{CurrentTracks().Count} 首 · 收藏时间线 · 最近收藏在前" :
-            CurrentKind == "folder" ? $"{Rows.Count} 个项目 · 播放时包含所有子文件夹" :
-            $"{CurrentTracks().Count} 首" + (IsPlaylist ? " · 动态链接在打开和播放时展开" : "");
+            $"{CurrentTracks().Count} 首" + (IsPlaylist ? $" · {Document.Nodes.Count(n => n.ParentId == CurrentId)} 个子歌单 · 播放时包含子歌单" : "");
         foreach (var name in new[] { nameof(IsPlaylist), nameof(IsNode), nameof(CanGoBack), nameof(IsSignedIn), nameof(AccountLabel), nameof(AccountButtonLabel),
-            nameof(SyncStatus), nameof(HasConflict), nameof(EmptyStateVisibility), nameof(ListVisibility), nameof(PlaylistToolsVisibility),
-            nameof(NodeToolsVisibility), nameof(ConflictVisibility), nameof(SignedInVisibility), nameof(TrackSortVisibility) }) OnPropertyChanged(name);
+            nameof(SyncStatus), nameof(EmptyStateVisibility), nameof(ListVisibility), nameof(PlaylistToolsVisibility),
+            nameof(NodeToolsVisibility), nameof(SignedInVisibility), nameof(TrackSortVisibility) }) OnPropertyChanged(name);
         LibraryChanged?.Invoke(this, EventArgs.Empty);
     }
 

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using bilibili_music_player_windows.Models;
 using bilibili_music_player_windows.Services;
 
@@ -5,178 +7,162 @@ internal static class LibraryTests
 {
     public static IEnumerable<(string Name, Func<Task> Run)> All => new (string, Func<Task>)[]
     {
-        ("pinned video parts keep their CID and cannot share a different part's cache", () =>
+        ("fractional ranks prepend one million times without renumbering",()=>
         {
-            Check(AudioSourceIdentity.ResolveCid(123, 456) == 123);
-            Check(AudioSourceIdentity.ResolveCid(0, 456) == 456);
-            Check(AudioSourceIdentity.CacheKey("BV123", 123) != AudioSourceIdentity.CacheKey("BV123", 456));
-            Check(AudioSourceIdentity.CacheKey("BV123", 123) != AudioSourceIdentity.CacheKey("BV123", 0));
+            string? rank=null;
+            for(var i=0;i<1_000_000;i++) {var next=FractionalRank.Between(null,rank);Check(rank is null||string.CompareOrdinal(next,rank)<0);rank=next;}
+            Check(rank!.Length<10);FractionalRank.Validate(rank);
+            var left="a0";var right="a1";
+            for(var i=0;i<100;i++){var mid=FractionalRank.Between(left,right);Check(string.CompareOrdinal(left,mid)<0&&string.CompareOrdinal(mid,right)<0);right=mid;}
             return Task.CompletedTask;
         }),
-        ("default collection preserves original timestamps on repeated collection", () =>
+        ("mixed nested playlists expand in rank order and keep queue snapshots independent",()=>
         {
-            var g = Graph(); var a = Media(g, "a");
-            var original = new LibraryLike(a, new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero));
-            g.Document.Likes.Add(original);
-            g.Like(a, true); g.Like(a, true);
-            Check(g.Document.Likes.Count == 1 && g.Document.Likes[0] == original);
+            var g=Graph();var p=g.Create("playlist","parent");var a=Media(g,"a");g.AddMedia(p,new[]{a});
+            var child=g.Create("playlist","child",p);var b=Media(g,"b");g.AddMedia(child,new[]{b,a});var c=Media(g,"c");g.AddMedia(p,new[]{c});
+            Eq(new[]{a,b,c},g.Expand(p).Select(m=>m.Id));var snapshot=g.Expand(p).ToArray();
+            g.ReorderNode(child,-1);Eq(new[]{b,a,c},g.Expand(p).Select(m=>m.Id));Eq(new[]{a,b,c},snapshot.Select(m=>m.Id));
+            Check(g.Document.Nodes.All(n=>n.Kind=="playlist"));return Task.CompletedTask;
+        }),
+        ("timeline retains dates on duplicate likes and creates a new point after removal",()=>
+        {
+            var g=Graph();var a=Media(g,"a");var b=Media(g,"b");var c=Media(g,"c");var time=DateTimeOffset.FromUnixTimeMilliseconds(1000);
+            g.SetLikeAt(a,time);g.SetLikeAt(b,time.AddDays(1));g.SetLikeAt(c,time.AddDays(1));var original=g.Document.Likes.Single(l=>l.MediaId==a);
+            g.Like(a,true);Check(g.Document.Likes.Single(l=>l.MediaId==a)==original);Eq(new[]{c,b,a},g.Expand(null,true).Select(m=>m.Id));
+            var p=g.Create("playlist","p");g.AddMedia(p,new[]{a});g.Like(a,false);g.Like(a,true);
+            Check(g.Document.Likes.Single(l=>l.MediaId==a).AddedAt>time&&g.Expand(p).Single().Id==a);return Task.CompletedTask;
+        }),
+        ("recursive deletion leaves other memberships and default favorites intact",()=>
+        {
+            var g=Graph();var p=g.Create("playlist","p");var sub=g.Create("playlist","sub",p);var q=g.Create("playlist","q");var a=Media(g,"a");
+            g.AddMedia(sub,new[]{a});g.AddMedia(q,new[]{a});g.Like(a,true);g.Delete(p);
+            Check(g.Document.Nodes.Single().Id==q&&g.Document.Entries.Count==1&&g.Document.Likes.Count==1&&g.Document.Media.Count==1);
+            g.AddMedia(sub,new[]{a});Check(g.Document.Entries.Count==1);g.Move(q,q);Check(g.Document.Nodes.Single().ParentId is null);return Task.CompletedTask;
+        }),
+        ("audio identity is BVID and CID and cancellation survives duplicate entry IDs",()=>
+        {
+            var g=Graph();var a=Media(g,"a");Check(g.Remember(g.Document.Media.Single() with {Id=Guid.NewGuid()})==a);
+            var b=g.Remember(g.Document.Media.Single() with {Id=Guid.NewGuid(),Cid=2});Check(a!=b);
+            var p=g.Create("playlist","p");var baseline=g.Document.Copy();g.AddMedia(p,new[]{a});g.RemoveEntry(g.Document.Entries.Single().Id);
+            var aOps=g.Commands.TakeLast(2).ToArray();var remote=new LibraryGraph(baseline);remote.AddMedia(p,new[]{a});var d=remote.Document;
+            foreach(var op in aOps)d=LibraryGraph.Replay(d,op);Check(d.Entries.Count==0);
+            Check(AudioSourceIdentity.CacheKey("BV1",1)!=AudioSourceIdentity.CacheKey("BV1",2));return Task.CompletedTask;
+        }),
+        ("changes patch the full graph atomically with a canonical digest",()=>
+        {
+            var g=Graph();var p=g.Create("playlist","p");var a=Media(g,"a");g.AddMedia(p,new[]{a});var before=g.Document.Copy();g.Delete(p);g.RemoveMedia(a);
+            var after=LibraryProtocol.Apply(before,LibraryProtocol.Diff(before,g.Document));Check(LibraryProtocol.Hash(after)==LibraryProtocol.Hash(g.Document));
+            var path=Path.Combine(AppContext.BaseDirectory,"library-parity-fixture.json");
+            using var fixture=JsonDocument.Parse(File.ReadAllText(path));var d=fixture.RootElement.GetProperty("document").Deserialize<LibraryDocument>(LibraryJson.Options)!;LibraryGraph.Validate(d);Check(LibraryProtocol.Hash(d)==fixture.RootElement.GetProperty("hash").GetString());
+            foreach(var vector in fixture.RootElement.GetProperty("ranks").EnumerateArray())
+                Check(FractionalRank.Between(vector.GetProperty("a").GetString(),vector.GetProperty("b").GetString())==vector.GetProperty("result").GetString());
             return Task.CompletedTask;
         }),
-        ("default timeline is newest first with stable reverse insertion order for equal timestamps", () =>
+        ("SQLite base work and outbox persist atomically and work row edits are ignored",async()=>
         {
-            var g = Graph(); var a = Media(g, "a"); var b = Media(g, "b"); var c = Media(g, "c");
-            var old = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
-            g.Document.Likes.Add(new(a, old)); g.Document.Likes.Add(new(b, old.AddDays(1))); g.Document.Likes.Add(new(c, old.AddDays(1)));
-            Eq(new[] { c, b, a }, g.Expand(null, likes: true).Select(m => m.Id));
-            return Task.CompletedTask;
+            using var folder=new TestFolder();var owner=Guid.NewGuid();var cloud=new FakeCloud{Offline=true};
+            using(var repo=new LibraryRepository(folder.Path,cloud)){await repo.SwitchAsync(owner);await repo.SyncAsync();await repo.EditAsync(g=>g.Create("playlist","pending"));}
+            using(var db=Db(folder.Path)){using var cmd=db.CreateCommand();cmd.CommandText="UPDATE playlists SET name='tampered work' WHERE layer='work' AND kind='playlist'";cmd.ExecuteNonQuery();}
+            using var restart=new LibraryRepository(folder.Path,cloud);await restart.SwitchAsync(owner);Check(restart.State.Document.Nodes.Single().Name=="pending"&&restart.State.Pending);
+            cloud.Offline=false;await restart.SyncAsync();Check(!restart.State.Pending&&cloud.Doc(owner).Nodes.Single().Name=="pending");
+            using var store=new LibrarySqliteStore(folder.Path);var saved=store.Read(owner)!;Check(saved.Pending.Count==0&&saved.Revision==1);
         }),
-        ("collecting again after removal creates a new timeline date without changing other playlists", () =>
+        ("editing while HTTP is blocked preserves the unsent tail and never waits for the network",async()=>
         {
-            var g = Graph(); var a = Media(g, "a"); var p = g.Create("playlist", "regular"); g.AddMedia(p, new[] { a });
-            var old = new DateTimeOffset(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
-            g.Document.Likes.Add(new(a, old));
-            g.Like(a, false); Check(g.Document.Likes.Count == 0 && g.Expand(p).Single().Id == a);
-            g.Like(a, true); Check(g.Document.Likes.Single().AddedAt > old && g.Expand(p).Single().Id == a);
-            return Task.CompletedTask;
+            using var folder=new TestFolder();var cloud=new FakeCloud();var user=Guid.NewGuid();using var repo=new LibraryRepository(folder.Path,cloud);await repo.SwitchAsync(user);await repo.SyncAsync();
+            await repo.EditAsync(g=>g.Create("playlist","first"));cloud.SubmitGate=new(TaskCreationOptions.RunContinuationsAsynchronously);
+            var sync=repo.SyncAsync();await cloud.SubmitStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await repo.EditAsync(g=>g.Create("playlist","tail")).WaitAsync(TimeSpan.FromSeconds(2));Check(repo.State.Document.Nodes.Count==2);
+            cloud.SubmitGate.SetResult();await sync.WaitAsync(TimeSpan.FromSeconds(5));Check(!repo.State.Pending&&cloud.Doc(user).Nodes.Count==2);
         }),
-        ("dynamic playlist links follow edits and preserve expansion order", () =>
+        ("two replicas rebase pending edits and lost acknowledgements are idempotent",async()=>
         {
-            var g = Graph(); var a = Media(g, "a"); var b = Media(g, "b"); var c = Media(g, "c");
-            var source = g.Create("playlist", "source"); var target = g.Create("playlist", "target");
-            g.AddMedia(source, new[] { b }); g.AddMedia(target, new[] { a }); g.Link(target, source); g.AddMedia(target, new[] { c });
-            Eq(new[] { a, b, c }, g.Expand(target).Select(m => m.Id));
-            var d = Media(g, "d"); g.AddMedia(source, new[] { d });
-            Eq(new[] { a, b, d, c }, g.Expand(target).Select(m => m.Id)); return Task.CompletedTask;
+            using var fa=new TestFolder();using var fb=new TestFolder();var cloud=new FakeCloud();var user=Guid.NewGuid();
+            using var a=new LibraryRepository(fa.Path,cloud);using var b=new LibraryRepository(fb.Path,cloud);await a.SwitchAsync(user);await a.SyncAsync();await b.SwitchAsync(user);await b.SyncAsync();
+            await a.EditAsync(g=>g.Create("playlist","A"));await b.EditAsync(g=>g.Create("playlist","B"));await b.SyncAsync();
+            cloud.LoseAck=true;await a.SyncAsync();Check(a.State.Pending&&cloud.Doc(user).Nodes.Count==2);cloud.LoseAck=false;await a.SyncAsync();await b.SyncAsync();
+            Check(!a.State.Pending&&!b.State.Pending&&a.State.CloudRevision==2&&b.State.CloudRevision==2);
+            Check(LibraryProtocol.Hash(a.State.Document)==LibraryProtocol.Hash(b.State.Document));
         }),
-        ("queue snapshots are unaffected by later linked playlist edits", () =>
+        ("local baseline corruption fetches a fresh cloud snapshot and retains the outbox",async()=>
         {
-            var g = Graph(); var p = g.Create("playlist", "p"); var a = Media(g, "a"); g.AddMedia(p, new[] { a });
-            var queue = g.Expand(p).ToArray(); g.AddMedia(p, new[] { Media(g, "b") });
-            Check(queue.Length == 1 && g.Expand(p).Count == 2); return Task.CompletedTask;
+            using var f=new TestFolder();var cloud=new FakeCloud();var user=Guid.NewGuid();
+            using(var repo=new LibraryRepository(f.Path,cloud)){await repo.SwitchAsync(user);await repo.SyncAsync();await repo.EditAsync(g=>g.Create("playlist","remote"));await repo.SyncAsync();cloud.Offline=true;await repo.EditAsync(g=>g.Create("playlist","offline"));}
+            using(var db=Db(f.Path)){using var c=db.CreateCommand();c.CommandText="UPDATE playlists SET name='bad base' WHERE layer='base' AND kind='playlist'";c.ExecuteNonQuery();}
+            cloud.Offline=false;using var restart=new LibraryRepository(f.Path,cloud);await restart.SwitchAsync(user);await restart.SyncAsync();
+            Check(restart.State.Document.Nodes.Any(n=>n.Name=="remote")&&restart.State.Document.Nodes.Any(n=>n.Name=="offline")&&!restart.State.Pending);
+            Check(Directory.EnumerateFiles(f.Path,"*.unverified-*").Any());
         }),
-        ("nested folders aggregate playlists and deduplicate exact audio versions", () =>
+        ("late replies cannot overwrite a newly selected account and guests stay local",async()=>
         {
-            var g = Graph(); var f = g.Create("folder", "f"); var sub = g.Create("folder", "sub", f);
-            var p = g.Create("playlist", "p", sub); var q = g.Create("playlist", "q", f); var a = Media(g, "a");
-            g.AddMedia(p, new[] { a }); g.AddMedia(q, new[] { a, Media(g, "b") }); Check(g.Expand(f).Count == 2); return Task.CompletedTask;
+            using var f=new TestFolder();var cloud=new FakeCloud();using var repo=new LibraryRepository(f.Path,cloud);var a=Guid.NewGuid();var b=Guid.NewGuid();
+            await repo.SwitchAsync(null);await repo.EditAsync(g=>g.Create("playlist","guest"));Check(cloud.Calls==0);
+            await repo.SwitchAsync(a);await repo.SyncAsync();cloud.PullGate=new(TaskCreationOptions.RunContinuationsAsynchronously);
+            var sync=repo.SyncAsync();await cloud.PullStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));await repo.SwitchAsync(b);cloud.PullGate.SetResult();await sync;cloud.PullGate=null;await repo.SyncAsync();
+            Check(repo.State.UserId==b&&repo.State.Document.Nodes.Count==0);await repo.SwitchAsync(null);Check(repo.State.Document.Nodes.Single().Name=="guest");
         }),
-        ("same title with different videos or parts remains distinct", () =>
+        ("SQLite transaction failure rolls back rows and durable intents together",()=>
         {
-            var g = Graph(); var a = new LibraryMedia(Guid.NewGuid(), "BV1", 1, "same", "", "", 1, "0:01");
-            var id = g.Remember(a); Check(g.Remember(a with { Id = Guid.NewGuid() }) == id);
-            g.Remember(a with { Id = Guid.NewGuid(), Cid = 2 }); g.Remember(a with { Id = Guid.NewGuid(), Bvid = "BV2" });
-            Check(g.Document.Media.Count == 3); return Task.CompletedTask;
+            using var f=new TestFolder();using var store=new LibrarySqliteStore(f.Path);var empty=new LibraryDocument();var initial=new StoredLibrary(null,0,LibraryProtocol.Hash(empty),empty,empty,Guid.NewGuid(),1,new(),false);store.Save(initial);
+            var g=Graph();g.Create("playlist","must roll back");var bad=new LibraryCommand{Id=Guid.NewGuid(),Sequence=1,Type="delete"};
+            try{store.Save(initial with{Document=g.Document,Pending=new(){bad,bad with{Sequence=2}},NextSequence=3});throw new Exception("Expected unique constraint failure");}catch(SqliteException){}
+            var read=store.Read(null)!;Check(read.Document.Nodes.Count==0&&read.Pending.Count==0&&read.NextSequence==1);return Task.CompletedTask;
         }),
-        ("direct and indirect playlist cycles are rejected atomically", () =>
+        ("guest import preserves nested order and timeline while a cloud request is in flight",async()=>
         {
-            var g = Graph(); var a = g.Create("playlist", "a"); var b = g.Create("playlist", "b"); var c = g.Create("playlist", "c");
-            Reject(() => g.Link(a, a)); g.Link(a, b); g.Link(b, c); Reject(() => g.Link(c, a)); Check(g.Document.Entries.Count == 2); return Task.CompletedTask;
-        }),
-        ("moving a folder under its own descendant leaves the tree intact", () =>
-        {
-            var g = Graph(); var a = g.Create("folder", "a"); var b = g.Create("folder", "b", a);
-            Reject(() => g.Move(a, b)); Check(g.Document.Nodes.Single(n => n.Id == a).ParentId is null); return Task.CompletedTask;
-        }),
-        ("dissolving folders and deleting linked playlists preserve media and likes", () =>
-        {
-            var g = Graph(); var f = g.Create("folder", "f"); var p = g.Create("playlist", "p", f); var q = g.Create("playlist", "q");
-            var a = Media(g, "a"); g.Like(a, true); g.AddMedia(p, new[] { a }); g.Link(q, p);
-            g.Delete(f); Check(g.Document.Nodes.Single(n => n.Id == p).ParentId is null); g.Delete(p);
-            Check(g.Document.Entries.Count == 0 && g.Document.Media.Count == 1 && g.Document.Likes.Count == 1); return Task.CompletedTask;
-        }),
-        ("unliking never removes playlist membership and copies do not follow source edits", () =>
-        {
-            var g = Graph(); var a = Media(g, "a"); var p = g.Create("playlist", "p"); var q = g.Create("playlist", "q");
-            g.Like(a, true); g.AddMedia(p, new[] { a }); g.AddMedia(q, g.Expand(p).Select(m => m.Id)); g.Like(a, false);
-            g.AddMedia(p, new[] { Media(g, "b") }); Check(g.Expand(q).Count == 1 && g.Expand(p).Count == 2); return Task.CompletedTask;
-        }),
-        ("explicit library removal unlinks only that audio version everywhere", () =>
-        {
-            var g = Graph(); var a = Media(g, "a"); var b = Media(g, "b"); var p = g.Create("playlist", "p"); var q = g.Create("playlist", "q");
-            g.Like(a, true); g.AddMedia(p, new[] { a, b }); g.Link(q, p); g.RemoveMedia(a);
-            Check(g.Document.Likes.Count == 0); Eq(new[] { b }, g.Expand(q).Select(m => m.Id)); return Task.CompletedTask;
-        }),
-        ("reordering a link moves its entire expansion without changing the source", () =>
-        {
-            var g = Graph(); var a = Media(g, "a"); var b = Media(g, "b"); var p = g.Create("playlist", "p"); var q = g.Create("playlist", "q");
-            g.AddMedia(p, new[] { b }); g.AddMedia(q, new[] { a }); g.Link(q, p);
-            g.ReorderEntry(g.Document.Entries.Single(e => e.PlaylistId == q && e.LinkedPlaylistId.HasValue).Id, -1);
-            Eq(new[] { b, a }, g.Expand(q).Select(m => m.Id)); Eq(new[] { b }, g.Expand(p).Select(m => m.Id)); return Task.CompletedTask;
-        }),
-        ("deep nesting is bounded even when ancestors were already visited", () =>
-        {
-            var g = Graph(); Guid? parent = null;
-            for (var i = 0; i < 65; i++) parent = g.Create("folder", i.ToString(), parent);
-            Reject(() => g.Create("folder", "too deep", parent)); return Task.CompletedTask;
-        }),
-        ("account and guest libraries persist independently across restarts", async () =>
-        {
-            using var folder = new TestFolder(); var cloud = new FakeCloud { Offline = true }; using var repo = new LibraryRepository(folder.Path, cloud);
-            await repo.SwitchAsync(null); await repo.EditAsync(g => g.Create("playlist", "guest"));
-            var user = Guid.NewGuid(); await repo.SwitchAsync(user); Check(repo.State.Document.Nodes.Count == 0);
-            await repo.EditAsync(g => g.Create("folder", "account"));
-            using var restarted = new LibraryRepository(folder.Path, cloud); await restarted.SwitchAsync(null);
-            Check(restarted.State.Document.Nodes.Single().Name == "guest"); await restarted.SwitchAsync(user);
-            Check(restarted.State.Document.Nodes.Single().Name == "account");
-        }),
-        ("optimistic cloud conflicts preserve local edits until explicit resolution", async () =>
-        {
-            using var folder = new TestFolder(); var cloud = new FakeCloud(); using var repo = new LibraryRepository(folder.Path, cloud);
-            await repo.SwitchAsync(Guid.NewGuid()); await repo.SyncAsync();
-            await repo.EditAsync(g => g.Create("playlist", "local"));
-            var remote = Graph(); remote.Create("folder", "remote"); cloud.Current = new(2, remote.Document);
-            await repo.SyncAsync(); Check(repo.HasConflict && repo.State.Document.Nodes.Single().Name == "local");
-            await repo.SyncAsync(false); Check(!repo.HasConflict && repo.State.Document.Nodes.Single().Name == "remote");
-            Check(Directory.EnumerateFiles(folder.Path, "*.conflict-local", SearchOption.AllDirectories).Any());
-        }),
-        ("lost cloud write acknowledgements do not create false conflicts", async () =>
-        {
-            using var folder = new TestFolder(); var cloud = new FakeCloud(); using var repo = new LibraryRepository(folder.Path, cloud);
-            await repo.SwitchAsync(Guid.NewGuid()); await repo.SyncAsync(); await repo.EditAsync(g => g.Create("playlist", "local"));
-            cloud.LoseAck = true; await repo.SyncAsync(); Check(repo.State.Pending && cloud.Current.Revision == 1);
-            cloud.LoseAck = false; await repo.SyncAsync(); Check(!repo.HasConflict && !repo.State.Pending && repo.State.CloudRevision == 1);
-        }),
-        ("late responses after switching accounts cannot overwrite the next account", async () =>
-        {
-            using var folder = new TestFolder(); var cloud = new FakeCloud(); using var repo = new LibraryRepository(folder.Path, cloud);
-            var a = Guid.NewGuid(); var b = Guid.NewGuid(); await repo.SwitchAsync(a); await repo.SyncAsync();
-            cloud.BlockRead = new(TaskCreationOptions.RunContinuationsAsynchronously);
-            var pending = repo.SyncAsync(); await cloud.ReadStarted.Task;
-            await repo.SwitchAsync(b); cloud.BlockRead.SetResult(new(5, new LibraryDocument { Nodes = new() { new(Guid.NewGuid(), "playlist", "old account", null, 0) } }));
-            await pending; cloud.BlockRead = null; await repo.SyncAsync(); Check(repo.State.UserId == b && repo.State.Document.Nodes.Count == 0);
-        }),
-        ("invalid or corrupt local documents never replace a valid backup", async () =>
-        {
-            using var folder = new TestFolder(); using var repo = new LibraryRepository(folder.Path, new FakeCloud()); await repo.SwitchAsync(null);
-            await repo.EditAsync(g => g.Create("playlist", "safe")); await repo.EditAsync(g => g.Create("playlist", "latest"));
-            await File.WriteAllTextAsync(System.IO.Path.Combine(folder.Path, "local", "library.json"), "broken json");
-            using var restarted = new LibraryRepository(folder.Path, new FakeCloud()); await restarted.SwitchAsync(null);
-            Check(restarted.State.Document.Nodes.Single().Name == "safe");
-            await restarted.EditAsync(g => g.Create("playlist", "after recovery"));
-            var backup = System.Text.Json.JsonSerializer.Deserialize<LocalLibrary>(
-                await File.ReadAllTextAsync(System.IO.Path.Combine(folder.Path, "local", "library.json.bak")), LibraryJson.Options);
-            Check(backup!.Document.Nodes.Single().Name == "safe");
-            Check(Directory.EnumerateFiles(folder.Path, "*.unreadable-*", SearchOption.AllDirectories).Any());
+            using var folder=new TestFolder();var cloud=new FakeCloud();using var repo=new LibraryRepository(folder.Path,cloud);
+            await repo.SwitchAsync(null);var time=DateTimeOffset.FromUnixTimeMilliseconds(1234567890123);
+            await repo.EditAsync(g=>{var p=g.Create("playlist","guest parent");var sub=g.Create("playlist","guest child",p);var a=Media(g,"guest");g.AddMedia(sub,new[]{a});g.SetLikeAt(a,time);});
+            var user=Guid.NewGuid();await repo.SwitchAsync(user);await repo.SyncAsync();cloud.PullGate=new(TaskCreationOptions.RunContinuationsAsynchronously);
+            var sync=repo.SyncAsync();await cloud.PullStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await repo.ImportLocalAsync().WaitAsync(TimeSpan.FromSeconds(2));Check(repo.State.Document.Nodes.Count==3&&repo.State.Document.Likes.Single().AddedAt==time);
+            cloud.PullGate.SetResult();await sync;Check(!repo.State.Pending&&cloud.Doc(user).Entries.Count==1);
+            await repo.SwitchAsync(null);Check(repo.State.Document.Nodes.Count==2&&repo.State.Document.Likes.Single().AddedAt==time);
         }),
     };
     private static LibraryGraph Graph() => new(new());
-    private static Guid Media(LibraryGraph g, string key) => g.Remember(new(Guid.NewGuid(), "BV" + key, 1, key, "", "", 1, "0:01"));
-    private static void Check(bool ok) { if (!ok) throw new Exception("Library regression failed"); }
+    private static Guid Media(LibraryGraph g, string key) => g.Remember(new(Guid.NewGuid(), "BV" + key, 1, key, "歌手", "", 120, "02:00"));
+    private static void Check(bool value) { if (!value) throw new Exception("Library regression failed"); }
     private static void Eq(IEnumerable<Guid> a, IEnumerable<Guid> b) => Check(a.SequenceEqual(b));
-    private static void Reject(Action action) { try { action(); } catch (InvalidOperationException) { return; } throw new Exception("Expected rejected graph edit"); }
-
+    private static SqliteConnection Db(string root) { var db = new SqliteConnection("Data Source=" + Path.Combine(root, "library.db") + ";Pooling=False"); db.Open(); return db; }
     private sealed class FakeCloud : ILibraryCloud
     {
-        public bool Offline, LoseAck;
-        public CloudLibrary Current = new(0, new());
-        public TaskCompletionSource<CloudLibrary>? BlockRead;
-        public TaskCompletionSource ReadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public Task<CloudLibrary> ReadAsync(Guid owner, CancellationToken ct)
-        { if (Offline) throw new IOException(); if (BlockRead is { } block) { ReadStarted.TrySetResult(); return block.Task; } return Task.FromResult(Current); }
-        public Task<CloudLibrary> WriteAsync(Guid owner, long revision, LibraryDocument doc, CancellationToken ct)
+        private sealed class State { public LibraryDocument Document = new(); public long Revision; public Dictionary<Guid, long> Ack = new(); public List<LibraryChange> Changes = new(); }
+        private readonly Dictionary<Guid, State> _states = new(); private readonly object _lock = new();
+        public bool Offline, LoseAck; public int Calls;
+        public TaskCompletionSource? SubmitGate, PullGate;
+        public TaskCompletionSource SubmitStarted = new(TaskCreationOptions.RunContinuationsAsynchronously), PullStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private State For(Guid user) { if (!_states.TryGetValue(user, out var s)) _states[user] = s = new(); return s; }
+        public LibraryDocument Doc(Guid user) { lock (_lock) return For(user).Document.Copy(); }
+        public async Task<LibrarySyncReply> PullAsync(Guid owner, Guid writer, long revision, string hash, bool snapshot, CancellationToken ct)
         {
-            ct.ThrowIfCancellationRequested(); if (Offline) throw new IOException(); if (revision != Current.Revision) throw new LibraryConflictException();
-            Current = new(revision + 1, doc.Copy()); if (LoseAck) throw new IOException(); return Task.FromResult(Current);
+            Calls++; if (Offline) throw new IOException("offline");
+            if (PullGate is { } gate) { PullStarted.TrySetResult(); await gate.Task; }
+            lock (_lock) return Reply(For(owner), writer, revision, hash, snapshot);
+        }
+        public async Task<LibrarySyncReply> SubmitAsync(Guid owner, Guid writer, long revision, string hash, IReadOnlyList<LibraryCommand> commands, CancellationToken ct)
+        {
+            Calls++; if (Offline) throw new IOException("offline");
+            if (SubmitGate is { } gate) { SubmitStarted.TrySetResult(); await gate.Task; }
+            ct.ThrowIfCancellationRequested();
+            lock (_lock)
+            {
+                var s = For(owner); if (revision != s.Revision || hash != LibraryProtocol.Hash(s.Document)) return Reply(s, writer, revision, hash, false);
+                foreach (var c in commands)
+                {
+                    var ack = s.Ack.GetValueOrDefault(writer); if (c.Sequence <= ack) continue; Check(c.Sequence == ack + 1);
+                    var before = s.Document; var previous = LibraryProtocol.Hash(before); s.Document = LibraryGraph.Replay(before, c, ++s.Revision);
+                    s.Changes.Add(new(s.Revision, previous, LibraryProtocol.Hash(s.Document), LibraryProtocol.Diff(before, s.Document))); s.Ack[writer] = c.Sequence;
+                }
+                if (LoseAck) throw new IOException("lost ack"); return Reply(s, writer, revision, hash, false);
+            }
+        }
+        private static LibrarySyncReply Reply(State s, Guid writer, long revision, string hash, bool snapshot)
+        {
+            var now = LibraryProtocol.Hash(s.Document); var changes = s.Changes.Where(c => c.Revision > revision).ToList(); var ack = s.Ack.GetValueOrDefault(writer);
+            if (!snapshot && revision == s.Revision && hash == now) return new("unchanged", s.Revision, now, null, new(), ack);
+            if (!snapshot && changes.Count > 0 && changes[0].Revision == revision + 1 && changes[0].PreviousHash == hash) return new("delta", s.Revision, now, null, changes, ack);
+            return new("snapshot", s.Revision, now, s.Document.Copy(), new(), ack);
         }
     }
     private sealed class TestFolder : IDisposable
@@ -185,10 +171,7 @@ internal static class LibraryTests
         public void Dispose()
         {
             var boundary = System.IO.Path.GetFullPath(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "BiliMusicTests")) + System.IO.Path.DirectorySeparatorChar;
-            var target = System.IO.Path.GetFullPath(Path);
-            if (!target.StartsWith(boundary, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Unsafe fixture cleanup path.");
-            // Debounced fixture operations may still be unwinding; no user data
-            // is stored here and all paths are generated below this test root.
+            var target = System.IO.Path.GetFullPath(Path); if (!target.StartsWith(boundary, StringComparison.OrdinalIgnoreCase)) throw new Exception("Unsafe fixture path");
             try { if (Directory.Exists(target)) Directory.Delete(target, true); } catch (IOException) { }
         }
     }

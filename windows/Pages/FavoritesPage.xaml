@@ -52,13 +52,6 @@
         <StackPanel Grid.Row="1" Spacing="8">
             <InfoBar IsOpen="True" IsClosable="False" Severity="Error" Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
                      Visibility="{x:Bind ViewModel.ErrorVisibility, Mode=OneWay}" />
-            <StackPanel Visibility="{x:Bind ViewModel.ConflictVisibility, Mode=OneWay}" Spacing="8">
-                <TextBlock Text="云端和本机都有修改。两个版本都已保留，请选择本次要使用的版本。" TextWrapping="Wrap" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="保留本机版本" Click="OnKeepLocalClick" />
-                    <Button Content="使用云端版本" Click="OnUseCloudClick" />
-                </StackPanel>
-            </StackPanel>
         </StackPanel>
         <ContentControl Grid.Row="2" IsEnabled="{x:Bind ViewModel.IsReady, Mode=OneWay}"
                         HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
@@ -100,18 +93,13 @@
                 <CommandBar Grid.Row="1" DefaultLabelPosition="Right" Background="Transparent" HorizontalContentAlignment="Left">
                     <AppBarButton Icon="Play" Label="播放全部" Click="OnPlayAllClick" AutomationProperties.AutomationId="LibraryPlayAll" />
                     <AppBarButton Icon="Add" Label="加入队列" Click="OnAppendAllClick" />
-                    <AppBarButton Label="新建" AutomationProperties.AutomationId="LibraryCreateButton">
+                    <AppBarButton Label="新建歌单" Tag="playlist" Click="OnCreateClick" AutomationProperties.AutomationId="LibraryCreateButton">
                         <AppBarButton.Icon><FontIcon Glyph="&#xE8F4;" /></AppBarButton.Icon>
-                        <AppBarButton.Flyout><MenuFlyout>
-                            <MenuFlyoutItem Text="新建歌单" Tag="playlist" Click="OnCreateClick" />
-                            <MenuFlyoutItem Text="新建文件夹" Tag="folder" Click="OnCreateClick" />
-                        </MenuFlyout></AppBarButton.Flyout>
                     </AppBarButton>
                     <AppBarButton Label="添加内容" IsEnabled="{x:Bind ViewModel.IsPlaylist, Mode=OneWay}" AutomationProperties.AutomationId="LibraryAddContentButton">
                         <AppBarButton.Icon><FontIcon Glyph="&#xE710;" /></AppBarButton.Icon>
                         <AppBarButton.Flyout><MenuFlyout>
                             <MenuFlyoutItem Text="从收藏库添加歌曲" Click="OnAddTracksClick" />
-                            <MenuFlyoutItem Text="动态链接其他歌单" Click="OnAddLinkClick" />
                             <MenuFlyoutItem Text="复制其他歌单的歌曲" Click="OnCopyPlaylistClick" />
                         </MenuFlyout></AppBarButton.Flyout>
                     </AppBarButton>
@@ -119,7 +107,7 @@
                         <AppBarButton.Icon><FontIcon Glyph="&#xE712;" /></AppBarButton.Icon>
                         <AppBarButton.Flyout><MenuFlyout>
                             <MenuFlyoutItem Text="重命名" Click="OnRenameClick" />
-                            <MenuFlyoutItem Text="移动到文件夹" Click="OnMoveClick" />
+                            <MenuFlyoutItem Text="移动到歌单" Click="OnMoveClick" />
                             <MenuFlyoutItem Text="向上排列" Tag="-1" Click="OnReorderNodeClick" />
                             <MenuFlyoutItem Text="向下排列" Tag="1" Click="OnReorderNodeClick" />
                             <MenuFlyoutSeparator />
@@ -129,9 +117,9 @@
                 </CommandBar>
                 <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                    <CheckBox Content="展开动态链接" IsChecked="{x:Bind ViewModel.ExpandLinks, Mode=TwoWay}"
-                              ToolTipService.ToolTip="关闭展开后，可管理动态链接及条目顺序。"
-                              Visibility="{x:Bind ViewModel.PlaylistToolsVisibility, Mode=OneWay}" AutomationProperties.AutomationId="LibraryExpandLinks" />
+                    <CheckBox Content="展开子歌单" IsChecked="{x:Bind ViewModel.ExpandChildren, Mode=TwoWay}"
+                              ToolTipService.ToolTip="展开查看所有歌曲；关闭后可调整歌曲和子歌单的顺序。"
+                              Visibility="{x:Bind ViewModel.PlaylistToolsVisibility, Mode=OneWay}" AutomationProperties.AutomationId="LibraryExpandChildren" />
                     <ComboBox Grid.Column="1" ItemsSource="{x:Bind ViewModel.SortOptions}" SelectedItem="{x:Bind ViewModel.SortOption, Mode=TwoWay}"
                               Visibility="{x:Bind ViewModel.TrackSortVisibility, Mode=OneWay}"
                               MinWidth="120" AutomationProperties.AutomationId="SortComboBox" />
@@ -140,7 +128,7 @@
                             Visibility="{x:Bind ViewModel.EmptyStateVisibility, Mode=OneWay}">
                     <FontIcon Glyph="&#xE8D6;" FontSize="36" Foreground="{ThemeResource Slate400}" />
                     <TextBlock Text="这里还没有内容" HorizontalAlignment="Center" />
-                    <TextBlock Text="搜索并收藏音乐，或新建歌单和文件夹。" TextWrapping="Wrap" TextAlignment="Center" Foreground="{ThemeResource Slate500}" />
+                    <TextBlock Text="搜索并收藏音乐，或新建歌单。" TextWrapping="Wrap" TextAlignment="Center" Foreground="{ThemeResource Slate500}" />
                 </StackPanel>
                 <ListView x:Name="LibraryRows" Grid.Row="3" ItemsSource="{x:Bind ViewModel.Rows}" SelectionMode="None"
                           IsItemClickEnabled="True" ItemClick="OnRowClick" AutomationProperties.AutomationId="LibraryRows"

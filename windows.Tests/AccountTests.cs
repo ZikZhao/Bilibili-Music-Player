@@ -180,7 +180,7 @@ internal static class AccountTests
         {
             using var client = new SupabaseAuthClient(SignedInStore(), new Handler(r => throw new Exception("No auth request expected")));
             await client.Initialization; using var cloud = new SupabaseLibraryCloud(client);
-            try { await cloud.WriteAsync(UserB, 0, new(), default); throw new Exception("Wrong account accepted"); }
+            try { await cloud.SubmitAsync(UserB, Guid.NewGuid(), 0, "", [], default); throw new Exception("Wrong account accepted"); }
             catch (OperationCanceledException) { }
         }),
         ("numeric error codes and unreadable local tokens fail safely", async () =>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -194,7 +195,6 @@ public class SupabaseAuthClient : IDisposable
         string? code = null;
         try { using var json = JsonDocument.Parse(text); if (json.RootElement.TryGetProperty("error_code", out var c) || json.RootElement.TryGetProperty("code", out c)) code = c.ValueKind == JsonValueKind.String ? c.GetString() : c.GetRawText(); }
         catch (JsonException) { }
-        if (code == "40001") throw new LibraryConflictException();
         if (code is "over_email_send_rate_limit" or "over_request_rate_limit" || (int)response.StatusCode == 429)
         {
             var retry = response.Headers.RetryAfter?.Delta ??
@@ -243,29 +243,21 @@ public sealed class SupabaseLibraryCloud : ILibraryCloud, IDisposable
         return token;
     }
 
-    public async Task<CloudLibrary> ReadAsync(Guid owner, CancellationToken ct)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/rest/v1/music_libraries?select=revision,document");
-        request.Headers.Authorization = new("Bearer", await TokenForAsync(owner, ct));
-        using var response = await _http.SendAsync(request, ct);
-        await SupabaseAuthClient.CheckResponseAsync(response);
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-        if (json.RootElement.GetArrayLength() == 0) return new(0, new());
-        var row = json.RootElement[0];
-        var doc = row.GetProperty("document").Deserialize<LibraryDocument>(LibraryJson.Options) ?? throw new JsonException();
-        LibraryGraph.Validate(doc);
-        return new(row.GetProperty("revision").GetInt64(), doc);
-    }
+    public Task<LibrarySyncReply> PullAsync(Guid owner, Guid writer, long revision, string hash, bool snapshot, CancellationToken ct) =>
+        SendAsync(owner, "music_pull_v2", new { p_writer = writer, p_revision = revision, p_hash = hash, p_snapshot = snapshot }, ct);
 
-    public async Task<CloudLibrary> WriteAsync(Guid owner, long expectedRevision, LibraryDocument document, CancellationToken ct)
+    public Task<LibrarySyncReply> SubmitAsync(Guid owner, Guid writer, long revision, string hash, IReadOnlyList<LibraryCommand> commands, CancellationToken ct) =>
+        SendAsync(owner, "music_submit_v2", new { p_writer = writer, p_revision = revision, p_hash = hash, p_operations = commands }, ct);
+
+    private async Task<LibrarySyncReply> SendAsync(Guid owner, string method, object body, CancellationToken ct)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/rest/v1/rpc/save_music_library")
-        { Content = JsonContent.Create(new { expected_revision = expectedRevision, library_document = document }, options: LibraryJson.Options) };
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/rest/v1/rpc/" + method)
+        { Content = JsonContent.Create(body, options: LibraryJson.Options) };
         request.Headers.Authorization = new("Bearer", await TokenForAsync(owner, ct));
         using var response = await _http.SendAsync(request, ct);
         await SupabaseAuthClient.CheckResponseAsync(response);
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-        return new(json.RootElement.GetProperty("revision").GetInt64(), document);
+        return await response.Content.ReadFromJsonAsync<LibrarySyncReply>(LibraryJson.Options, ct)
+            ?? throw new JsonException("Missing library reply.");
     }
     public void Dispose() => _http.Dispose();
 }

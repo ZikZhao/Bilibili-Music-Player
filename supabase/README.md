@@ -23,6 +23,8 @@ Authentication → Rate Limits：Rate limit for sending emails 为 `30` 封/小�
 ## 验证
 
 - `tests/email_otp.sql`：事务内验证允许/拒绝的方式、claims 保持原样以及最小权限，无持久化修改。
-- `tests/music_library.sql`：收藏图、事务和 RLS 的独立回归。
+- `tests/music_library.sql`：关系表、操作重放、幂等、ABA、递归删除、时间线和 RLS 的事务内回归。
 - Windows 的 `AccountTests.cs`：使用模拟 HTTP 验证 OTP 协议、倒计时与账户隔离，不发送真实邮件。
 - 实际发信应从客户端请求 OTP，经 Supabase Auth → QQ SMTP 投递；只直接测试 QQ SMTP 不能证明 Supabase 的配置已经生效。
+
+收藏协议使用 `music_pull_v2`／`music_submit_v2`，Windows 本机为 SQLite，云端为关系表。当前开发版数据已一次性转换，`music_libraries` 仅留作备份，旧保存接口不再接受写入。规则与日志保留窗口见 [同步实现](../docs/sync-proposal.md)。

@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="../windows/Tools/LibraryDbTests/parity-fixture.json" Link="library-parity-fixture.json" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <Compile Include="../windows/ViewModels/PlayerViewModel.cs" Link="PlayerViewModel.cs" />
     <Compile Include="../windows/Services/AudioPlaybackContracts.cs" Link="AudioPlaybackContracts.cs" />
@@ -19,6 +20,9 @@
     <Compile Include="../windows/Services/SearchSession.cs" Link="SearchSession.cs" />
     <Compile Include="../windows/Services/ResidentTabs.cs" Link="ResidentTabs.cs" />
     <Compile Include="../windows/Services/LibraryGraph.cs" Link="LibraryGraph.cs" />
+    <Compile Include="../windows/Services/FractionalRank.cs" Link="FractionalRank.cs" />
+    <Compile Include="../windows/Services/LibraryProtocol.cs" Link="LibraryProtocol.cs" />
+    <Compile Include="../windows/Services/LibrarySqliteStore.cs" Link="LibrarySqliteStore.cs" />
     <Compile Include="../windows/Services/AudioSourceIdentity.cs" Link="AudioSourceIdentity.cs" />
     <Compile Include="../windows/Services/LibraryRepository.cs" Link="LibraryRepository.cs" />
     <Compile Include="../windows/Services/SupabaseAuthClient.cs" Link="SupabaseAuthClient.cs" />
@@ -26,5 +30,6 @@
     <Compile Include="../windows/Models/SearchResult.cs" Link="SearchResult.cs" />
     <Compile Include="../windows/Models/SuggestionModel.cs" Link="SuggestionModel.cs" />
     <Compile Include="../windows/Models/VideoPreviewItem.cs" Link="VideoPreviewItem.cs" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.33" />
   </ItemGroup>
 </Project>

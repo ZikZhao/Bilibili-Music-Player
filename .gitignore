@@ -5,6 +5,7 @@ devcert.pfx
 
 # Local UI inspection exports
 artifacts/ui/
+artifacts/library/
 
 # Supabase CLI local cache (never commit linked-project credentials).
 supabase/.temp/
